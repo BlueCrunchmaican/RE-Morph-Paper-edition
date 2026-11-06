@@ -1,4 +1,4 @@
-# RE:Morph 6.1.2
+# RE:Morph 6.1.4
 
 Kill a mob, become that mob. An unofficial port of iChun's Morph mod to Minecraft Java 26.3.
 
@@ -14,8 +14,8 @@ The client mod is optional. Nobody is ever kicked for not having it.
 
 | Path | What it is |
 |---|---|
-| `server/RE-Morph-paper-6.1.2.jar` | The Paper plugin |
-| `client/RE-Morph-fabric-6.1.2+26.3.jar` | The Fabric client mod (optional, Java players only) |
+| `server/RE-Morph-paper-6.1.4.jar` | The Paper plugin |
+| `client/RE-Morph-fabric-6.1.4+26.3.jar` | The Fabric client mod (optional, Java players only) |
 | `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
@@ -29,7 +29,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 Needs a **Paper 26.3** server (built against build 235) running Java 25 or newer.
 
 1. Put these three jars in the server's `plugins` folder:
-   - `RE-Morph-paper-6.1.2.jar` (this release)
+   - `RE-Morph-paper-6.1.4.jar` (this release)
    - **Lib's Disguises** 26.10.24 or newer: https://www.spigotmc.org/resources/libs-disguises-free.81/
    - **PacketEvents** 2.14.0 or newer (Lib's Disguises needs it): https://modrinth.com/plugin/packetevents
 2. Start the server once. The plugin creates `plugins/RE-Morph/` with `config.yml`, `abilities.yml` and
@@ -42,7 +42,9 @@ Geyser and Floodgate need nothing extra. Bedrock players count as players withou
 
 Replace the old `RE-Morph-paper-*.jar` with the new one (don't keep both) and restart the server.
 
-- **`config.yml`** keeps your settings. Settings added in the new release use their defaults until you set them.
+- **`config.yml`** keeps every value you set. When a release adds settings, the plugin updates the file on startup:
+  the new settings appear in their place with their defaults and explanations, and the console lists them. Your
+  old file is kept next to it (for example `config-old-6.1.4.yml`), along with any notes you wrote in it.
 - **`abilities.yml` and `variants.yml`** are replaced automatically when they come from an older release. Each one
   says which release it comes from in its `config-version` line. The console names the backup it keeps, for example
   `abilities-old-pre-5.0.0.yml`; copy back any changes you had made.
@@ -52,16 +54,22 @@ Players with the client mod should swap their old `RE-Morph-fabric-*.jar` for th
 `mods` folder stop the game from starting.
 
 **Coming from Morph Reborn** (the project's name until 6.1.2): remove `MorphReborn-paper-*.jar` and put
-`RE-Morph-paper-6.1.2.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
+`RE-Morph-paper-6.1.4.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
 so settings and collections carry over. Permissions (`morphreborn.*`), `/morph` and its old `/morphreborn` alias,
 and the client mod's settings file keep their names. Players swap `morphreborn-fabric-*.jar` for
-`RE-Morph-fabric-6.1.2+26.3.jar`.
+`RE-Morph-fabric-6.1.4+26.3.jar`.
 
 **6.1.2 changes the client protocol.** On a 6.1.2 server, an older client mod (5.x) is told to update and is treated
 as a player without the mod until it does: they still see and use morphs, just without the selector and animations.
 
-6.1.2 also adds `survival.yml` and the `gameplay-mode` setting (see Survival Mode). An existing `config.yml` doesn't
-get the new line by itself; add `gameplay-mode: survival` to it to switch, or leave it out to stay in Classic.
+6.1.2 also adds `survival.yml` and the `gameplay-mode` setting (see Survival Mode).
+
+**6.1.4 updates `config.yml` for you.** Before 6.1.4 the plugin never touched an existing `config.yml`, so settings
+added since your first install (such as `gameplay-mode`) were missing from it and silently used their defaults. On
+the first start with 6.1.4 they are added, at their defaults, and your values stay.
+
+**6.1.4 also adds `/morph mode`**, so admins can switch between Classic and Survival in game, at once, without a
+restart (see Admin commands).
 
 ### Optional: the morph sound for players without the mod
 
@@ -73,7 +81,7 @@ resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `
 
 1. Install **Fabric Loader** 0.20.1 or newer for Minecraft 26.3: https://fabricmc.net/use/installer/
 2. Put these in the `.minecraft/mods` folder:
-   - `RE-Morph-fabric-6.1.2+26.3.jar` (this release)
+   - `RE-Morph-fabric-6.1.4+26.3.jar` (this release)
    - **Fabric API** 0.165.0+26.3 or newer: https://modrinth.com/mod/fabric-api
 3. Start Minecraft with the Fabric profile and join the server.
 
@@ -205,7 +213,8 @@ All need `morphreborn.admin` (ops by default).
 | `/morph ability <player>` | Fire someone's ability |
 | `/morph carry <player> <block or none>` | Set the block an enderman morph is holding |
 | `/morph setting [name] [value]` | Show or change the world-effect settings below |
-| `/morph reload` | Reload the config files (not `gameplay-mode`, which needs a restart) |
+| `/morph mode [classic\|survival]` | Show the gameplay mode, or switch it now for everyone (saved to `config.yml`) |
+| `/morph reload` | Reload the config files, including a `gameplay-mode` you changed by hand |
 | `/morph survival <player> info` | Their biomass and upgrade levels |
 | `/morph survival <player> unlock` / `lock` | Unlock or re-lock their Biomass ability |
 | `/morph survival <player> give\|take\|set <amount>` | Change their biomass (not limited by capacity) |
@@ -227,7 +236,7 @@ All need `morphreborn.admin` (ops by default).
 
 ## Settings
 
-**Gameplay mode** (`config.yml`, `gameplay-mode`, takes effect on restart):
+**Gameplay mode** (`config.yml`, `gameplay-mode`; or switch in game with `/morph mode classic` or `/morph mode survival`):
 - `classic` (default): the original Morph. Kill a creature to unlock it.
 - `survival`: morphing is earned with biomass. Its rules and upgrade tree are in **`survival.yml`**: the unlock
   effects, the biomass formula, per-creature multipliers or fixed masses, creatures that give nothing, and each
@@ -235,6 +244,8 @@ All need `morphreborn.admin` (ops by default).
 
 Switching never deletes anything. Collections and Survival progress are both kept in each player's file. Going to
 Survival locks existing collections until the player buys the Morph Ability; going back to Classic opens them again.
+Switching while players are online applies at once: anyone morphed who can't morph in the new mode turns back,
+flight is re-checked (Survival needs Morph Flight), and players with the mod get the new mode's selector and bar.
 
 Everything is commented in the files themselves. The ones you are most likely to want:
 

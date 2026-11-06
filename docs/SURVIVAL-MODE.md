@@ -75,7 +75,7 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 
 | | iChun's code | RE:Morph |
 |---|---|---|
-| Mode switch | `morphMode: DEFAULT` silently turned back into CLASSIC ("TODO remove this to enable default mode") | `gameplay-mode: survival` (`default` also accepted) |
+| Mode switch | `morphMode: DEFAULT` silently turned back into CLASSIC ("TODO remove this to enable default mode") | `gameplay-mode: survival` (`default` also accepted), or `/morph mode survival` in game |
 | Unlock | advancement "A Mutation Complication": Wither + Regeneration together | the same rule, checked when a player's effects change; the same title and text |
 | Biomass formula | width² × height × 1000 × 0.3 × efficiency, per-mob multiplier and override | the same, with efficiency as a percentage |
 | Upgrade data | JSON tree: id, parent, max level, value and cost curves (5 equations), requirements | the same shape in YAML, same equations |
@@ -98,7 +98,7 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 ## Architecture
 
 ```
-config.yml gameplay-mode ──► GameplayMode (chosen at startup)
+config.yml gameplay-mode ──► GameplayMode (at startup; /morph mode and /morph reload switch it live)
                                  ├─ ClassicMode   kill → unlock; everything allowed
                                  └─ SurvivalMode  kill → biomass (+ unlock if allowed); asks upgrades
                                         └─ survival.yml (SurvivalConfig), progress in the player file (SurvivalData)

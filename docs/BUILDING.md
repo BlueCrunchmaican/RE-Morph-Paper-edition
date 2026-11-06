@@ -46,7 +46,9 @@ default configs and a source zip into `release/RE-Morph-<version>/` and zips it.
 the version in `tools/package_release.py`, `paper-plugin/build.gradle` and `fabric-client/gradle.properties` together.
 
 When a release changes `abilities.yml`, `variants.yml` or `survival.yml`, raise its `config-version` to the new
-release's version, so servers replace their old copy (see "Updating" in [GUIDE.md](GUIDE.md)).
+release's version, so servers replace their old copy. When it adds or reorders settings in `config.yml`, raise that
+file's `config-version` too: servers then get the new settings merged into their own file, keeping their values (see
+"Updating" in [GUIDE.md](GUIDE.md)).
 
 ## Testing locally
 
