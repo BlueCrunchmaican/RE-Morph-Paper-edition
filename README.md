@@ -22,16 +22,18 @@ Nobody is kicked for not having the mod.
   breeds, babies and so on. Killing a player unlocks their form.
 - **Survival mode:** iChun's unfinished "Default Mode", completed. Unlock the Biomass ability, absorb biomass from
   kills, and spend it in an upgrade tree on the ability to morph, more storage, reach, flight and shorter cooldowns.
+  Each morph costs biomass too, scaled by the creature's size.
   See [docs/SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md).
 - **Abilities and traits for 89 of the 90 mobs in 26.3:** flight, swimming, fire immunity, creeper explosions
-  (charged by lightning, too), enderman teleporting and block carrying, witch potions, bat perching, rabbit hops, and
-  more. Full table: [docs/ABILITIES.md](docs/ABILITIES.md).
+  (charged by lightning, too), enderman teleporting and block carrying, witch potions, bat perching, rabbit hops,
+  skeleton and baby zombie jockeys, trading with villager players, spiders climbing cobwebs, and more. Full table: [docs/ABILITIES.md](docs/ABILITIES.md).
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
-  live miniature of you and your morph, animations, transformations and vehicle included), an advancement-style upgrade
+  live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
+  head, pose and auto-hide settings), an advancement-style upgrade
   tree, a biomass bar, and a settings screen (`/morphclient`).
 - **Admin control:** the gameplay mode, every ability, cooldowns and limits are in the plugin's config files. A newer
-  release updates the config files by itself and keeps a backup: new settings appear in `config.yml` with their
-  defaults, and every value you set stays.
+  release updates the config files by itself and keeps a backup: new settings appear in `config.yml` and `survival.yml`
+  with their defaults, and every value you set stays.
 
 ## Requirements
 
@@ -42,7 +44,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.1.5 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.1.6 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 

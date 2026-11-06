@@ -37,6 +37,13 @@ public final class ClientConfig {
 	 * mod see. Only this player's view changes.
 	 */
 	public boolean acquisitionAnimation = true;
+	/**
+	 * What you see when someone gains a new morph, and when a kill only gives biomass (Survival): TENDRILS (the original
+	 * black tendrils), RED_TENDRILS, WISPS (short red streams, nothing taken), PLAIN (the particles players without the
+	 * mod see) or OFF. absorbMorph starts from the old acquisitionAnimation setting.
+	 */
+	public String absorbMorph = null;
+	public String absorbBiomass = "RED_TENDRILS";
 	/** Tendril segments (also roughly ticks to reach the mob; original: 10). */
 	public int acquisitionTendrilMaxChild = 10;
 	/** First-person fade of your own tendril segments (original: 5, 0 = off). */
@@ -71,6 +78,25 @@ public final class ClientConfig {
 	public int dollAngle = 25;
 	/** FOLLOW (the head turns and looks as yours does) or FORWARD (head straight ahead). */
 	public String dollHead = "FOLLOW";
+	/** How far the doll is seen from above, in degrees (negative: from below). */
+	public int dollTilt = 10;
+	/** TRUE_SIZE (a player fills the box, smaller morphs are smaller) or FILL (every form fills the box). */
+	public String dollScale = "TRUE_SIZE";
+	/** Keep the head level while gliding with an elytra / spinning with a riptide trident. */
+	public boolean dollLockElytra = true;
+	public boolean dollLockSpin = true;
+	/** "While Active" mode: the situations that show the doll (see PaperDoll.Trigger). */
+	public java.util.List<String> dollShowWhen = new java.util.ArrayList<>(java.util.List.of("CROUCHING", "SPRINTING", "AIRBORNE", "ELYTRA",
+			"SWIMMING", "FLYING", "CLIMBING", "RIDING", "BLOCKING", "USING_ITEM", "SWINGING", "HURT", "ON_FIRE", "POWDER_SNOW", "SLEEPING",
+			"TRANSFORMING", "ABILITY"));
+	/** "While Active" mode: how long the doll stays after the last trigger, in tenths of a second. */
+	public int dollLinger = 10;
+	/** OFF, THIN or THICK: a dark edge around the doll so it stands out from the world behind it. */
+	public String dollOutline = "THIN";
+	/** How dark the outline is, in percent. */
+	public int dollOutlineStrength = 70;
+	/** Hide while the "now playing" music toast is up (it shares the top right corner). */
+	public boolean dollHideMusic = true;
 	/** BRIGHT (always fully lit) or WORLD (lit like the place you stand in). */
 	public String dollLight = "BRIGHT";
 	/** Show the boat, minecart or mount you ride, with everyone on it. */
@@ -113,9 +139,17 @@ public final class ClientConfig {
 		acquisitionTendrilMaxChild = Math.clamp(acquisitionTendrilMaxChild, 3, 100);
 		acquisitionTendrilPartOpacity = Math.clamp(acquisitionTendrilPartOpacity, 0, 100);
 		if (biomassBar == null || !java.util.List.of("OFF", "CHANGES", "ALWAYS").contains(biomassBar)) biomassBar = "CHANGES";
+		if (absorbMorph == null || !java.util.List.of("TENDRILS", "RED_TENDRILS", "WISPS", "PLAIN", "OFF").contains(absorbMorph)) absorbMorph = acquisitionAnimation ? "TENDRILS" : "PLAIN";
+		if (absorbBiomass == null || !java.util.List.of("TENDRILS", "RED_TENDRILS", "WISPS", "PLAIN", "OFF").contains(absorbBiomass)) absorbBiomass = "RED_TENDRILS";
 		if (dollShow == null || !java.util.List.of("ALWAYS", "MORPHED", "ACTIVE").contains(dollShow)) dollShow = "ALWAYS";
 		if (dollCorner == null || !java.util.List.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(dollCorner)) dollCorner = "TOP_LEFT";
-		if (dollHead == null || !java.util.List.of("FOLLOW", "FORWARD").contains(dollHead)) dollHead = "FOLLOW";
+		if (dollHead == null || !java.util.List.of("FOLLOW", "TURN", "LOOK", "FORWARD", "AT_VIEWER").contains(dollHead)) dollHead = "FOLLOW";
+		if (dollScale == null || !java.util.List.of("TRUE_SIZE", "FILL").contains(dollScale)) dollScale = "TRUE_SIZE";
+		if (dollOutline == null || !java.util.List.of("OFF", "THIN", "THICK").contains(dollOutline)) dollOutline = "THIN";
+		if (dollShowWhen == null) dollShowWhen = new java.util.ArrayList<>();
+		dollTilt = Math.clamp(dollTilt, -60, 60);
+		dollLinger = Math.clamp(dollLinger, 0, 50);
+		dollOutlineStrength = Math.clamp(dollOutlineStrength, 10, 100);
 		if (dollLight == null || !java.util.List.of("BRIGHT", "WORLD").contains(dollLight)) dollLight = "BRIGHT";
 		dollX = Math.clamp(dollX, 0, 1000);
 		dollY = Math.clamp(dollY, 0, 1000);

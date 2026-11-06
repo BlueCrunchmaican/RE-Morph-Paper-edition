@@ -21,6 +21,8 @@ import org.bukkit.util.Vector;
  */
 public final class VanillaEffects {
 	private static final Color[] SKIN = {Color.fromRGB(2, 2, 2), Color.fromRGB(15, 15, 15), Color.fromRGB(26, 26, 26), Color.fromRGB(38, 38, 38)};
+	/** Biomass gains: the red of the biomass bar. */
+	private static final Color BIOMASS = Color.fromRGB(105, 24, 26);
 	private static final double VIEW_RANGE_SQ = 64 * 64;
 
 	private final MorphRebornPlugin plugin;
@@ -72,14 +74,22 @@ public final class VanillaEffects {
 		}
 	}
 
-	/** Five dark trails from the dying mob into the player, standing in for the original tendrils. */
-	public void acquisition(Player origin, LivingEntity acquired) {
+	/** A new morph: dark trails and a cloud of morph-skin dust. Biomass only: a few red sparks, no cloud. */
+	public void acquisition(Player origin, LivingEntity acquired, boolean newMorph) {
 		if (!plugin.settings().vanillaAcquisitionEffects) return;
 		Location from = acquired.getLocation().add(0, acquired.getHeight() / 2, 0);
 		Location to = origin.getLocation().add(0, origin.getHeight() / 2, 0);
 		List<Player> viewers = vanillaViewers(from, origin, true);
 		if (viewers.isEmpty()) return;
 		ThreadLocalRandom r = ThreadLocalRandom.current();
+		if (!newMorph) {
+			for (int i = 0; i < 3; i++) {
+				Location start = from.clone().add(r.nextGaussian() * 0.2, r.nextGaussian() * 0.2, r.nextGaussian() * 0.2);
+				Particle.Trail trail = new Particle.Trail(to, BIOMASS, 14 + r.nextInt(6));
+				for (Player v : viewers) v.spawnParticle(Particle.TRAIL, start, 3, 0.08, 0.08, 0.08, 0, trail, true);
+			}
+			return;
+		}
 		for (int i = 0; i < 5; i++) {
 			Location start = from.clone().add(r.nextGaussian() * 0.25, r.nextGaussian() * 0.25, r.nextGaussian() * 0.25);
 			Particle.Trail trail = new Particle.Trail(to, SKIN[r.nextInt(SKIN.length)], 25 + r.nextInt(15));

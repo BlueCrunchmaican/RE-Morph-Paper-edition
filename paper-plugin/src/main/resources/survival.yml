@@ -8,9 +8,10 @@
 # iChun's original code had the formulas, the unlock and the upgrade names, but placeholder numbers (a single zombie
 # would have overflowed the starting storage forty times over). The numbers below are RE:Morph's.
 
-# The RE:Morph release this file comes from; don't change it. A newer release replaces an older file on startup
-# and keeps yours next to it (named like survival-old-6.1.2.yml), so copy back any changes you made.
-config-version: 6.1.2
+# The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
+# this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
+# old file stays next to it (named like survival-old-6.1.2.yml).
+config-version: 6.1.6
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
@@ -31,6 +32,20 @@ biomass:
   masses: {}
   # Creatures that give no biomass at all.
   none: [minecraft:armor_stand]
+  # Multiplies all biomass from kills: 2.0 gives twice as much. In game: /morph cost gain <multiplier>
+  gain-multiplier: 1.0
+
+morph-cost:
+  # Morphing into a form costs biomass, paid when the transformation starts. Going back to your own body is free.
+  # Change these in game with /morph cost (they are saved here).
+  enabled: true
+  # Price = the form's mass (as above, before Biomass Efficiency) x per-kg, rounded up, and at least the minimum.
+  # At 0.01: a chicken 2, a zombie 8, a cow 12, an iron golem 53, a ghast 640, the ender dragon 20,480.
+  # Baby forms are lighter, so cheaper.
+  per-kg: 0.01
+  minimum: 1
+  # Fixed prices per mob, instead of the formula. For example: { minecraft:ender_dragon: 5000, minecraft:pig: 0 }
+  prices: {}
 
 # The upgrade tree. Each upgrade:
 #   name, description, icon (an item)  - how it shows in the chest menu (players without the mod)

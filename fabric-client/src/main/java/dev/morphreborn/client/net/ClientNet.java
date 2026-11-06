@@ -47,6 +47,8 @@ public final class ClientNet {
 	private static boolean biomassUnlocked;
 	private static int biomass;
 	private static int biomassCapacity;
+	/** Survival: what morphing into each variant of the collection costs, by variant id (empty when free). */
+	private static final java.util.Map<String, Integer> morphCosts = new java.util.HashMap<>();
 	private static boolean survivalCanMorph;
 	/** Client tick of the last biomass change, for the "when it changes" biomass bar. */
 	private static long biomassChangedAt = -1000;
@@ -89,6 +91,7 @@ public final class ClientNet {
 		biomassUnlocked = false;
 		biomass = 0;
 		biomassCapacity = 0;
+		morphCosts.clear();
 		survivalCanMorph = false;
 	}
 
@@ -122,6 +125,11 @@ public final class ClientNet {
 
 	public static boolean biomassUnlocked() {
 		return biomassUnlocked;
+	}
+
+	/** Biomass a morph into this variant costs, or 0 when morphing is free. */
+	public static int morphCost(String variantId) {
+		return morphCosts.getOrDefault(variantId, 0);
 	}
 
 	public static int biomass() {
@@ -185,7 +193,11 @@ public final class ClientNet {
 		send(new Wire.Out(Wire.C_DELETE).string(variantId));
 	}
 
+	/** When this player last pressed the ability key (System.currentTimeMillis), for the paper doll's "While Active". */
+	public static long lastAbilityAt;
+
 	public static void ability() {
+		lastAbilityAt = System.currentTimeMillis();
 		if (abilitiesAvailable) send(new Wire.Out(Wire.C_ABILITY));
 	}
 
@@ -214,6 +226,11 @@ public final class ClientNet {
 				case Wire.S_TRAITS -> dev.morphreborn.client.morph.ClientTraits.set(in.varInt());
 				case Wire.S_SURVIVAL -> handleSurvival(in);
 				case Wire.S_UPGRADES -> handleUpgrades(in);
+				case Wire.S_COSTS -> {
+					morphCosts.clear();
+					int count = in.count();
+					for (int i = 0; i < count; i++) morphCosts.put(in.string(), in.varInt());
+				}
 				case Wire.S_FORGET -> {
 					UUID who = in.uuid();
 					MorphClient.STATES.remove(who);
@@ -352,7 +369,8 @@ public final class ClientNet {
 		if (mc.level == null) return;
 		Entity origin = mc.level.getEntity(originId);
 		Entity acquired = mc.level.getEntity(acquiredId);
-		if (origin instanceof LivingEntity o && acquired instanceof LivingEntity a) MorphWorldRenderer.startAcquisition(o, a);
+		boolean newMorph = !in.hasMore() || in.bool(); // servers before 6.1.6 don't say: treat as a new morph, as before
+		if (origin instanceof LivingEntity o && acquired instanceof LivingEntity a) MorphWorldRenderer.startAcquisition(o, a, newMorph);
 	}
 
 	private static void handleResult(Wire.In in) {

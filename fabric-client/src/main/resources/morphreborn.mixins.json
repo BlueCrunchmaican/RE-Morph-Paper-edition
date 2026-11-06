@@ -4,6 +4,7 @@
   "package": "dev.morphreborn.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "BlockBehaviourMixin",
     "CameraMixin",
     "EntityMixin",
     "EntityRenderDispatcherMixin",

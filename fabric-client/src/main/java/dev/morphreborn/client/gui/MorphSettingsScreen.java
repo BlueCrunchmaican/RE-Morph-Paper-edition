@@ -25,11 +25,13 @@ public final class MorphSettingsScreen extends OptionsSubScreen {
 	protected void addOptions() {
 		if (this.list == null) return;
 		ClientConfig c = ClientConfig.INSTANCE;
-		this.list.addSmall(animation("acquisition", c.acquisitionAnimation, v -> c.acquisitionAnimation = v),
-				animation("transition", c.transitionAnimation, v -> c.transitionAnimation = v));
-		this.list.addSmall(toggle("unlockToasts", c.unlockToasts, v -> c.unlockToasts = v), toggle("nameTags", c.showNameTags, v -> c.showNameTags = v));
-		this.list.addSmall(toggle("mouse", c.selectorAllowMouseControl, v -> c.selectorAllowMouseControl = v),
-				toggle("invertScroll", c.invertScroll, v -> c.invertScroll = v));
+		List<String> absorbStyles = List.of("TENDRILS", "RED_TENDRILS", "WISPS", "PLAIN", "OFF");
+		this.list.addSmall(choice("absorbMorph", c.absorbMorph, absorbStyles, v -> c.absorbMorph = v),
+				choice("absorbBiomass", c.absorbBiomass, absorbStyles, v -> c.absorbBiomass = v));
+		this.list.addSmall(animation("transition", c.transitionAnimation, v -> c.transitionAnimation = v),
+				toggle("unlockToasts", c.unlockToasts, v -> c.unlockToasts = v));
+		this.list.addSmall(toggle("nameTags", c.showNameTags, v -> c.showNameTags = v), toggle("mouse", c.selectorAllowMouseControl, v -> c.selectorAllowMouseControl = v));
+		this.list.addSmall(toggle("invertScroll", c.invertScroll, v -> c.invertScroll = v), null);
 		this.list.addSmall(CycleButton.<String>builder(v -> Component.translatable("morphreborn.settings.biomassBar." + v.toLowerCase(java.util.Locale.ROOT)), c.biomassBar)
 				.withValues("CHANGES", "ALWAYS", "OFF")
 				.withTooltip(v -> Tooltip.create(Component.translatable("morphreborn.settings.biomassBar.tooltip")))

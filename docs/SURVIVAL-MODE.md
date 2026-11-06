@@ -14,8 +14,10 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    (iChun's rule; Nether fortresses have both: wither skeletons, and the blaze rods for Regeneration potions). A title
    and a chat message announce it.
 3. **Absorbing.** From then on every kill absorbs biomass: the creature's mass (iChun's formula: width × width × height ×
-   1000 kg) × 0.3 × the player's Biomass Efficiency. A zombie (702 kg) gives 21 at the start. The kill shows the
-   acquisition animation (tendrils with the mod, dark trails without), and the action bar shows the gain.
+   1000 kg) × 0.3 × the player's Biomass Efficiency × the server's gain multiplier (`biomass.gain-multiplier`,
+   default 1; `/morph cost gain 2` doubles it). A zombie (702 kg) gives 21 at the start. With the mod a biomass-only
+   kill is pulled in by dark red tendrils and a kill that unlocks a new morph by the original black ones (each
+   changeable in `/morphclient`); without it, red trails and dark trails. The action bar shows the gain.
    - Too heavy (above the player's Absorbable Mass) or too far away (beyond Biomass Reach): no biomass. The action bar
      says why.
    - Biomass is stored up to Biomass Capacity.
@@ -26,7 +28,11 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    **Morph Ability**.
 5. **Morphing.** Once bought, the selector opens and kills also unlock morphs, as long as the collection has room
    (Morph Capacity kinds, Variant Capacity looks per kind). Morphs collected before, including a whole Classic
-   collection, become usable at that moment.
+   collection, become usable at that moment. **Each morph costs biomass**, paid when the transformation starts
+   (going back to your own body is free): the form's mass × 0.01, rounded up, at least 1. A chicken costs 2, a
+   zombie 8, a cow 12, an iron golem 53, a ghast 640. The selector shows each price after the name (red: affordable,
+   grey: not); without the mod, `/morph use` names the price when you're short. `survival.yml` `morph-cost` (or
+   `/morph cost`) turns it off, changes the rate and minimum, or fixes a price per mob.
 6. **More.** Morph Abilities unlocks the ability key and an enderman's block carrying, and later levels shorten
    cooldowns. Morph Flight lets flying morphs fly (before that they glide down like a chicken). Morph Efficiency speeds
    up transformations.
@@ -82,7 +88,7 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 | Upgrades | capacity, efficiency, reach shipped; morph ability, morph capacity, variant capacity, morph efficiency, morph abilities, max absorbable mass named but TODO | all of those working, plus Morph Flight (ours) |
 | Numbers | placeholders (a zombie overflowed the starting capacity 40×; Capacity 2 cost more than Capacity 1 held) | rebalanced (table above) |
 | Early kills | biomass only until the morph ability (his intended code) | the same |
-| Biomass spending | upgrades; ability costs were a TODO | upgrades only |
+| Biomass spending | upgrades; ability costs were a TODO | upgrades, and morphing itself (6.1.6); abilities stay free |
 | Biomass menu | a client-only GUI, disabled | an advancement-style tree screen with the mod; a server chest menu for everyone else |
 | Biomass bar | client HUD, modes off / on change / always | the same modes, bottom left: red under the morph's black static, swaying tendrils; the action bar without the mod |
 | Trait tiers (`upgradeFor`, bat flapping → full flight) | data field only | flight only: gliding until Morph Flight |
@@ -91,7 +97,8 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 
 1. Before the Morph Ability, kills give biomass only. Forms aren't saved; hunt again afterwards (iChun's plan).
 2. Switching Classic → Survival keeps collections, locked until the Morph Ability.
-3. Biomass is spent on upgrades only; abilities don't cost biomass.
+3. Biomass is spent on upgrades, and since 6.1.6 on morphing (scaled by the form's size, adjustable with
+   `/morph cost`). Abilities don't cost biomass.
 4. Death costs no biomass.
 5. The upgrade tree starts from iChun's names.
 

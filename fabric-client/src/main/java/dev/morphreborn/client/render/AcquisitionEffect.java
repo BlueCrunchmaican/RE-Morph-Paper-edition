@@ -25,6 +25,8 @@ public final class AcquisitionEffect {
 	private final RandomSource rand = RandomSource.create();
 	final LivingEntity origin;
 	final LivingEntity acquired;
+	/** Drawn in the red morph skin (the red tendrils style). */
+	final boolean red;
 	/** Frozen model of the acquired mob relative to its feet, captured on the first frame. */
 	@Nullable List<ModelCapture.Box> acquiredCapture;
 	final List<Tendril> tendrils = new ArrayList<>();
@@ -32,9 +34,10 @@ public final class AcquisitionEffect {
 	boolean removed;
 	private boolean acquiredRemoved;
 
-	public AcquisitionEffect(LivingEntity origin, LivingEntity acquired) {
+	public AcquisitionEffect(LivingEntity origin, LivingEntity acquired, boolean red) {
 		this.origin = origin;
 		this.acquired = acquired;
+		this.red = red;
 		tendrils.add(new Tendril(null).headTowards(targetPos(), false));
 	}
 

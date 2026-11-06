@@ -8,6 +8,7 @@ import dev.morphreborn.paper.survival.SurvivalConfig.Upgrade;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
@@ -111,10 +112,10 @@ public final class SurvivalMode implements GameplayMode {
 					NamedTextColor.GRAY));
 			return;
 		}
-		double gain = mass * config.biomassValue * value(killer, SurvivalConfig.BIOMASS_EFFICIENCY) / 100.0;
+		double gain = mass * config.biomassValue * value(killer, SurvivalConfig.BIOMASS_EFFICIENCY) / 100.0 * config.gainMultiplier;
 		double added = addBiomass(killer, gain);
 		MorphRef morph = appearance != null && canMorph(killer) ? plugin.morphs().acquire(killer, appearance) : null;
-		if (added > 0 || morph != null) plugin.morphs().playAcquisition(killer, victim);
+		if (added > 0 || morph != null) plugin.morphs().playAcquisition(killer, victim, morph != null);
 		SurvivalData d = data(killer);
 		if (added > 0) {
 			killer.sendActionBar(Component.text("+" + number(added) + " biomass", NamedTextColor.RED)
@@ -147,6 +148,52 @@ public final class SurvivalMode implements GameplayMode {
 		if (fixed != null) return fixed;
 		double mass = entity.getWidth() * entity.getWidth() * entity.getHeight() * 1000.0;
 		return mass * config.massMultipliers.getOrDefault(type, 1.0);
+	}
+
+	/** survival.yml's morph-cost: a fixed price for the mob, or its mass x per-kg, rounded up, at least the minimum. */
+	@Override
+	public int morphCost(Player player, MorphRef form) {
+		if (!active() || !config.morphCostEnabled || form.isSelf()) return 0;
+		Integer fixed = config.morphPrices.get(form.entityType());
+		if (fixed != null) return fixed;
+		double mass = PLAYER_MASS;
+		if (!form.isPlayer()) {
+			LivingEntity template = plugin.templates().get(form, player.getWorld());
+			if (template != null) mass = massOf(template);
+		}
+		return Math.max(config.morphCostMinimum, (int) Math.ceil(mass * config.morphCostPerKg - 1e-9));
+	}
+
+	@Override
+	public boolean payForMorph(Player player, MorphRef form) {
+		int cost = morphCost(player, form);
+		if (cost <= 0) return true;
+		SurvivalData d = data(player);
+		if (d.biomass + 1e-9 < cost) return false;
+		d.biomass -= cost;
+		changed(player);
+		player.sendActionBar(Component.text("-" + cost + " biomass", NamedTextColor.RED)
+				.append(Component.text("  (" + number(d.biomass) + " / " + number(capacity(player)) + ")", NamedTextColor.GRAY)));
+		return true;
+	}
+
+	/** A player's mass by iChun's formula (0.6 x 0.6 x 1.8 x 1000 kg), for player forms. */
+	private static final double PLAYER_MASS = 648;
+
+	/** Send a modded player the price of every morph in their collection (empty when morphing is free). */
+	public void sendCosts(Player player) {
+		if (!plugin.channel().isModded(player)) return;
+		Map<String, Integer> costs = new LinkedHashMap<>();
+		if (active() && config.morphCostEnabled) {
+			var data = plugin.store().get(player.getUniqueId());
+			for (var e : data.morphs.entrySet()) {
+				for (var v : e.getValue()) {
+					MorphRef ref = dev.morphreborn.paper.data.PlayerMorphData.toRef(e.getKey(), v);
+					costs.put(ref.variantId(), morphCost(player, ref));
+				}
+			}
+		}
+		plugin.channel().sendCosts(player, costs);
 	}
 
 	@Override

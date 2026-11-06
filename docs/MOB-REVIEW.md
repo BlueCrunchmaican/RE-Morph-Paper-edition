@@ -1,5 +1,7 @@
 # Mob review, 2026-11-02
 
+> **Second review, 2026-11-06:** see the end of this file.
+
 > **Status:** everything below was fixed on 2026-11-02 except the water/rain damage note (bug 8), which was left as it is on
 > purpose. See "Fixes" at the end for what changed and how each fix was checked.
 
@@ -144,3 +146,19 @@ key to cycle).
 | Snowballs and blazes | 3 damage | health dropped |
 | Strider and lava | stands on top (client mod) | stood at the lava surface |
 | Size cap 2.5× | 7×: giant and ender dragon at full size | — |
+
+## Second review (2026-11-06)
+
+Every mob was reviewed again and marked fine or to change. Done in 6.1.6:
+
+- **Dolphin:** dries out after 4 minutes on land (was 2).
+- **Phantom:** sees in the dark (night vision), like the other night creatures.
+- **Spider and cave spider:** climb cobwebs like scaffolding: jump to go up, stand on top, sneak to go down (with the
+  client mod).
+- **Skeletons and baby zombies:** ride spiders and chickens as jockeys (also stray, wither skeleton, bogged, parched;
+  baby husk, drowned, zombie villager, zombified piglin, piglin; a baby piglin rides a hoglin).
+- **Villager:** other players can trade with a villager morph.
+- **Axolotl:** keeps vanilla drying out (300 seconds); no change.
+
+Not reviewed this time, left as they are: strider, endermite, shulker, wither, warden, ravager, elder guardian,
+guardian, sniffer, armadillo.

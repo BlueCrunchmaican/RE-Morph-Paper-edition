@@ -54,6 +54,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	private AbilityManager abilities;
 	private MorphManager morphs;
 	private SurvivalMode survival;
+	private dev.morphreborn.paper.ability.Jockeys jockeys;
+	private dev.morphreborn.paper.ability.VillagerTrading trading;
 	/** config.yml gameplay-mode; switched live by /morph mode or /morph reload ({@link #switchMode}). */
 	private GameplayMode mode;
 
@@ -100,7 +102,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		upgradeConfig();
 		installOrUpgrade("variants.yml");
 		installOrUpgrade("abilities.yml");
-		installOrUpgrade("survival.yml");
+		mergeUpgrade("survival.yml", "pre-6.1.6");
 		settings = new PluginSettings(getConfig());
 		try {
 			store = new DataStore(getDataFolder().toPath().resolve("players"), getLogger());
@@ -116,6 +118,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		effects = new VanillaEffects(this);
 		abilities = new AbilityManager(this);
 		abilities.load(yaml("abilities.yml"));
+		jockeys = new dev.morphreborn.paper.ability.Jockeys(this);
+		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
 		morphs = new MorphManager(this);
 		survival = new SurvivalMode(this, new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		mode = settings.gameplayMode.equals("survival") ? survival : new ClassicMode(this);
@@ -123,6 +127,9 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		channel.register();
 		getServer().getPluginManager().registerEvents(new MorphListener(this), this);
 		getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
+		getServer().getPluginManager().registerEvents(jockeys, this);
+		trading = new dev.morphreborn.paper.ability.VillagerTrading(this);
+		getServer().getPluginManager().registerEvents(trading, this);
 		getServer().getPluginManager().registerEvents(new SurvivalListener(this), this);
 		MorphCommand command = new MorphCommand(this);
 		Objects.requireNonNull(getCommand("morph")).setExecutor(command);
@@ -131,6 +138,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimer(this, () -> {
 			morphs.tick();
 			abilities.tick();
+			jockeys.tick();
 		}, 1L, 1L);
 		scheduleAutosave();
 
@@ -141,6 +149,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		if (jockeys != null) jockeys.releaseAll();
+		if (trading != null) trading.releaseAll();
 		if (morphs != null) morphs.shutdown();
 		if (channel != null) channel.unregister();
 		if (store != null) store.shutdown();
@@ -160,11 +170,12 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		settings = new PluginSettings(getConfig());
 		installOrUpgrade("variants.yml");
 		installOrUpgrade("abilities.yml");
-		installOrUpgrade("survival.yml");
+		mergeUpgrade("survival.yml", "pre-6.1.6");
 		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		if (!settings.gameplayMode.equals(mode.id())) switchMode(settings.gameplayMode, false);
 		capture.setRules(VariantRules.load(yaml("variants.yml"), getConfig()));
 		abilities.load(yaml("abilities.yml"));
+		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
 		templates.clear();
 		scheduleAutosave();
 		for (Player p : Bukkit.getOnlinePlayers()) {
@@ -179,27 +190,36 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		settings = new PluginSettings(getConfig());
 	}
 
-	/**
-	 * config.yml holds the admin's own settings, so unlike the other files it's never replaced. When this release's
-	 * config.yml is newer (its config-version), the admin's file is rewritten in the new layout: settings added since
-	 * appear with their defaults and comments, and every value the admin set is kept (see {@link ConfigMerge}). The old
-	 * file stays next to it as {@code config-old-<version>.yml}.
-	 */
 	private void upgradeConfig() {
-		File file = new File(getDataFolder(), "config.yml");
-		if (!file.exists()) return;
+		mergeUpgrade("config.yml", "pre-6.1.4");
+	}
+
+	/**
+	 * config.yml and survival.yml hold the admin's own settings, so unlike abilities.yml and variants.yml they're never
+	 * replaced. When this release's copy is newer (its config-version), the admin's file is rewritten in the new
+	 * layout: settings added since appear with their defaults and comments, and every value the admin set is kept (see
+	 * {@link ConfigMerge}). The old file stays next to it as {@code <name>-old-<version>.yml}. A missing file is written
+	 * from the bundled one. {@code unversioned} names files from before the file had a config-version.
+	 */
+	private void mergeUpgrade(String name, String unversioned) {
+		File file = new File(getDataFolder(), name);
+		if (!file.exists()) {
+			if (!name.equals("config.yml")) saveResource(name, false); // saveDefaultConfig writes config.yml
+			return;
+		}
+		String stem = name.substring(0, name.lastIndexOf('.'));
 		YamlConfiguration bundled = new YamlConfiguration();
-		try (java.io.Reader reader = new java.io.InputStreamReader(Objects.requireNonNull(getResource("config.yml")), java.nio.charset.StandardCharsets.UTF_8)) {
+		try (java.io.Reader reader = new java.io.InputStreamReader(Objects.requireNonNull(getResource(name)), java.nio.charset.StandardCharsets.UTF_8)) {
 			bundled.load(reader);
 		} catch (IOException | InvalidConfigurationException | NullPointerException e) {
-			getLogger().warning("Could not read the bundled config.yml; leaving yours as it is. " + e);
+			getLogger().warning("Could not read the bundled " + name + "; leaving yours as it is. " + e);
 			return;
 		}
 		YamlConfiguration current = new YamlConfiguration();
 		try {
 			current.load(file);
 		} catch (IOException | InvalidConfigurationException e) {
-			getLogger().severe("config.yml has an error, so it wasn't updated with this release's new settings: " + e.getMessage()
+			getLogger().severe(name + " has an error, so it wasn't updated with this release's new settings: " + e.getMessage()
 					+ " Fix the file and restart; until then, settings it can't read use their defaults.");
 			return;
 		}
@@ -207,23 +227,23 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		String currentVersion = current.getString(CONFIG_VERSION, "");
 		int order = compareVersions(currentVersion, bundledVersion);
 		if (order > 0) {
-			getLogger().warning("config.yml is from RE:Morph " + currentVersion + ", newer than this one (" + bundledVersion + "). Leaving it as it is.");
+			getLogger().warning(name + " is from RE:Morph " + currentVersion + ", newer than this one (" + bundledVersion + "). Leaving it as it is.");
 		}
 		if (order >= 0) return;
 		List<String> added = ConfigMerge.merge(bundled, current, CONFIG_VERSION);
 		bundled.options().width(1000); // long messages stay on one line
-		String from = currentVersion.isEmpty() ? "pre-6.1.4" : currentVersion;
-		File backup = new File(getDataFolder(), "config-old-" + from + ".yml");
-		for (int n = 2; backup.exists(); n++) backup = new File(getDataFolder(), "config-old-" + from + "-" + n + ".yml");
+		String from = currentVersion.isEmpty() ? unversioned : currentVersion;
+		File backup = new File(getDataFolder(), stem + "-old-" + from + ".yml");
+		for (int n = 2; backup.exists(); n++) backup = new File(getDataFolder(), stem + "-old-" + from + "-" + n + ".yml");
 		try {
 			Files.copy(file.toPath(), backup.toPath());
 			bundled.save(file);
 		} catch (IOException e) {
-			getLogger().severe("Could not update config.yml to this release's layout: " + e + ". Your settings still apply; new settings use their"
+			getLogger().severe("Could not update " + name + " to this release's layout: " + e + ". Your settings still apply; new settings use their"
 					+ " defaults until you add them by hand.");
 			return;
 		}
-		getLogger().info("Updated config.yml from RE:Morph " + from + " to " + bundledVersion + ". Your settings are unchanged. "
+		getLogger().info("Updated " + name + " from RE:Morph " + from + " to " + bundledVersion + ". Your settings are unchanged. "
 				+ (added.isEmpty() ? "No new settings." : "New settings, at their defaults: " + String.join(", ", added) + ".")
 				+ " Your old file is " + backup.getName() + ".");
 	}
@@ -366,6 +386,29 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		}
 		getLogger().info("Switched from " + from + " to " + next.id() + " mode" + (save ? " (saved to config.yml)." : "."));
 		return true;
+	}
+
+	/**
+	 * Change one survival.yml setting (null removes it), keeping the file's comments and everything else, then apply it
+	 * and send modded players their new morph prices. For /morph cost.
+	 */
+	public void setSurvivalSetting(String path, @org.jspecify.annotations.Nullable Object value) {
+		File file = new File(getDataFolder(), "survival.yml");
+		YamlConfiguration yaml = new YamlConfiguration();
+		try {
+			yaml.load(file);
+		} catch (IOException | InvalidConfigurationException e) {
+			throw new IllegalArgumentException("survival.yml can't be read (" + e.getMessage() + "); fix it first.");
+		}
+		yaml.set(path, value);
+		yaml.options().width(1000);
+		try {
+			yaml.save(file);
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Could not save survival.yml: " + e.getMessage());
+		}
+		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger()));
+		for (Player p : Bukkit.getOnlinePlayers()) survival.sendCosts(p);
 	}
 
 	/** The server's gameplay mode: Classic or Survival. */

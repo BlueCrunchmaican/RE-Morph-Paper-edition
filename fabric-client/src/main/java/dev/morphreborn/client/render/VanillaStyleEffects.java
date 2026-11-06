@@ -52,12 +52,20 @@ public final class VanillaStyleEffects {
 	}
 
 	/** Five dark trails from the absorbed mob into the player, and a puff of dust where the mob was. */
-	public static void acquisition(Entity origin, Entity acquired) {
+	/** As the server shows players without the mod: dark trails and dust for a new morph, a few red sparks for biomass. */
+	public static void acquisition(Entity origin, Entity acquired, boolean newMorph) {
 		ClientLevel level = Minecraft.getInstance().level;
 		if (level == null) return;
 		RandomSource r = level.getRandom();
 		Vec3 from = acquired.position().add(0, acquired.getBbHeight() / 2, 0);
 		Vec3 to = origin.position().add(0, origin.getBbHeight() / 2, 0);
+		if (!newMorph) {
+			for (int i = 0; i < 3; i++) {
+				Vec3 start = from.add(r.nextGaussian() * 0.2, r.nextGaussian() * 0.2, r.nextGaussian() * 0.2);
+				burst(level, new TrailParticleOption(to, 0x69181A, 14 + r.nextInt(6)), start, 3, 0.08, 0.08, 0);
+			}
+			return;
+		}
 		for (int i = 0; i < 5; i++) {
 			Vec3 start = from.add(r.nextGaussian() * 0.25, r.nextGaussian() * 0.25, r.nextGaussian() * 0.25);
 			TrailParticleOption trail = new TrailParticleOption(to, SKIN[r.nextInt(SKIN.length)], 25 + r.nextInt(15));

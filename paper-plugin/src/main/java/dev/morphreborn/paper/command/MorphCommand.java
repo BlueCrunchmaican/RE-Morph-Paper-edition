@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
 /** /morph: player selection for unmodded clients plus admin management. */
 public final class MorphCommand implements TabExecutor {
 	private static final List<String> PLAYER_SUBS = List.of("list", "use", "off", "ability", "fav", "upgrades", "upgrade", "biomass");
-	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "info", "clients", "carry", "setting", "reload", "survival", "mode");
+	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "info", "clients", "carry", "setting", "reload", "survival", "mode", "cost");
 	private static final List<String> SURVIVAL_ACTIONS = List.of("info", "unlock", "lock", "give", "take", "set", "level", "buy", "reset");
 
 	private final MorphRebornPlugin plugin;
@@ -79,6 +79,7 @@ public final class MorphCommand implements TabExecutor {
 				case "carry" -> carry(sender, args);
 				case "setting" -> setting(sender, args);
 				case "mode" -> mode(sender, args);
+				case "cost" -> cost(sender, args);
 				case "reload" -> {
 					plugin.reloadEverything();
 					sender.sendMessage(Component.text("RE:Morph reloaded.", NamedTextColor.GREEN));
@@ -99,8 +100,87 @@ public final class MorphCommand implements TabExecutor {
 			sender.sendMessage(Component.text("/" + label + " grant <player> <type> [snbt] | revoke <player> <type|id|all> | reset <player>", NamedTextColor.GRAY));
 			sender.sendMessage(Component.text("/" + label + " force <player> <type|id|off> [snbt] | info <player> | clients | reload", NamedTextColor.GRAY));
 			sender.sendMessage(Component.text("/" + label + " carry <player> <block|none> | setting [name] [value] | mode [classic|survival]", NamedTextColor.GRAY));
+			sender.sendMessage(Component.text("/" + label + " cost [on|off | rate <per-kg> | minimum <n> | price <mob> <biomass|formula> | gain <multiplier>]",
+					NamedTextColor.GRAY));
 			sender.sendMessage(Component.text("/" + label + " survival <player> info | unlock | lock | give|take|set <biomass> | level <upgrade> <n> | buy <upgrade> | reset",
 					NamedTextColor.GRAY));
+		}
+	}
+
+	/**
+	 * /morph cost: Survival's morph prices and biomass gain, shown or changed and saved to survival.yml.
+	 * on|off, rate <biomass per kg>, minimum <biomass>, price <mob> <biomass|formula>, gain <multiplier>.
+	 */
+	private void cost(CommandSender sender, String[] args) {
+		var c = plugin.survival().config();
+		if (args.length < 2) {
+			sender.sendMessage(Component.text("Morph cost: " + (c.morphCostEnabled ? "on" : "off") + ", " + c.morphCostPerKg + " biomass per kg of the form's mass, at least "
+					+ c.morphCostMinimum + ". Biomass gain x" + c.gainMultiplier + ".", NamedTextColor.GOLD));
+			if (!c.morphPrices.isEmpty()) {
+				List<String> fixed = new ArrayList<>();
+				c.morphPrices.forEach((type, price) -> fixed.add(type.replace("minecraft:", "") + " " + price));
+				java.util.Collections.sort(fixed);
+				sender.sendMessage(Component.text("Fixed prices: " + String.join(", ", fixed), NamedTextColor.GRAY));
+			}
+			if (!plugin.survival().active()) sender.sendMessage(Component.text("These apply in Survival mode; the server is in Classic.", NamedTextColor.GRAY));
+			return;
+		}
+		String what = args[1].toLowerCase(Locale.ROOT);
+		String path;
+		Object value;
+		String done;
+		switch (what) {
+			case "on", "off" -> {
+				path = "morph-cost.enabled";
+				value = what.equals("on");
+				done = "Morphing " + (what.equals("on") ? "now costs biomass." : "is free now.");
+			}
+			case "rate" -> {
+				double rate = number(args, 2, "/morph cost rate <biomass per kg>, e.g. 0.01");
+				path = "morph-cost.per-kg";
+				value = rate;
+				done = "Morph prices are now " + rate + " biomass per kg (a zombie costs " + (int) Math.ceil(702 * rate - 1e-9) + ").";
+			}
+			case "minimum" -> {
+				int min = (int) number(args, 2, "/morph cost minimum <biomass>");
+				path = "morph-cost.minimum";
+				value = min;
+				done = "Every morph now costs at least " + min + ".";
+			}
+			case "gain" -> {
+				double gain = number(args, 2, "/morph cost gain <multiplier>, e.g. 2 for twice as much biomass");
+				path = "biomass.gain-multiplier";
+				value = gain;
+				done = "Kills now give x" + gain + " biomass.";
+			}
+			case "price" -> {
+				if (args.length < 4) throw new IllegalArgumentException("/morph cost price <mob> <biomass|formula>");
+				String type = dev.morphreborn.paper.variant.VariantRules.normaliseType(args[2].toLowerCase(Locale.ROOT));
+				if (Registry.ENTITY_TYPE.get(org.bukkit.NamespacedKey.fromString(type)) == null) throw new IllegalArgumentException("Unknown mob '" + args[2] + "'.");
+				path = "morph-cost.prices." + type;
+				if (args[3].equalsIgnoreCase("formula")) {
+					value = null;
+					done = type.replace("minecraft:", "") + " morphs are priced by the mass formula again.";
+				} else {
+					int price = (int) number(args, 3, "/morph cost price <mob> <biomass|formula>");
+					value = price;
+					done = type.replace("minecraft:", "") + " morphs now cost " + price + ".";
+				}
+			}
+			default -> throw new IllegalArgumentException("/morph cost [on|off | rate <per-kg> | minimum <n> | price <mob> <biomass|formula> | gain <multiplier>]");
+		}
+		plugin.setSurvivalSetting(path, value);
+		sender.sendMessage(Component.text(done + " Saved to survival.yml.", NamedTextColor.GREEN));
+	}
+
+	private static double number(String[] args, int index, String usage) {
+		if (args.length <= index) throw new IllegalArgumentException(usage);
+		try {
+			double v = Double.parseDouble(args[index]);
+			if (v < 0 || Double.isNaN(v) || Double.isInfinite(v)) throw new NumberFormatException();
+			return v;
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("'" + args[index] + "' isn't a number of 0 or more. " + usage);
 		}
 	}
 
@@ -404,18 +484,29 @@ public final class MorphCommand implements TabExecutor {
 		sender.sendMessage(Component.text(target.getName() + " now carries " + (data.carriedBlock == null ? "nothing" : data.carriedBlock), NamedTextColor.GREEN));
 	}
 
-	/** In-game switches for config.yml's world-effects section, saved to the file. */
+	/** In-game switches for config.yml, saved to the file: world effects and villager trading. */
 	private static final Map<String, List<String>> SETTINGS = Map.of(
 			"explosion-block-damage", List.of("on", "off", "gamerule"),
 			"fire", List.of("on", "off", "gamerule"),
 			"creeper-explosion-kills-user", List.of("true", "false"),
 			"enderman-pickup", List.of("vanilla", "any"),
-			"bee-sting-kills-user", List.of("true", "false"));
+			"bee-sting-kills-user", List.of("true", "false"),
+			"villager-trading", List.of("true", "false"),
+			"freeze-trading", List.of("true", "false"));
+
+	/** Where each setting lives in config.yml. */
+	private static String settingPath(String name) {
+		return switch (name) {
+			case "villager-trading" -> "trading.villagers";
+			case "freeze-trading" -> "trading.freeze-villager";
+			default -> "world-effects." + name;
+		};
+	}
 
 	/** Admin: show or change a world-effects setting. */
 	private void setting(CommandSender sender, String[] args) {
 		if (args.length < 2) {
-			sender.sendMessage(Component.text("World effects (change with /morph setting <name> <value>):", NamedTextColor.GOLD));
+			sender.sendMessage(Component.text("Settings (change with /morph setting <name> <value>):", NamedTextColor.GOLD));
 			for (String name : SETTINGS.keySet().stream().sorted().toList()) {
 				sender.sendMessage(Component.text(" " + name + ": " + settingValue(name) + "  " + SETTINGS.get(name), NamedTextColor.GRAY));
 			}
@@ -430,7 +521,7 @@ public final class MorphCommand implements TabExecutor {
 		}
 		String value = args[2].toLowerCase(Locale.ROOT);
 		if (!allowed.contains(value)) throw new IllegalArgumentException(name + " can be " + String.join(", ", allowed) + ".");
-		plugin.getConfig().set("world-effects." + name, allowed.contains("true") ? Boolean.parseBoolean(value) : value);
+		plugin.getConfig().set(settingPath(name), allowed.contains("true") ? Boolean.parseBoolean(value) : value);
 		if (plugin.getConfig() instanceof org.bukkit.configuration.file.YamlConfiguration yaml) yaml.options().width(1000); // no wrapped lines
 		plugin.saveConfig();
 		plugin.reloadSettings();
@@ -445,6 +536,8 @@ public final class MorphCommand implements TabExecutor {
 			case "creeper-explosion-kills-user" -> String.valueOf(s.creeperExplosionKillsUser);
 			case "enderman-pickup" -> s.endermanPickupAny ? "any" : "vanilla";
 			case "bee-sting-kills-user" -> String.valueOf(s.beeStingKillsUser);
+			case "villager-trading" -> String.valueOf(s.tradingVillagers);
+			case "freeze-trading" -> String.valueOf(s.tradingFreeze);
 			default -> "?";
 		};
 	}
@@ -475,6 +568,16 @@ public final class MorphCommand implements TabExecutor {
 		if (args.length == 2 && sub.equals("upgrade")) return filter(List.copyOf(plugin.survival().config().upgrades.keySet()), args[1]);
 		if (args.length == 2 && List.of("grant", "revoke", "reset", "force", "info", "list", "carry", "ability", "biomass").contains(sub)) {
 			return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
+		}
+		if (sub.equals("cost") && sender.hasPermission("morphreborn.admin")) {
+			if (args.length == 2) return filter(List.of("on", "off", "rate", "minimum", "price", "gain"), args[1]);
+			if (args.length == 3 && args[1].equalsIgnoreCase("price")) {
+				List<String> types = new ArrayList<>();
+				for (EntityType t : Registry.ENTITY_TYPE) if (t.isAlive() && t.isSpawnable()) types.add(t.getKey().getKey());
+				return filter(types, args[2]);
+			}
+			if (args.length == 4 && args[1].equalsIgnoreCase("price")) return filter(List.of("formula"), args[3]);
+			return List.of();
 		}
 		if (sub.equals("mode") && sender.hasPermission("morphreborn.admin")) {
 			return args.length == 2 ? filter(List.of("classic", "survival"), args[1]) : List.of();

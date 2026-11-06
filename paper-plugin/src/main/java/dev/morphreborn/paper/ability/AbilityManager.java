@@ -527,6 +527,8 @@ public final class AbilityManager {
 			if (type == null) continue;
 			if (slowFall.contains(type) || glides(player, type)) tickSlowFall(player);
 			if (climb.contains(type)) tickClimb(player);
+			// Webs work like scaffolding for spider morphs (client mod): climbing and sliding down them never builds a fall.
+			if (webWalk.contains(type) && inCobweb(player)) player.setFallDistance(0);
 			if (tick % 2 == 0 && freezeWhenWatched.contains(type)) tickWatched(player);
 			Integer dryLimit = dryOutTicks.get(type);
 			if (dryLimit != null) tickDryOut(player, type, dryLimit);
@@ -613,6 +615,12 @@ public final class AbilityManager {
 		player.setVelocity(new Vector(v.getX(), y, v.getZ()));
 	}
 
+	private static boolean inCobweb(Player player) {
+		org.bukkit.Location at = player.getLocation();
+		return at.getBlock().getType() == org.bukkit.Material.COBWEB || at.clone().add(0, -0.05, 0).getBlock().getType() == org.bukkit.Material.COBWEB
+				|| player.getEyeLocation().getBlock().getType() == org.bukkit.Material.COBWEB;
+	}
+
 	/** Climb speed for unmodded players, close to a ladder's. */
 	private static final double CLIMB_SPEED = 0.15;
 
@@ -628,7 +636,7 @@ public final class AbilityManager {
 	}
 
 	/** The horizontal direction the player's movement keys point, or null when none are held. */
-	private static @Nullable Vector wishDirection(Player player, org.bukkit.Input input) {
+	static @Nullable Vector wishDirection(Player player, org.bukkit.Input input) {
 		int forward = (input.isForward() ? 1 : 0) - (input.isBackward() ? 1 : 0);
 		int left = (input.isLeft() ? 1 : 0) - (input.isRight() ? 1 : 0);
 		if (forward == 0 && left == 0) return null;
