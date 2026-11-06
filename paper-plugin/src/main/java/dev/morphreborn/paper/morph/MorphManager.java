@@ -6,9 +6,11 @@ import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.data.PlayerMorphData;
 import dev.morphreborn.paper.net.ClientChannel;
 import dev.morphreborn.paper.variant.VariantCapture;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,6 +22,8 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import io.papermc.paper.entity.TeleportFlag;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.jspecify.annotations.Nullable;
 
@@ -34,6 +38,8 @@ public final class MorphManager {
 
 	private final MorphRebornPlugin plugin;
 	private final NamespacedKey scaleKey;
+	/** The form each player's physical body (hitbox, copied attributes) has right now; absent = their own body. */
+	private final Map<UUID, MorphRef> bodies = new HashMap<>();
 	private final NamespacedKey attributeKey;
 	private final Map<UUID, ActiveMorph> states = new HashMap<>();
 	private final Map<UUID, Long> lastMorphStart = new HashMap<>();
@@ -311,7 +317,13 @@ public final class MorphManager {
 	public void tick() {
 		serverTick++;
 		plugin.disguises().tick();
-		if (states.isEmpty()) return;
+		if (states.isEmpty() && bodies.isEmpty()) return;
+		for (UUID id : List.copyOf(bodies.keySet())) {
+			// Bodies left over from a finished demorph that had no room to grow back yet.
+			Player player = Bukkit.getPlayer(id);
+			if (player == null || !player.isOnline()) bodies.remove(id);
+			else if (!states.containsKey(id)) syncBody(player);
+		}
 		for (Map.Entry<UUID, ActiveMorph> e : List.copyOf(states.entrySet())) {
 			Player player = Bukkit.getPlayer(e.getKey());
 			ActiveMorph s = e.getValue();
@@ -323,6 +335,8 @@ public final class MorphManager {
 				tickTransition(player, s);
 			} else if (!s.isMorphed()) {
 				states.remove(e.getKey());
+			} else {
+				syncBody(player); // a body still waiting for room to grow
 			}
 		}
 	}
@@ -331,9 +345,7 @@ public final class MorphManager {
 		PluginSettings settings = plugin.settings();
 		s.time++;
 		float progress = s.morphProgress();
-		float eased = s.transitionSine();
-
-		applyBody(player, s.prev, s.next, eased);
+		syncBody(player);
 
 		if (!s.soundPlayed && s.time >= Math.max(0, (s.duration - 60) / 2)) {
 			s.soundPlayed = true;
@@ -373,10 +385,10 @@ public final class MorphManager {
 		if (form == null || form.isSelf()) {
 			s.next = null;
 			plugin.disguises().remove(player);
-			applyBody(player, null, null, 1F);
 			states.remove(player.getUniqueId());
+			syncBody(player);
 		} else {
-			applyBody(player, form, form, 1F);
+			syncBody(player);
 			showDisguise(player, form, 1.0);
 		}
 		if (form != null && ENDERMAN.equals(form.entityType())) {
@@ -444,6 +456,78 @@ public final class MorphManager {
 	}
 
 	// ------------------------------------------------------------------ body (hitbox + attributes)
+
+	/*
+	 * The physical body (hitbox through the scale attribute, step height, speed and the other copied attributes)
+	 * changes in one step, when the visible body swaps half-way through a transformation. It used to ease every tick,
+	 * and every change reaches the client a moment after the server already moves with it: the server replays the
+	 * client's movement with a different hitbox and step height, sends "moved wrongly" corrections, and the player
+	 * jitters against walls and rough ground for the whole transformation.
+	 *
+	 * A body only grows into free space. Minecraft moves a growing mob out of the blocks around it, but never a player
+	 * (Entity.refreshDimensions), and a player whose hitbox overlaps blocks can't move into anything new on the server
+	 * (ServerGamePacketListenerImpl.isEntityCollidingWithAnythingNew): stuck, tries, blocked, again. So a growing body
+	 * is first nudged to a free spot nearby, the way vanilla does for mobs, and if nothing fits (a ravager in a
+	 * one-block tunnel), it keeps its smaller size and grows as soon as there is room.
+	 */
+
+	/** The form the body should have now: the old one before a transformation's half-way point, the new one after. */
+	private @Nullable MorphRef bodyTarget(Player player) {
+		ActiveMorph s = states.get(player.getUniqueId());
+		MorphRef form = s == null ? null : s.activeForm();
+		return form == null || form.isSelf() ? null : form;
+	}
+
+	/** Bring the body to {@link #bodyTarget}, unless it has to grow and there is no room for it yet. */
+	private void syncBody(Player player) {
+		MorphRef want = bodyTarget(player);
+		UUID id = player.getUniqueId();
+		if (Objects.equals(want, bodies.get(id))) return;
+		if (!makeRoom(player, want)) return;
+		applyBody(player, want, want, 1F);
+		if (want == null) bodies.remove(id);
+		else bodies.put(id, want);
+	}
+
+	/** True when the body for {@code form} fits where the player is, after nudging them to a free spot if needed. */
+	private boolean makeRoom(Player player, @Nullable MorphRef form) {
+		if (!plugin.settings().hitboxScaling || player.getGameMode() == org.bukkit.GameMode.SPECTATOR) return true;
+		AttributeInstance scale = player.getAttribute(Attribute.SCALE);
+		if (scale == null) return true;
+		double current = scale.getValue();
+		AttributeModifier mine = scale.getModifier(scaleKey);
+		double next = current - (mine == null ? 0 : mine.getAmount()) + (scaleFor(player, form) - 1.0);
+		if (next <= current + 1e-4) return true; // the same size or smaller always fits
+		BoundingBox box = player.getBoundingBox();
+		org.bukkit.World world = player.getWorld();
+		if (world.hasCollisionsIn(box.clone().expand(-1e-5))) return true; // already overlapping blocks: nothing to protect
+		if (player.isInsideVehicle() || !player.getPassengers().isEmpty()) return true; // the vehicle decides where they are
+		double ratio = next / current;
+		double half = box.getWidthX() * ratio / 2, height = box.getHeight() * ratio;
+		double reach = (box.getWidthX() * ratio - box.getWidthX()) / 2 + 1e-3;
+		double drop = player.isOnGround() ? 0 : box.getHeight() * ratio - box.getHeight();
+		List<double[]> offsets = new ArrayList<>();
+		for (int i = -4; i <= 4; i++) {
+			for (int k = -4; k <= 4; k++) {
+				for (int j = 0; j <= 4; j++) {
+					if (j > 0 && drop == 0) break;
+					offsets.add(new double[] { reach * i / 4, -drop * j / 4, reach * k / 4 });
+				}
+			}
+		}
+		offsets.sort(java.util.Comparator.comparingDouble(o -> o[0] * o[0] + o[1] * o[1] + o[2] * o[2]));
+		double cx = box.getCenterX(), cz = box.getCenterZ(), y = box.getMinY();
+		for (double[] o : offsets) {
+			BoundingBox grown = new BoundingBox(cx + o[0] - half, y + o[1], cz + o[2] - half, cx + o[0] + half, y + o[1] + height, cz + o[2] + half);
+			if (world.hasCollisionsIn(grown.expand(-1e-5))) continue;
+			if (o[0] != 0 || o[1] != 0 || o[2] != 0) {
+				player.teleport(player.getLocation().add(o[0], o[1], o[2]), TeleportFlag.Relative.VELOCITY_X, TeleportFlag.Relative.VELOCITY_Y,
+						TeleportFlag.Relative.VELOCITY_Z, TeleportFlag.Relative.VELOCITY_ROTATION);
+			}
+			return true;
+		}
+		return false;
+	}
 
 	/** Ease hitbox scale and copied attributes from {@code from} to {@code to}; nulls mean the player's own body. */
 	private void applyBody(Player player, @Nullable MorphRef from, @Nullable MorphRef to, float t) {
@@ -513,6 +597,7 @@ public final class MorphManager {
 
 	/** Strip every modifier we own (shutdown / quit) so nothing persists in the player file. */
 	public void resetBody(Player player) {
+		bodies.remove(player.getUniqueId());
 		for (Attribute attribute : Registry.ATTRIBUTE) {
 			AttributeInstance instance = player.getAttribute(attribute);
 			if (instance == null) continue;
@@ -583,7 +668,8 @@ public final class MorphManager {
 				String carried = plugin.store().get(player.getUniqueId()).carriedBlock;
 				s.overlay = ENDERMAN.equals(s.next.entityType()) && carried != null ? carriedBlockOverlay(carried) : "";
 			}
-			applyBody(player, s.next, s.next, 1F);
+			bodies.remove(player.getUniqueId()); // a respawned player has a fresh body: apply it again
+			syncBody(player);
 			refreshDisguise(player);
 			plugin.abilities().onFormChanged(player, activeForm(player));
 			plugin.channel().broadcastState(player, s);

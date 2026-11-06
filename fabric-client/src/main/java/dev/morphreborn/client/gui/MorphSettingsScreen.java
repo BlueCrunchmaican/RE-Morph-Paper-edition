@@ -33,7 +33,12 @@ public final class MorphSettingsScreen extends OptionsSubScreen {
 		this.list.addSmall(CycleButton.<String>builder(v -> Component.translatable("morphreborn.settings.biomassBar." + v.toLowerCase(java.util.Locale.ROOT)), c.biomassBar)
 				.withValues("CHANGES", "ALWAYS", "OFF")
 				.withTooltip(v -> Tooltip.create(Component.translatable("morphreborn.settings.biomassBar.tooltip")))
-				.create(Component.translatable("morphreborn.settings.biomassBar"), (button, v) -> c.biomassBar = v), null);
+				.create(Component.translatable("morphreborn.settings.biomassBar"), (button, v) -> c.biomassBar = v),
+				net.minecraft.client.gui.components.Button.builder(Component.translatable("morphreborn.settings.doll.open"),
+								button -> Minecraft.getInstance().gui.setScreen(new PaperDollSettingsScreen(this)))
+						.tooltip(Tooltip.create(Component.translatable("morphreborn.settings.doll.open.tooltip")))
+						.width(150)
+						.build());
 	}
 
 	/** RE:Morph's own animation, or what players without the mod see. */

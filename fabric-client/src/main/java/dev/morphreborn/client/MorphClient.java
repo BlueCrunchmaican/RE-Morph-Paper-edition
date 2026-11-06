@@ -51,8 +51,10 @@ public final class MorphClient implements ClientModInitializer {
 		Keys.init();
 		ClientNet.init();
 		PictureInPictureRendererRegistry.register(context -> new MorphGuiEntities.Renderer());
+		PictureInPictureRendererRegistry.register(context -> new dev.morphreborn.client.gui.PaperDoll.Renderer());
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "selector"), SelectorHud.INSTANCE::render);
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "biomass"), dev.morphreborn.client.gui.BiomassHud::render);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "paper_doll"), dev.morphreborn.client.gui.PaperDoll::render);
 		LevelRenderEvents.COLLECT_SUBMITS.register(MorphWorldRenderer::collectSubmits);
 		ClientTickEvents.END_CLIENT_TICK.register(MorphClient::tick);
 		// Client-side command, so it works on any server: opens the settings screen.
@@ -69,6 +71,13 @@ public final class MorphClient implements ClientModInitializer {
 		if (openSettings) {
 			openSettings = false;
 			mc.gui.setScreen(new MorphSettingsScreen(null));
+		}
+		while (Keys.DOLL.consumeClick()) {
+			ClientConfig.INSTANCE.doll = !ClientConfig.INSTANCE.doll;
+			ClientConfig.save();
+			if (mc.player != null) {
+				mc.player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(ClientConfig.INSTANCE.doll ? "morphreborn.doll.shown" : "morphreborn.doll.hidden"));
+			}
 		}
 		while (Keys.SETTINGS.consumeClick()) {
 			if (mc.gui.screen() == null) mc.gui.setScreen(new MorphSettingsScreen(null));

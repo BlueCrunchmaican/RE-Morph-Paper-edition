@@ -1,4 +1,4 @@
-# RE:Morph 6.1.4
+# RE:Morph 6.1.5
 
 Kill a mob, become that mob. An unofficial port of iChun's Morph mod to Minecraft Java 26.3.
 
@@ -14,8 +14,8 @@ The client mod is optional. Nobody is ever kicked for not having it.
 
 | Path | What it is |
 |---|---|
-| `server/RE-Morph-paper-6.1.4.jar` | The Paper plugin |
-| `client/RE-Morph-fabric-6.1.4+26.3.jar` | The Fabric client mod (optional, Java players only) |
+| `server/RE-Morph-paper-6.1.5.jar` | The Paper plugin |
+| `client/RE-Morph-fabric-6.1.5+26.3.jar` | The Fabric client mod (optional, Java players only) |
 | `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
@@ -29,7 +29,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 Needs a **Paper 26.3** server (built against build 235) running Java 25 or newer.
 
 1. Put these three jars in the server's `plugins` folder:
-   - `RE-Morph-paper-6.1.4.jar` (this release)
+   - `RE-Morph-paper-6.1.5.jar` (this release)
    - **Lib's Disguises** 26.10.24 or newer: https://www.spigotmc.org/resources/libs-disguises-free.81/
    - **PacketEvents** 2.14.0 or newer (Lib's Disguises needs it): https://modrinth.com/plugin/packetevents
 2. Start the server once. The plugin creates `plugins/RE-Morph/` with `config.yml`, `abilities.yml` and
@@ -54,10 +54,10 @@ Players with the client mod should swap their old `RE-Morph-fabric-*.jar` for th
 `mods` folder stop the game from starting.
 
 **Coming from Morph Reborn** (the project's name until 6.1.2): remove `MorphReborn-paper-*.jar` and put
-`RE-Morph-paper-6.1.4.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
+`RE-Morph-paper-6.1.5.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
 so settings and collections carry over. Permissions (`morphreborn.*`), `/morph` and its old `/morphreborn` alias,
 and the client mod's settings file keep their names. Players swap `morphreborn-fabric-*.jar` for
-`RE-Morph-fabric-6.1.4+26.3.jar`.
+`RE-Morph-fabric-6.1.5+26.3.jar`.
 
 **6.1.2 changes the client protocol.** On a 6.1.2 server, an older client mod (5.x) is told to update and is treated
 as a player without the mod until it does: they still see and use morphs, just without the selector and animations.
@@ -71,6 +71,10 @@ the first start with 6.1.4 they are added, at their defaults, and your values st
 **6.1.4 also adds `/morph mode`**, so admins can switch between Classic and Survival in game, at once, without a
 restart (see Admin commands).
 
+**6.1.5** fixes players getting stuck or jittering against walls and rough ground while transforming, and adds the
+paper doll to the client mod. Nothing to change in your config files. Players should update the client mod to get the
+doll and the smooth camera; 6.1.4 clients still work.
+
 ### Optional: the morph sound for players without the mod
 
 The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead. To give
@@ -81,7 +85,7 @@ resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `
 
 1. Install **Fabric Loader** 0.20.1 or newer for Minecraft 26.3: https://fabricmc.net/use/installer/
 2. Put these in the `.minecraft/mods` folder:
-   - `RE-Morph-fabric-6.1.4+26.3.jar` (this release)
+   - `RE-Morph-fabric-6.1.5+26.3.jar` (this release)
    - **Fabric API** 0.165.0+26.3 or newer: https://modrinth.com/mod/fabric-api
 3. Start Minecraft with the Fabric profile and join the server.
 
@@ -118,9 +122,30 @@ default. You can also pick your own player form in the selector.
 | Transforming | **Morph**: the body turns black and melts into the new shape. **Plain**: the old body shrinks into dark smoke and the new one grows back, as players without the mod see it. |
 | Unlock toasts, Name tags, Mouse in selector, Invert scroll | On / off |
 | Biomass Bar | Survival Mode: **When It Changes** (default), **Always** or **Off** |
+| Paper Doll... | Opens the paper doll's own settings (below) |
 
 Unlocking and transforming work the same either way, and other players see their own setting, not yours. The
 settings are saved in `config/morphreborn-client.json`.
+
+**Paper doll:** a live miniature of yourself in a corner of the screen. It shows exactly what the world shows: your
+morph with its variant and baby size, its own animations (a rabbit's hop, a chicken's flapping, a fish flopping), your
+pose (walking, sneaking, swimming, sleeping, sitting in a vehicle), the transformation as it happens, and, while you
+ride, the boat, minecart or mount with everyone on it. A player fills the doll's box; smaller morphs are drawn smaller,
+and only something bigger than a player is shrunk to fit. Settings (RE:Morph Settings → Paper Doll...):
+
+| Setting | Choices |
+|---|---|
+| Paper Doll | On (default) / off. The **Show/Hide Paper Doll** key (Controls, unbound at first) flips it. |
+| Show | **Always** (default), **While Morphed**, or **While Active** (moving, jumping, sneaking, swimming, flying, riding, transforming, attacking or hurt, and a moment after) |
+| Corner, Side Distance, Edge Distance | Where it sits (default top left, 8 pixels in) |
+| Size, Opacity | 20–200 GUI pixels (default 50); 10–100% |
+| Turn | Which way it faces, -180° to 180° (default 25°) |
+| Head | **Follows You** (turns and looks as you do) or **Straight** |
+| Lighting | **Bright** (default) or **Like the World** |
+| Vehicles | Show what you ride, with its passengers (default on) |
+| In Menus, Hide in Third Person, Hide with F3 | When it steps aside (defaults: hidden in menus, in third person and with F3) |
+
+It also steps aside while the selector or the favourites wheel is open.
 
 ### Without the client mod (plain Java and Bedrock)
 
@@ -282,9 +307,12 @@ Player collections are saved in `plugins/RE-Morph/players/`, one file per player
   animations. They see a shrink-swap-grow transition with particles instead.
 - **Bedrock players (Geyser) haven't been tested.** Geyser translates the disguise packets, so they should see morphs,
   but some mobs may look off.
-- **Hitboxes are scaled, not reshaped.** The hitbox and eye height ease to the mob's size through the player's scale
-  attribute (0.2× to 7×, so giants and ender dragons are full size). The shape stays player-shaped, so a spider morph's hitbox is narrow and
-  tall rather than wide and flat.
+- **Hitboxes are scaled, not reshaped.** The hitbox takes the mob's size through the player's scale attribute (0.2× to
+  7×, so giants and ender dragons are full size), in one step half-way through the transformation. The shape stays
+  player-shaped, so a spider morph's hitbox is narrow and tall rather than wide and flat. A body that has to grow is
+  nudged away from walls first, and if there's no room at all (a ghast in a tunnel) it keeps its smaller size until
+  there is. With the mod the camera rises or sinks smoothly over the whole transformation; without it, it moves once,
+  quickly, at the half-way point.
 - **Stats are capped** (see `attributes`): no 300-health ender dragons, no faster-than-player speed, and a camel morph
   steps up 1 block, not 1.5.
 - **Survival Mode's "A Mutation Complication"** is a title and a chat message, not a real advancement.
