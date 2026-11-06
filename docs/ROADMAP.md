@@ -54,7 +54,7 @@ Built for 6.1.2 (2026-11-05). How it works, the tree and its numbers: [SURVIVAL-
 - [x] `gameplay-mode: classic | survival`, `GameplayMode` with Classic and Survival, progress saved in both modes.
 - [x] Biomass unlock (Wither + Regeneration together), biomass per kill (iChun's formula), reach and mass limits.
 - [x] Upgrade tree in `survival.yml`, chest menu for everyone, `/morph upgrades`, `/morph upgrade`, `/morph biomass`,
-      admin `/morph survival`, B key and biomass bar with the mod.
+      admin `/morph survival`, a Biomass Menu key (B until 6.1.5, unbound since) and biomass bar with the mod.
 - [x] Gating: morphing, collection capacity, abilities (and cooldowns), flight (gliding until Morph Flight),
       transformation speed.
 - [x] Decisions made: biomass only before the Morph Ability; Classic collections kept but locked; biomass buys

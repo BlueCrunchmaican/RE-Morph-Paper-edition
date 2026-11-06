@@ -22,8 +22,11 @@ public final class Keys {
 	public static final KeyMapping FAVOURITE = key("favourite", InputConstants.KEY_GRAVE);
 	public static final KeyMapping ABILITY = key("ability", InputConstants.KEY_R);
 	public static final KeyMapping DEMORPH = key("demorph", InputConstants.UNKNOWN.getValue());
-	/** Survival Mode: opens the server's biomass upgrade menu (iChun's Biomass Menu key was Shift+B). */
-	public static final KeyMapping BIOMASS = key("biomass", InputConstants.KEY_B);
+	/**
+	 * Survival Mode: opens the server's biomass upgrade menu. Unbound by default (it used to take B), since the Biomass
+	 * button in the favourites wheel and /morph upgrades already open it; bind it in Controls if you want a key.
+	 */
+	public static final KeyMapping BIOMASS = key("biomass", InputConstants.UNKNOWN.getValue());
 	/** Opens the client settings (also /morphclient). Unbound by default. */
 	public static final KeyMapping SETTINGS = key("settings", InputConstants.UNKNOWN.getValue());
 	/** Shows or hides the paper doll (and saves it). Unbound by default. */

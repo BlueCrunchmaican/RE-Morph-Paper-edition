@@ -97,5 +97,6 @@
   "morphreborn.settings.dollHideDebug": "Hide with F3",
   "morphreborn.settings.dollHideDebug.tooltip": "Hide the doll while the F3 debug screen is open.",
   "morphreborn.settings.dollOpacity": "Opacity",
-  "morphreborn.settings.dollOpacity.tooltip": "How solid the doll is. Lower it to see the game through the doll."
+  "morphreborn.settings.dollOpacity.tooltip": "How solid the doll is. Lower it to see the game through the doll.",
+  "morphreborn.message.buy_morph_ability_no_key": "Can't morph yet: buy the Morph Ability (Biomass button in the favourites wheel, or /morph upgrades)"
 }

@@ -77,8 +77,11 @@ public final class SelectorHud {
 
 	/** Survival Mode: say why the selector doesn't open, and where to go. */
 	private static void cantMorphYet() {
-		ClientNet.message(Component.translatable(ClientNet.biomassUnlocked() ? "morphreborn.message.buy_morph_ability" : "morphreborn.message.unlock_biomass",
-				Keys.BIOMASS.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
+		net.minecraft.network.chat.MutableComponent message;
+		if (!ClientNet.biomassUnlocked()) message = Component.translatable("morphreborn.message.unlock_biomass");
+		else if (Keys.BIOMASS.isUnbound()) message = Component.translatable("morphreborn.message.buy_morph_ability_no_key");
+		else message = Component.translatable("morphreborn.message.buy_morph_ability", Keys.BIOMASS.getTranslatedKeyMessage());
+		ClientNet.message(message.withStyle(ChatFormatting.GRAY));
 	}
 
 	private boolean canUseSelector() {

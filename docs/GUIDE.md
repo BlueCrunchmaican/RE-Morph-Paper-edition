@@ -72,7 +72,8 @@ the first start with 6.1.4 they are added, at their defaults, and your values st
 restart (see Admin commands).
 
 **6.1.5** fixes players getting stuck or jittering against walls and rough ground while transforming, and adds the
-paper doll to the client mod. Nothing to change in your config files. Players should update the client mod to get the
+paper doll to the client mod. The Biomass Menu key no longer takes B by default (bind it in Controls if you want it;
+its Reset button there unbinds it on clients that still have B). Nothing to change in your config files. Players should update the client mod to get the
 doll and the smooth camera; 6.1.4 clients still work.
 
 ### Optional: the morph sound for players without the mod
@@ -109,7 +110,7 @@ so on) unlock separately. Killing a player unlocks their form; killing a morphed
 | `Delete` | Remove a morph from your collection |
 | Hold `` ` `` | Favourites wheel: point at a favourite and let go |
 | `R` | Use the morph's ability |
-| `B` | Survival Mode: the upgrade tree (also the Biomass button in the middle of the favourites wheel) |
+| Biomass Menu (unbound at first) | Survival Mode: the upgrade tree. Also the Biomass button in the middle of the favourites wheel, or `/morph upgrades` |
 
 Keys can be changed in **Options → Controls → Key Binds**, under RE:Morph (mouse side buttons work too). "Return to player form" has no key by
 default. You can also pick your own player form in the selector.
@@ -169,7 +170,7 @@ If the server plays Survival Mode, morphing has to be earned:
    before you can absorb them, and kills too far away don't count.
 3. Spend biomass on upgrades:
    - **With the client mod:** hold the favourites key (`` ` ``) and click the **Biomass** button in the middle of the
-     wheel (or let go of the key over it), or press `B`, or type `/morph upgrades`. The upgrade tree is laid out like
+     wheel (or let go of the key over it), or type `/morph upgrades`, or press the Biomass Menu key if you bound one. The upgrade tree is laid out like
      the advancement screen, each upgrade shown with a status effect icon. Drag or scroll to move around, hover for
      details, click to buy. Upgrades you can afford right now glow red. In Survival the wheel opens even before you
      can morph, showing just the Biomass button.
