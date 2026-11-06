@@ -30,6 +30,8 @@ import org.jspecify.annotations.Nullable;
 /** In-world rendering of morphs, transitions and acquisition effects. */
 public final class MorphWorldRenderer {
 	public static final Identifier MORPH_SKIN = Identifier.fromNamespaceAndPath(MorphClient.MOD_ID, "textures/skin/morphskin.png");
+	/** The same static in red: the red tendrils absorb style. */
+	public static final Identifier MORPH_SKIN_RED = Identifier.fromNamespaceAndPath(MorphClient.MOD_ID, "textures/skin/morphskin_red.png");
 
 	/** Set while LevelExtractor extracts the first-person player (hands/items must stay vanilla). */
 	public static boolean extractingFirstPerson;
@@ -37,6 +39,7 @@ public final class MorphWorldRenderer {
 	private static boolean extracting;
 
 	private static final List<AcquisitionEffect> EFFECTS = new ArrayList<>();
+	private static final List<BiomassWisps> WISPS = new ArrayList<>();
 
 	private MorphWorldRenderer() {}
 
@@ -46,7 +49,11 @@ public final class MorphWorldRenderer {
 	 * Only the fade in/out over the real body is translucent.
 	 */
 	private static RenderType skinType(float alpha) {
-		return alpha >= 0.999F ? RenderTypes.entityCutout(MORPH_SKIN) : RenderTypes.entityTranslucent(MORPH_SKIN);
+		return skinType(MORPH_SKIN, alpha);
+	}
+
+	private static RenderType skinType(Identifier skin, float alpha) {
+		return alpha >= 0.999F ? RenderTypes.entityCutout(skin) : RenderTypes.entityTranslucent(skin);
 	}
 
 	// ------------------------------------------------------------------ extraction
@@ -167,21 +174,34 @@ public final class MorphWorldRenderer {
 
 	private static void submitSkin(List<ModelCapture.Box> boxes, double x, double y, double z, PoseStack poseStack, SubmitNodeCollector collector, int light,
 			float alpha, boolean overlayGrow) {
+		submitSkin(boxes, x, y, z, poseStack, collector, light, alpha, overlayGrow, MORPH_SKIN);
+	}
+
+	private static void submitSkin(List<ModelCapture.Box> boxes, double x, double y, double z, PoseStack poseStack, SubmitNodeCollector collector, int light,
+			float alpha, boolean overlayGrow, Identifier skin) {
 		if (boxes.isEmpty() || alpha <= 0F) return;
 		poseStack.pushPose();
 		poseStack.translate(x, y, z);
-		collector.submitCustomGeometry(poseStack, skinType(alpha), (pose, buffer) -> ModelCapture.render(boxes, pose, buffer, light, OverlayTexture.NO_OVERLAY, alpha, overlayGrow));
+		collector.submitCustomGeometry(poseStack, skinType(skin, alpha), (pose, buffer) -> ModelCapture.render(boxes, pose, buffer, light, OverlayTexture.NO_OVERLAY, alpha, overlayGrow));
 		poseStack.popPose();
 	}
 
 	// ------------------------------------------------------------------ acquisition
 
-	public static void startAcquisition(LivingEntity origin, LivingEntity acquired) {
-		if (!ClientConfig.INSTANCE.acquisitionAnimation) {
-			VanillaStyleEffects.acquisition(origin, acquired); // the tendrils switched off: what players without the mod see
-			return;
+	/**
+	 * Someone absorbed a mob: {@code newMorph} for a new morph, false for a kill that only gave biomass (Survival). Each
+	 * plays the style chosen for it in the settings, so the two never look alike unless the player wants them to.
+	 */
+	public static void startAcquisition(LivingEntity origin, LivingEntity acquired, boolean newMorph) {
+		ClientConfig c = ClientConfig.INSTANCE;
+		switch (newMorph ? c.absorbMorph : c.absorbBiomass) {
+			case "TENDRILS" -> EFFECTS.add(new AcquisitionEffect(origin, acquired, false));
+			case "RED_TENDRILS" -> EFFECTS.add(new AcquisitionEffect(origin, acquired, true));
+			case "WISPS" -> WISPS.add(new BiomassWisps(origin, acquired));
+			case "PLAIN" -> VanillaStyleEffects.acquisition(origin, acquired, newMorph); // what players without the mod see
+			default -> {
+			}
 		}
-		EFFECTS.add(new AcquisitionEffect(origin, acquired));
 	}
 
 	public static void tickEffects() {
@@ -190,10 +210,16 @@ public final class MorphWorldRenderer {
 			e.tick();
 			if (e.removed) it.remove();
 		}
+		for (Iterator<BiomassWisps> it = WISPS.iterator(); it.hasNext(); ) {
+			BiomassWisps w = it.next();
+			w.tick();
+			if (w.removed) it.remove();
+		}
 	}
 
 	public static void clearEffects() {
 		EFFECTS.clear();
+		WISPS.clear();
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
@@ -219,12 +245,14 @@ public final class MorphWorldRenderer {
 			if (e.acquiredCapture != null && !e.isAcquiredRemoved()) {
 				float alpha = Math.clamp((e.age + partialTick) / 10F, 0F, 1F);
 				Vec3 at = e.acquired.getPosition(partialTick).subtract(cam);
-				submitSkin(e.acquiredCapture, at.x, at.y, at.z, poseStack, collector, dispatcher.getPackedLightCoords(e.acquired, partialTick), alpha, true);
+				submitSkin(e.acquiredCapture, at.x, at.y, at.z, poseStack, collector, dispatcher.getPackedLightCoords(e.acquired, partialTick), alpha, true,
+						e.red ? MORPH_SKIN_RED : MORPH_SKIN);
 			}
 			Vec3 origin = e.renderPos(partialTick).subtract(cam);
 			poseStack.pushPose();
 			poseStack.translate(origin.x, origin.y, origin.z);
-			collector.submitCustomGeometry(poseStack, skinType(e.firstPersonFade() ? 0F : 1F), (pose, buffer) -> e.render(pose, buffer, light, partialTick));
+			collector.submitCustomGeometry(poseStack, skinType(e.red ? MORPH_SKIN_RED : MORPH_SKIN, e.firstPersonFade() ? 0F : 1F),
+					(pose, buffer) -> e.render(pose, buffer, light, partialTick));
 			poseStack.popPose();
 		}
 	}

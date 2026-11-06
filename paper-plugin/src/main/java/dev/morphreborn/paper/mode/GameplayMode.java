@@ -41,6 +41,16 @@ public interface GameplayMode {
 	/** How many looks of one mob type a collection may hold; -1 for no limit (config.yml's cap still applies). */
 	int variantCapacity(Player player);
 
+	/** Biomass a morph into {@code form} costs this player now; 0 when morphing is free (Classic). */
+	default int morphCost(Player player, MorphRef form) {
+		return 0;
+	}
+
+	/** Take the price of a morph into {@code form}; false when the player can't afford it (nothing is taken). */
+	default boolean payForMorph(Player player, MorphRef form) {
+		return true;
+	}
+
 	/** The player joined, or their client finished its handshake. */
 	default void onJoin(Player player) {}
 

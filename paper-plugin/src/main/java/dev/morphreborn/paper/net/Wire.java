@@ -53,6 +53,11 @@ public final class Wire {
 	 * string value now, value next; varInt cost (-1 when maxed); string missing requirement ("" if none); bool affordable.
 	 */
 	public static final int S_UPGRADES = 10;
+	/**
+	 * Survival morph prices: varInt count, then per morph a string variant id and a varInt biomass cost. An empty list
+	 * means morphing is free. New in 6.1.6; older clients ignore it.
+	 */
+	public static final int S_COSTS = 11;
 
 	public static final int TRAIT_CLIMB = 1;
 	public static final int TRAIT_WEB = 2;

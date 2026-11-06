@@ -49,6 +49,13 @@ public final class SurvivalConfig {
 	public final Map<String, Double> massMultipliers;
 	public final Map<String, Double> massOverrides;
 	public final Set<String> noBiomass;
+	/** Multiplies biomass from kills. */
+	public final double gainMultiplier;
+	/** Morphing costs biomass: mass x morphCostPerKg (rounded up, at least morphCostMinimum), or a fixed price. */
+	public final boolean morphCostEnabled;
+	public final double morphCostPerKg;
+	public final int morphCostMinimum;
+	public final Map<String, Integer> morphPrices;
 	/** In menu order. */
 	public final Map<String, Upgrade> upgrades;
 
@@ -67,6 +74,14 @@ public final class SurvivalConfig {
 		Set<String> none = new HashSet<>();
 		for (String type : c.getStringList("biomass.none")) none.add(VariantRules.normaliseType(type));
 		noBiomass = Set.copyOf(none);
+		gainMultiplier = Math.max(0, c.getDouble("biomass.gain-multiplier", 1.0));
+		morphCostEnabled = c.getBoolean("morph-cost.enabled", true);
+		morphCostPerKg = Math.max(0, c.getDouble("morph-cost.per-kg", 0.01));
+		morphCostMinimum = Math.max(0, c.getInt("morph-cost.minimum", 1));
+		Map<String, Integer> prices = new HashMap<>();
+		ConfigurationSection priceSection = c.getConfigurationSection("morph-cost.prices");
+		if (priceSection != null) for (String k : priceSection.getKeys(false)) prices.put(VariantRules.normaliseType(k), Math.max(0, priceSection.getInt(k)));
+		morphPrices = Map.copyOf(prices);
 
 		Map<String, Upgrade> loaded = new LinkedHashMap<>();
 		ConfigurationSection section = c.getConfigurationSection("upgrades");

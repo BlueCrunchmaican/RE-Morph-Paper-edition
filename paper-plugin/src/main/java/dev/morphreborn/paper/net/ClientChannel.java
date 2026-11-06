@@ -158,6 +158,15 @@ public final class ClientChannel implements PluginMessageListener {
 			}
 		}
 		send(player, out);
+		plugin.survival().sendCosts(player);
+	}
+
+	/** Survival: what each morph in the collection costs, by variant id (empty: morphing is free). */
+	public void sendCosts(Player player, Map<String, Integer> costs) {
+		if (!isModded(player)) return;
+		Wire.Out out = new Wire.Out(Wire.S_COSTS).varInt(costs.size());
+		for (Map.Entry<String, Integer> e : costs.entrySet()) out.string(e.getKey()).varInt(e.getValue());
+		send(player, out);
 	}
 
 	public void sendState(Player viewer, Player subject, ActiveMorph state) {
@@ -183,8 +192,9 @@ public final class ClientChannel implements PluginMessageListener {
 		}
 	}
 
-	public void sendAcquire(Player origin, Entity acquired) {
-		Wire.Out out = new Wire.Out(Wire.S_ACQUIRE).varInt(origin.getEntityId()).varInt(acquired.getEntityId());
+	/** {@code newMorph}: a new morph rather than biomass only. Sent last, so clients that predate it ignore it. */
+	public void sendAcquire(Player origin, Entity acquired, boolean newMorph) {
+		Wire.Out out = new Wire.Out(Wire.S_ACQUIRE).varInt(origin.getEntityId()).varInt(acquired.getEntityId()).bool(newMorph);
 		byte[] bytes = out.bytes();
 		send(origin, bytes);
 		for (Player viewer : acquired.getTrackedBy()) {

@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.1.5** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **6.1.6** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.1.2.)
 
 ## Priority 1: existing functionality
@@ -39,6 +39,16 @@ Open, carried over or found while working:
 - [x] ~~On-screen figure (paper doll)~~: built in 5.2.0, then removed.
 - [x] Paper doll (6.1.5): built on the same render path as the world, so it shows the morph, its
       animations, the transformation, poses and vehicles; its own settings page and toggle key.
+- [x] More paper doll settings (6.1.6): head modes (follow, turn only,
+      look only, straight, looks at you), tilt, true size or fill, level head while gliding or spinning, auto-hide for
+      the music toast, and "show when" triggers (crouching, sprinting, elytra, swimming, riding, blocking, using an
+      item, swinging, damage, fire, powder snow and more, including transforming and using an ability). A soft
+      vignette around the doll (a blurred dark silhouette; a hard outline was tried and looked wrong).
+- [x] Separate looks for a new morph and a biomass-only kill (6.1.6): Black Tendrils (the original), Red Tendrils
+      (dark red tint), Red Wisps, Plain, Off, chosen separately. Defaults: black for a new morph, dark red for biomass
+      (a bright red was tried first and was too strong).
+- [ ] First-person model mods: check every morph looks right through them. Backburner: it needs a lot of
+      testing.
 - [ ] Humanoid morphs don't take the player's swimming or elytra pose (the player renderer turns the body for those;
       mob renderers don't). Sitting in vehicles is copied since 6.1.5.
 - [ ] Optional Mod Menu entry for the settings screen (needs Mod Menu as an optional dependency).
@@ -89,7 +99,8 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 - [ ] Ask iChun? Optional, but the project uses his name and design.
 - [x] GitHub release for 6.1.2 with the jars attached (the repository only holds source).
 - [x] GitHub release for 6.1.4.
-- [ ] GitHub release for 6.1.5.
+- [x] GitHub release for 6.1.5.
+- [ ] GitHub release for 6.1.6.
 - [ ] Split GUIDE.md into a server guide and a client guide.
 - [ ] Mob reference: add columns for "needs the client mod" and special interactions to ABILITIES.md.
 - [ ] Mob spreadsheet: generate `mobs.csv` (and an .xlsx) from abilities.yml with `tools/gen_abilities_doc.py`, so
@@ -119,3 +130,11 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-06 | The hitbox and copied attributes change in one step at the transformation's half-way point, growing only into free space | Easing them every tick desynced client and server movement (corrections, jitter); vanilla never moves a growing player out of blocks |
 | 2026-11-06 | The modded client eases the camera height over the transformation itself | The one-step hitbox change made the camera jump; it should follow the animation |
 | 2026-11-06 | Paper doll drawn from `EntityRenderDispatcher.extractEntity`, the world's own path, into its own off-screen texture | The doll shows exactly what the world shows, with no animation code of its own and no effect on the real entities |
+| 2026-11-06 | Survival: morphing costs biomass, the form's mass x 0.01 (at least 1), with per-mob prices and a gain multiplier, all in `/morph cost` (6.1.6) | Morphing should have a price; scaling by size keeps small morphs cheap and dragons expensive. Abilities stay free |
+| 2026-11-06 | survival.yml is merged on update like config.yml, not replaced (6.1.6) | It now holds admin choices (`/morph cost` saves there) that a replacement would throw away |
+| 2026-11-06 | Morph prices sent to the client in a new packet; the acquire packet gains a "new morph" flag at the end (6.1.6) | Older clients stop reading before the new fields, so protocol 3 stays |
+| 2026-11-06 | Jockeys: the rider steers, the mount's AI is switched off with `Mob#setAware(false)` while ridden | Simplest to use; works without the client mod because steering reads the player's input on the server |
+| 2026-11-06 | Villager trades come from a stand-in villager that is never added to the world, kept per player and look, restocked daily | The game's own trade tables for every profession and level, without copying them into the plugin |
+| 2026-11-06 | Trades are copied through MerchantRecipe's getters, never its copy constructor | Paper's copy constructor reads raw fields, which the server's recipes leave at 0: every copy was sold out |
+| 2026-11-06 | Cobweb scaffolding for spiders is client-side (block collision and climbing mixins) | The top of a web has to be solid only for that player, which the server can't do |
+| 2026-11-06 | The music-toast check uses reflection | A Mixin accessor can't name the private toast class it returns |

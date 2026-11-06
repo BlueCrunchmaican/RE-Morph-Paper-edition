@@ -450,7 +450,8 @@ public final class SelectorHud {
 					}
 					if (j == row.variants.size() - 1) {
 						Collection.Variant selected = row.variants.get(Math.min(indexHori, row.variants.size() - 1));
-						MutableComponent text = typeName(row.entityType).withStyle(isCurrent(selected.ref) ? ChatFormatting.GOLD : ChatFormatting.YELLOW);
+						MutableComponent text = typeName(row.entityType).withStyle(isCurrent(selected.ref) ? ChatFormatting.GOLD : ChatFormatting.YELLOW)
+								.append(price(selected.ref));
 						MutableComponent customName = showTime >= SHOW_SELECTOR_TIME ? customName(selected.ref) : null;
 						double textX = Math.min(posX + size + 5 + colOffset, screenW - font.width(text) - 2);
 						double nameY = top + size - font.lineHeight - 5 + rowOffset;
@@ -471,7 +472,7 @@ public final class SelectorHud {
 				}
 				boolean containsCurrent = false;
 				for (Collection.Variant v : row.variants) containsCurrent |= isCurrent(v.ref);
-				MutableComponent text = typeName(row.entityType).withStyle(containsCurrent ? ChatFormatting.GOLD : ChatFormatting.WHITE);
+				MutableComponent text = typeName(row.entityType).withStyle(containsCurrent ? ChatFormatting.GOLD : ChatFormatting.WHITE).append(price(variant.ref));
 				boolean hasFav = row.hasFavourite();
 				boolean realFav = variant.favourite;
 				overlays.add(() -> {
@@ -625,6 +626,17 @@ public final class SelectorHud {
 		Identifier id = Identifier.tryParse(entityType);
 		EntityType<?> type = id == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(id).orElse(null);
 		return type == null ? Component.translatable("morphreborn.morph.type.unknown") : type.getDescription().copy();
+	}
+
+	/**
+	 * Survival: "  12 biomass" after a morph's name, red when you can afford it and grey when you can't. Nothing when
+	 * morphing is free, or for the form you're already in.
+	 */
+	private Component price(MorphRef ref) {
+		int cost = ClientNet.morphCost(ref.variantId());
+		if (cost <= 0 || isCurrent(ref)) return Component.empty();
+		boolean affordable = cost <= ClientNet.biomass();
+		return Component.literal("  " + cost + " biomass").withStyle(affordable ? ChatFormatting.RED : ChatFormatting.DARK_GRAY);
 	}
 
 	/** Italic custom name (name-tagged mobs, other players' forms), or null. */

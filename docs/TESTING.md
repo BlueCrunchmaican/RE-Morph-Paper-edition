@@ -215,7 +215,41 @@ world, so they match it), the settings page itself and the toggle key.
 The Biomass Menu key is unbound by default since 6.1.5 (it was B), like the Settings and Paper Doll keys; built, not
 checked in game, and neither is the new "Can't morph yet" hint for when it has no key.
 
+## 6.1.6 (2026-11-06)
+
+Local test server (Paper 26.3 build 235), MorphTester1 with the 6.1.6 mod, VanillaViewer without it.
+
+| Check | Result |
+|---|---|
+| Updating a 6.1.4 config.yml and a 6.1.2 survival.yml | Both merged: `trading` and `biomass.gain-multiplier` / `morph-cost` added, values kept, backups written; abilities.yml replaced with a backup |
+| `/morph cost` on, off, rate, minimum, price, formula, gain | Each saved to survival.yml and resent to clients |
+| Selector prices in Survival | Shown after each name ("Allay 1 biomass", "Armadillo 4 biomass"), red when affordable |
+| Pig priced 50 with 31 biomass | Refused: "Not enough biomass: that morph costs 50." |
+| Pig priced 5 | Charged: "-5 biomass (26.9 / 100)", then the pig form |
+| Classic kill of a new mob | Black tendrils and the "New morph acquired" toast |
+| Survival kill of a mob already owned | +21.9 biomass with the dark red tendrils (Red Wisps checked too) |
+| Paper doll settings page | All sections render; Soft vignette on a sheep morph reads as a soft shadow, not an outline |
+| Skeleton morph right-clicks a spider | Mounted ("Press Left Shift to dismount"); W moved it 14 blocks in 3 s the way the rider faced; sneak got off |
+| Baby zombie morph right-clicks a chicken | Mounted, steered about 12 blocks, sneak got off |
+| Right-click a librarian (level 2) villager player | Trade window "Librarian" with 4 trades; 48 paper bought 2 emeralds |
+| Same, with `freeze-trading true` | The villager player's speed and jump were 0 while the window was open, back to normal after |
+| Spider morph in a 3-high cobweb column | Jump climbed to the top (y -57) and stood there; sneak went back down |
+| Phantom morph | Night vision, infinite, no particles |
+
+Found and fixed during the run: every villager trade showed as sold out (Paper's MerchantRecipe copy constructor reads
+fields that the server's recipes leave at 0; trades are now copied through the getters).
+
+Not tested in game: the paper doll's head modes, tilt, Fill the Box, the level-head locks, the music-toast hide and
+each "show when" trigger one by one (only the settings page and the vignette were looked at); jockeys for the other
+riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
+(only the number changed); the daily restock of trades.
+
 ## Still to check live
+
+**New in 6.1.6**
+- [ ] The paper doll's head modes, tilt, and the vignette at different screen sizes.
+- [ ] Morph prices over a real Survival run: are 0.01 per kg and the minimum of 1 fair?
+- [ ] Trading with a villager morph from a Bedrock player, and the restock the next day.
 
 **New in 5.2.0**
 - [ ] A Survival run from the start: getting Wither + Regeneration in a real fortress, the first upgrades.

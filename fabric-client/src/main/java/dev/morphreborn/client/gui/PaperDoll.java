@@ -49,8 +49,15 @@ public final class PaperDoll {
 	/** Models reach past their hitbox (heads, tails, a fox seen from the side): fit a box this much larger. */
 	private static final float FIT_WIDTH = 1.6F, FIT_HEIGHT = 1.2F;
 	private static final float PLAYER_WIDTH = 0.6F, PLAYER_HEIGHT = 1.8F;
-	/** How long the doll stays after the last activity in ACTIVE mode, in milliseconds. */
-	private static final long ACTIVE_LINGER = 1500L;
+	/** "Fill" sizing: extra room above, for ears, horns and antennae that reach past the hitbox. */
+	private static final float FILL_HEIGHT = 1.5F;
+
+	/**
+	 * The situations that show the doll in "While Active" mode, in settings order: the player's own movement and
+	 * actions first, then the morph-specific ones.
+	 */
+	public static final java.util.List<String> TRIGGERS = java.util.List.of("WALKING", "CROUCHING", "SPRINTING", "AIRBORNE", "ELYTRA", "SWIMMING",
+			"FLYING", "CLIMBING", "RIDING", "BLOCKING", "USING_ITEM", "SWINGING", "HURT", "ON_FIRE", "POWDER_SNOW", "SLEEPING", "TRANSFORMING", "ABILITY");
 
 	private static long activeUntil;
 	/** Smoothed zoom, so the doll doesn't jump when the shown body changes size (transformations, vehicles). */
@@ -79,7 +86,7 @@ public final class PaperDoll {
 		float minY = 0F, maxY = 0F, radius = 0F;
 		for (Entity e : scene) {
 			EntityRenderState state = dispatcher.extractEntity(e, partialTick);
-			present(state, c);
+			present(state, c, e == player ? player : null);
 			Vec3 offset = e.getPosition(partialTick).subtract(origin);
 			parts.add(new Part(state, offset));
 			float[] size = e == player ? playerSize(player, partialTick) : new float[] {e.getBbWidth(), e.getBbHeight()};
@@ -91,7 +98,9 @@ public final class PaperDoll {
 		int box = c.dollSize;
 		// One scale for every form, set by a player-sized body, so a rabbit looks small and a baby half its adult size.
 		// Only a scene bigger than that (a ghast, a boat with passengers) zooms out to fit.
-		float fit = box / Math.max(Math.max(radius * 2F, PLAYER_WIDTH) * FIT_WIDTH, Math.max(maxY - minY, PLAYER_HEIGHT) * FIT_HEIGHT);
+		float fit = c.dollScale.equals("FILL")
+				? box / Math.max(0.3F, Math.max(radius * 2F * FIT_WIDTH, (maxY - minY) * FILL_HEIGHT))
+				: box / Math.max(Math.max(radius * 2F, PLAYER_WIDTH) * FIT_WIDTH, Math.max(maxY - minY, PLAYER_HEIGHT) * FIT_HEIGHT);
 		smoothedFit = smoothedFit < 0F ? fit : smoothedFit + (fit - smoothedFit) * 0.2F;
 
 		int screenW = g.guiWidth();
@@ -107,8 +116,13 @@ public final class PaperDoll {
 		int pad = box / 2;
 		int x0 = Math.max(0, x - pad), y0 = Math.max(0, y - pad), x1 = Math.min(screenW, x + box + pad), y1 = Math.min(screenH, y + box + pad);
 		if (x1 <= x0 || y1 <= y0) return;
-		g.guiRenderState.addPicturesInPictureState(new State(parts, centerX, feetY, smoothedFit, yaw, c.dollOpacity / 100F, x0, y0, x1, y1, null,
-				new ScreenRectangle(x0, y0, x1 - x0, y1 - y0)));
+		int outline = switch (c.dollOutline) { // vignette radius in GUI pixels
+			case "THIN" -> 3;
+			case "THICK" -> 6;
+			default -> 0;
+		};
+		g.guiRenderState.addPicturesInPictureState(new State(parts, centerX, feetY, smoothedFit, yaw, c.dollTilt, c.dollOpacity / 100F, outline,
+				c.dollOutlineStrength / 100F, x0, y0, x1, y1, null, new ScreenRectangle(x0, y0, x1 - x0, y1 - y0)));
 	}
 
 	/** Shown at all right now (settings, view, menus, the selector, activity). */
@@ -118,6 +132,7 @@ public final class PaperDoll {
 		if (c.dollHideDebug && mc.getDebugOverlay().showDebugScreen()) return false;
 		if (c.dollHideThirdPerson && !mc.options.getCameraType().isFirstPerson()) return false;
 		if (!c.dollInMenus && mc.gui.screen() != null) return false;
+		if (c.dollHideMusic && musicToastShowing(mc)) return false;
 		if (SelectorHud.INSTANCE.showSelector || SelectorHud.INSTANCE.showRadial) return false; // they share the left side
 		MorphState state = MorphClient.STATES.get(player.getUUID());
 		boolean morphed = state != null && state.isMorphed();
@@ -125,36 +140,111 @@ public final class PaperDoll {
 			case "MORPHED" -> morphed;
 			case "ACTIVE" -> {
 				long now = System.currentTimeMillis();
-				if (active(player, state)) activeUntil = now + ACTIVE_LINGER;
+				if (active(player, state, c.dollShowWhen)) activeUntil = now + c.dollLinger * 100L;
 				yield now < activeUntil;
 			}
 			default -> true;
 		};
 	}
 
-	/** Moving or doing something worth watching yourself do. */
-	private static boolean active(LocalPlayer player, @Nullable MorphState state) {
-		Vec3 motion = player.getDeltaMovement();
-		return (state != null && state.isTransitioning()) || motion.horizontalDistanceSqr() > 1.0E-4 || !player.onGround() || player.isShiftKeyDown()
-				|| player.isSprinting() || player.isSwimming() || player.isFallFlying() || player.isPassenger() || player.isUsingItem() || player.isSwinging()
-				|| player.hurtTime > 0 || player.isOnFire() || player.isSleeping();
+	/** True when one of the chosen situations ({@link #TRIGGERS}) is happening. */
+	private static boolean active(LocalPlayer p, @Nullable MorphState state, java.util.List<String> on) {
+		boolean flying = p.getAbilities().flying;
+		return on.contains("WALKING") && p.onGround() && p.getDeltaMovement().horizontalDistanceSqr() > 1.0E-4
+				|| on.contains("CROUCHING") && p.isCrouching()
+				|| on.contains("SPRINTING") && p.isSprinting()
+				|| on.contains("AIRBORNE") && !p.onGround() && !flying && !p.isFallFlying() && !p.isPassenger() && !p.isInWater() && !p.onClimbable()
+				|| on.contains("ELYTRA") && p.isFallFlying()
+				|| on.contains("SWIMMING") && (p.isSwimming() || p.isVisuallySwimming())
+				|| on.contains("FLYING") && flying
+				|| on.contains("CLIMBING") && p.onClimbable() && !p.onGround()
+				|| on.contains("RIDING") && p.isPassenger()
+				|| on.contains("BLOCKING") && p.isBlocking()
+				|| on.contains("USING_ITEM") && p.isUsingItem()
+				|| on.contains("SWINGING") && p.isSwinging()
+				|| on.contains("HURT") && p.hurtTime > 0
+				|| on.contains("ON_FIRE") && p.isOnFire()
+				|| on.contains("POWDER_SNOW") && p.isInPowderSnow
+				|| on.contains("SLEEPING") && p.isSleeping()
+				|| on.contains("TRANSFORMING") && state != null && state.isTransitioning()
+				|| on.contains("ABILITY") && System.currentTimeMillis() - dev.morphreborn.client.net.ClientNet.lastAbilityAt < 1000L;
 	}
 
-	/** Prepare an extracted state for the doll: no shadow, outline or name, optional full light, optional straight head. */
-	private static void present(EntityRenderState state, ClientConfig c) {
+	/**
+	 * The "now playing" toast is on screen (when the music toast option shows it at all). ToastManager keeps it in a
+	 * private field of a private class, so it's read by name (26.3 isn't obfuscated); if a future version renames
+	 * them, this just stops hiding the doll.
+	 */
+	private static boolean musicToastShowing(Minecraft mc) {
+		if (!mc.options.musicToast().get().renderToast() || MUSIC_TOAST_BROKEN) return false;
+		try {
+			if (musicToastField == null) {
+				musicToastField = net.minecraft.client.gui.components.toasts.ToastManager.class.getDeclaredField("nowPlayingToast");
+				musicToastField.setAccessible(true);
+			}
+			Object toast = musicToastField.get(mc.gui.toastManager());
+			if (toast == null) return false;
+			if (finishedMethod == null) {
+				finishedMethod = toast.getClass().getDeclaredMethod("hasFinishedRendering");
+				finishedMethod.setAccessible(true);
+			}
+			return !(boolean) finishedMethod.invoke(toast);
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			MUSIC_TOAST_BROKEN = true;
+			MorphClient.LOGGER.warn("Can't see the music toast ({}); the paper doll won't step aside for it.", e.toString());
+			return false;
+		}
+	}
+
+	private static java.lang.reflect.@Nullable Field musicToastField;
+	private static java.lang.reflect.@Nullable Method finishedMethod;
+	private static boolean MUSIC_TOAST_BROKEN;
+
+	/**
+	 * Prepare an extracted state for the doll: no shadow, glow or name, optional full light. For the player's own form
+	 * ({@code player} not null), whatever it is, the head settings apply: every morph follows them as the player does.
+	 */
+	private static void present(EntityRenderState state, ClientConfig c, @Nullable LocalPlayer player) {
 		if (state instanceof MorphTransitionRenderState t) {
-			present(t.from, c);
-			present(t.to, c);
+			present(t.from, c, player);
+			present(t.to, c, player);
 		}
 		state.shadowPieces.clear();
 		state.outlineColor = 0;
 		state.nameTag = null;
 		state.scoreText = null;
 		if (c.dollLight.equals("BRIGHT")) state.lightCoords = FULL_BRIGHT;
-		if (state instanceof LivingEntityRenderState living && c.dollHead.equals("FORWARD")) {
-			living.yRot = 0F;
-			living.xRot = 0F;
+		if (player != null && state instanceof LivingEntityRenderState living) head(living, c, player);
+	}
+
+	/**
+	 * Head modes. A render state's yRot is the head's turn away from the
+	 * body and xRot its look up or down.
+	 * <ul>
+	 *   <li>FOLLOW: turns and looks as yours does.</li>
+	 *   <li>TURN: turns, but keeps level.</li>
+	 *   <li>LOOK: faces forward, looks up and down.</li>
+	 *   <li>FORWARD: straight ahead, level.</li>
+	 *   <li>AT_VIEWER: looks out of the screen at you, whatever the doll's turn and tilt.</li>
+	 * </ul>
+	 * Gliding with an elytra or spinning with a riptide trident can keep the head level (the lock settings).
+	 */
+	private static void head(LivingEntityRenderState living, ClientConfig c, LocalPlayer player) {
+		switch (c.dollHead) {
+			case "TURN" -> living.xRot = 0F;
+			case "LOOK" -> living.yRot = 0F;
+			case "FORWARD" -> {
+				living.yRot = 0F;
+				living.xRot = 0F;
+			}
+			case "AT_VIEWER" -> {
+				living.yRot = c.dollAngle;
+				living.xRot = -c.dollTilt;
+			}
+			default -> {
+			}
 		}
+		if ((player.isFallFlying() && c.dollLockElytra) || (player.isAutoSpinAttack() && c.dollLockSpin)) living.xRot = 0F;
 	}
 
 	/**
@@ -189,7 +279,8 @@ public final class PaperDoll {
 	/** One entity of the scene and where it is relative to the root (the player, or the vehicle they ride). */
 	public record Part(EntityRenderState state, Vec3 offset) {}
 
-	public record State(List<Part> parts, float centerX, float feetY, float pixelsPerBlock, float yaw, float opacity, int x0, int y0, int x1, int y1,
+	public record State(List<Part> parts, float centerX, float feetY, float pixelsPerBlock, float yaw, float tilt, float opacity, int outline,
+			float outlineStrength, int x0, int y0, int x1, int y1,
 			@Nullable ScreenRectangle scissorArea, @Nullable ScreenRectangle bounds) implements PictureInPictureRenderState {
 		@Override
 		public float scale() {
@@ -199,8 +290,6 @@ public final class PaperDoll {
 
 	/** Draws the doll's scene into its own off-screen texture (one per frame, apart from the selector's previews). */
 	public static final class Renderer extends PictureInPictureRenderer<State> {
-		/** The selector's view: tilted 10 degrees and flipped into GUI space (see MorphGuiEntities). */
-		private static final Quaternionf VIEW = new Quaternionf().rotateX((float) Math.toRadians(10F)).rotateZ((float) Math.PI);
 
 		@Override
 		public Class<State> getRenderStateClass() {
@@ -221,7 +310,8 @@ public final class PaperDoll {
 			poseStack.pushPose();
 			poseStack.translate(state.centerX() - state.x0() - halfWidth, state.feetY() - state.y0(), 0F);
 			poseStack.scale(state.pixelsPerBlock(), state.pixelsPerBlock(), state.pixelsPerBlock());
-			poseStack.rotate(VIEW);
+			// Seen from above by the tilt and flipped into GUI space, as the selector's previews (see MorphGuiEntities).
+			poseStack.rotate(new Quaternionf().rotateX((float) Math.toRadians(state.tilt())).rotateZ((float) Math.PI));
 			// Turn the whole scene so its root faces the viewer at the chosen angle; every entity keeps its own rotation.
 			poseStack.rotate(Axis.YP.rotationDegrees(state.yaw()));
 			for (Part part : state.parts()) {
@@ -230,20 +320,46 @@ public final class PaperDoll {
 			poseStack.popPose();
 		}
 
-		/** As vanilla's blit, with the colour scaled by the opacity (the texture's colours are premultiplied by alpha). */
+		/** Directions the vignette is spread in. */
+		private static final int VIGNETTE_ANGLES = 12;
+		/** Rings of the vignette between the body's edge and its radius. */
+		private static final int VIGNETTE_RINGS = 6;
+
+		/**
+		 * Vanilla's blit, plus the vignette and opacity. The vignette is a soft dark haze around the doll: its silhouette
+		 * drawn many times underneath, faint and black, at fractional offsets in rings out to the chosen radius, so the
+		 * darkness builds up next to the body and fades out smoothly away from it. (The texture's colours are
+		 * premultiplied by alpha, so a black colour keeps only the shape.)
+		 */
 		@Override
 		protected void blitTexture(State state, net.minecraft.client.renderer.state.gui.GuiRenderState guiRenderState) {
-			if (state.opacity() >= 1F) {
-				super.blitTexture(state, guiRenderState);
-				return;
+			float opacity = Math.clamp(state.opacity(), 0F, 1F);
+			int radius = state.outline();
+			if (radius > 0) {
+				int samples = VIGNETTE_ANGLES * VIGNETTE_RINGS;
+				// Next to the body about half the samples overlap; give each the share that adds up to the strength there.
+				float strength = Math.clamp(state.outlineStrength(), 0F, 0.98F) * opacity;
+				float each = 1F - (float) Math.pow(1F - strength, 1.0 / (samples * 0.5));
+				int black = Math.round(each * 255F) << 24;
+				for (int ring = 1; ring <= VIGNETTE_RINGS; ring++) {
+					float distance = radius * ring / (float) VIGNETTE_RINGS;
+					for (int i = 0; i < VIGNETTE_ANGLES; i++) {
+						double angle = Math.PI * 2 * (i + (ring % 2) * 0.5) / VIGNETTE_ANGLES;
+						blit(state, guiRenderState, (float) (Math.cos(angle) * distance), (float) (Math.sin(angle) * distance), black);
+					}
+				}
 			}
-			int a = Math.round(Math.clamp(state.opacity(), 0F, 1F) * 255F);
-			int color = a << 24 | a << 16 | a << 8 | a;
+			int a = Math.round(opacity * 255F);
+			blit(state, guiRenderState, 0F, 0F, a << 24 | a << 16 | a << 8 | a);
+		}
+
+		private void blit(State state, net.minecraft.client.renderer.state.gui.GuiRenderState guiRenderState, float dx, float dy, int color) {
+			org.joml.Matrix3x2f pose = new org.joml.Matrix3x2f(state.pose()).translate(dx, dy);
 			guiRenderState.addBlitToCurrentLayer(new net.minecraft.client.renderer.state.gui.BlitRenderState(
 					net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA,
 					net.minecraft.client.gui.render.TextureSetup.singleTexture(((dev.morphreborn.client.mixin.PictureInPictureRendererAccessor) (Object) this).morph$textureView(),
-							com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getRepeat(com.mojang.renderpearl.api.textures.FilterMode.NEAREST)),
-					state.pose(), state.x0(), state.y0(), state.x1(), state.y1(), 0.0F, 1.0F, 1.0F, 0.0F, color, state.scissorArea(), null));
+							com.mojang.blaze3d.systems.RenderSystem.getSamplerCache().getRepeat(com.mojang.renderpearl.api.textures.FilterMode.LINEAR)),
+					pose, state.x0(), state.y0(), state.x1(), state.y1(), 0.0F, 1.0F, 1.0F, 0.0F, color, state.scissorArea(), null));
 		}
 
 		@Override

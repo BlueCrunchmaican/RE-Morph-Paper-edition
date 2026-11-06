@@ -7,7 +7,7 @@
 # The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
 # replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
 # changes you made.
-config-version: 6.1.2
+config-version: 6.1.6
 
 enabled: true
 
@@ -56,6 +56,7 @@ passive:
   # Constant effects while morphed: type -> [effect:amplifier]
   effects:
     bat: [night_vision:0]
+    phantom: [night_vision:0]
     # Fish see clearly underwater.
     cod: [night_vision:0]
     salmon: [night_vision:0]
@@ -147,7 +148,7 @@ passive:
   # Seconds out of water before you dry out and start taking damage. The air bar shows the time left.
   dry-out:
     axolotl: 300
-    dolphin: 120
+    dolphin: 240
     nautilus: 15
   # These count rain as water for drying out.
   rain-keeps-wet: [axolotl, dolphin]
@@ -510,3 +511,13 @@ targeting:
     dolphin: []
     bee: []
     goat: []
+
+# Jockeys, as in vanilla: right-click a mount to ride it, steer it with your movement keys, jump to jump, sneak to get
+# off. A spider you push into a wall climbs it; a chicken glides down. The mount's own mind is switched off while you
+# ride. Mount -> the morphs that can ride it; "baby " in front means only that mob's baby form. Needs morphreborn.ability
+# (and, in Survival, the Morph Abilities upgrade).
+jockeys:
+  spider: [skeleton, stray, wither_skeleton, bogged, parched]
+  cave_spider: [skeleton, stray, wither_skeleton, bogged, parched]
+  chicken: [baby zombie, baby husk, baby drowned, baby zombie_villager, baby zombified_piglin, baby piglin]
+  hoglin: [baby piglin]

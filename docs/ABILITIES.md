@@ -29,7 +29,7 @@ step height), see `attributes` in `config.yml`.
 | cow | Can be milked | - |
 | creaking | Can't move while watched; strength, resistance | - |
 | creeper | Swells before exploding | Explode (with fuse) |
-| dolphin | Fast swimmer; speed; Dries out after 120s out of water; Holds breath 240s; Aura: dolphins grace | Dash |
+| dolphin | Fast swimmer; speed; Dries out after 240s out of water; Holds breath 240s; Aura: dolphins grace | Dash |
 | donkey | Charged jump (hold sneak, then jump) | - |
 | drowned | Water breathing; Fast swimmer; Burns in daylight; Undead (Healing hurts, Harming heals); immune: poison, regeneration; Makes flee: villager, wandering trader | Throw trident |
 | elder guardian | Water breathing; Fast swimmer; Aura: mining fatigue | Guardian beam |
@@ -59,7 +59,7 @@ step height), see `attributes` in `config.yml`.
 | panda | - | Roll |
 | parched | Water breathing; Undead (Healing hurts, Harming heals); hit: weakness; immune: poison, regeneration | Shoot arrow |
 | parrot | Flight; No fall damage | Mimic sounds |
-| phantom | Flight; No fall damage; Water breathing; Burns in daylight; Undead (Healing hurts, Harming heals); immune: poison, regeneration | Swoop |
+| phantom | Flight; No fall damage; Water breathing; Burns in daylight; Undead (Healing hurts, Harming heals); night vision; immune: poison, regeneration | Swoop |
 | pig | - | - |
 | piglin | - | Shoot arrow |
 | piglin brute | strength | - |

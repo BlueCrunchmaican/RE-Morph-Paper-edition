@@ -85,6 +85,9 @@ public final class PluginSettings {
 	public final boolean endermanPickupAny;
 	/** A bee morph dies a while after it stings, like a real bee. */
 	public final boolean beeStingKillsUser;
+	/** Villager morphs can be traded with (config.yml trading). */
+	public final boolean tradingVillagers;
+	public final boolean tradingFreeze;
 	/** No morph gets less max health than this, and these types get exactly this max health. */
 	public final double minMaxHealth;
 	public final Map<String, Double> healthOverrides;
@@ -119,6 +122,8 @@ public final class PluginSettings {
 		creeperExplosionKillsUser = c.getBoolean("world-effects.creeper-explosion-kills-user", true);
 		endermanPickupAny = "any".equalsIgnoreCase(c.getString("world-effects.enderman-pickup", "vanilla").trim());
 		beeStingKillsUser = c.getBoolean("world-effects.bee-sting-kills-user", true);
+		tradingVillagers = c.getBoolean("trading.villagers", true);
+		tradingFreeze = c.getBoolean("trading.freeze-villager", false);
 		minMaxHealth = Math.max(1, c.getDouble("attributes.min-max-health", 4));
 		healthOverrides = new HashMap<>();
 		ConfigurationSection overrides = c.getConfigurationSection("attributes.health-overrides");

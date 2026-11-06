@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 6.1.4
+config-version: 6.1.6
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
@@ -138,6 +138,14 @@ selector:
   enabled: true
   # Players without the client mod can use /morph to pick morphs.
   allow-commands-for-vanilla: true
+
+trading:
+  # Players can trade with a player morphed as a villager, as with a real villager: its profession and level decide
+  # the trades, each has limited uses and they restock every Minecraft day, and what the buyer pays is used up.
+  # In game: /morph setting villager-trading true|false
+  villagers: true
+  # Hold the villager player in place while someone trades with them. In game: /morph setting freeze-trading true|false
+  freeze-villager: false
 
 client:
   # Message shown to players whose client mod speaks an older protocol.

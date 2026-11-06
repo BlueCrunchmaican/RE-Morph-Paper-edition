@@ -114,6 +114,10 @@ public final class MorphManager {
 			ch.sendResult(player, ClientChannel.RESULT_OK, "");
 			return;
 		}
+		if (!plugin.mode().payForMorph(player, ref)) {
+			refuse(player, ClientChannel.RESULT_DENIED, "Not enough biomass: that morph costs " + plugin.mode().morphCost(player, ref) + ".");
+			return;
+		}
 		morphTo(player, ref, false);
 		ch.sendResult(player, ClientChannel.RESULT_OK, "");
 	}
@@ -214,10 +218,13 @@ public final class MorphManager {
 		return unlock(killer, appearance);
 	}
 
-	/** The acquisition animation: tendrils for modded viewers, particle trails for everyone else. */
-	public void playAcquisition(Player killer, LivingEntity victim) {
-		plugin.channel().sendAcquire(killer, victim);
-		plugin.effects().acquisition(killer, victim);
+	/**
+	 * The acquisition animation: tendrils for modded viewers, particle trails for everyone else. {@code newMorph} tells
+	 * a new morph from a kill that only gave biomass (Survival), so each looks different.
+	 */
+	public void playAcquisition(Player killer, LivingEntity victim, boolean newMorph) {
+		plugin.channel().sendAcquire(killer, victim, newMorph);
+		plugin.effects().acquisition(killer, victim, newMorph);
 	}
 
 	/** Add a variant to the collection and tell the client. Returns the stored ref, or null if already owned. */
