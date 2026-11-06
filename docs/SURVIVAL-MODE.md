@@ -20,7 +20,7 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
      says why.
    - Biomass is stored up to Biomass Capacity.
 4. **Upgrades.** Biomass buys upgrades. With the client mod, the Biomass button in the middle of the favourites wheel
-   (or B, or `/morph upgrades`) opens an upgrade tree laid out like the advancement screen: each upgrade a framed
+   (or `/morph upgrades`, or the Biomass Menu key once bound) opens an upgrade tree laid out like the advancement screen: each upgrade a framed
    status effect icon linked to the upgrade it grows from, details on hover, click to buy, a red glow on what you can
    afford. Without the mod, `/morph upgrades` opens a chest menu. The first goal is the
    **Morph Ability**.

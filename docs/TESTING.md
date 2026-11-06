@@ -212,6 +212,9 @@ ceiling) for 9 seconds. Distance covered:
 Not tested in game: walking/sneaking/swimming/sleeping poses on the doll (they come from the same render state as the
 world, so they match it), the settings page itself and the toggle key.
 
+The Biomass Menu key is unbound by default since 6.1.5 (it was B), like the Settings and Paper Doll keys; built, not
+checked in game, and neither is the new "Can't morph yet" hint for when it has no key.
+
 ## Still to check live
 
 **New in 5.2.0**
