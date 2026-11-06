@@ -1,0 +1,20 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.morphreborn.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "EntityMixin",
+    "EntityRenderDispatcherMixin",
+    "IllusionerAccessor",
+    "LevelExtractorMixin",
+    "LivingEntityMixin",
+    "LivingEntityRendererInvoker",
+    "ModelPartAccessor",
+    "MouseHandlerMixin",
+    "PowderSnowBlockMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

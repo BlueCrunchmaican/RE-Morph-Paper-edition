@@ -1,0 +1,56 @@
+# RE:Morph - which entity data makes two mobs different morphs.
+#
+# When a player unlocks a mob, its save data is filtered down to the keys listed here; mobs whose filtered
+# data differs become separate, independently selectable variants (white vs black sheep, villager professions,
+# cat/wolf/frog variants, baby vs adult, ...). This is the same idea as the original Morph mod's
+# mobsupport/nbt files, adapted to Minecraft 26.3 save keys.
+#
+# Keys not listed are thrown away (health, inventory, AI state, ...), so they never split variants.
+# Babies are normalised automatically from Age/IsBaby (see morphs.allow-baby-morphs in config.yml).
+
+# The RE:Morph release this file comes from; don't change it. When a newer release ships a newer variants.yml, it
+# replaces this one on startup and keeps yours next to it (named like variants-old-5.0.0.yml), so copy back any
+# changes you made.
+config-version: 5.0.0
+
+# Keys kept for every entity type that has them. New mobs from future updates that save their look under
+# one of these common names get variant support with no config change.
+global-keys:
+  - variant          # cat, wolf, frog, pig, cow, chicken, ... (registry variants)
+  - Variant          # horse, llama, parrot, axolotl, tropical fish
+  - Type             # fox, mooshroom
+  - type             # salmon size
+  - Color            # sheep wool, shulker
+  - color
+  - Sheared          # sheep
+  - sheared          # bogged
+  - Size             # slime, magma cube
+  - size             # phantom
+  - powered          # charged creeper
+  - PuffState        # pufferfish
+  - RabbitType
+  - MainGene         # panda (normalised to the visible gene)
+  - HiddenGene
+  - VillagerData     # villager / zombie villager: biome type, profession, level
+  - Pumpkin          # snow golem
+  - HasLeftHorn      # goat
+  - HasRightHorn
+  - ChestedHorse     # donkey, mule, llama with a chest
+  - weather_state    # copper golem oxidation
+  - Age              # only used to detect babies
+  - IsBaby
+
+# Keep custom names (name-tagged mobs become their own variant and show the name in the selector).
+keep-custom-names: true
+
+# Per-type adjustments. "keep" adds keys for that type, "drop" removes global keys for it.
+types:
+  # the block a sulfur cube swallowed decides what it is (explosive, bouncy, sticky, ...)
+  minecraft:sulfur_cube:
+    keep: [equipment]
+  minecraft:villager:
+    keep: []
+  minecraft:tadpole:
+    drop: [Age]
+  minecraft:wither:
+    keep: []

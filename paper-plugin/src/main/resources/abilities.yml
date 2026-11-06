@@ -1,0 +1,512 @@
+# RE:Morph - mob abilities.
+# Passive traits come from the original Morph mod's mob data; active abilities are triggered with the
+# "Morph ability" key in the Fabric mod (default R) or, for unmodded players, the trigger below.
+# Every ability needs the permission morphreborn.ability (default: everyone). Set a section's types to []
+# to disable it. Entity types may omit "minecraft:".
+
+# The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
+# replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
+# changes you made.
+config-version: 6.1.2
+
+enabled: true
+
+activation:
+  # How players WITHOUT the client mod trigger an active ability: swap-hand (F), sneak-swap-hand (Sneak+F), none.
+  vanilla-trigger: sneak-swap-hand
+  # Show the cooldown in the action bar.
+  cooldown-message: true
+
+passive:
+  # Survival flight like the original FlyAbility (creative-style flying, no fall damage on landing).
+  flight:
+    types: [bat, ghast, happy_ghast, blaze, phantom, vex, allay, bee, parrot, ender_dragon, wither]
+    fly-speed: 0.05
+    # The original 1.7 mod only allowed flight after the player had been to the Nether once.
+    require-nether-visit: false
+  # Chicken-style flapping: you fall slowly.
+  slow-fall: [chicken]
+  # No fall damage.
+  # Vanilla's fall_damage_immune tag, plus slimes (which never take fall damage) and the long jumpers below (vanilla
+  # frogs and goats shrug off falls from their own jumps).
+  fall-immunity: [cat, ocelot, chicken, iron_golem, copper_golem, snow_golem, magma_cube, slime, sulfur_cube, frog, goat, shulker, breeze,
+    allay, bat, bee, blaze, ghast, happy_ghast, parrot, phantom, wither]
+  # Immune to fire and lava, like the original traitImmunityFire.
+  # Exactly the mobs Minecraft 26.3 marks fireImmune().
+  fire-immunity: [blaze, ender_dragon, ghast, magma_cube, shulker, strider, vex, warden, wither, wither_skeleton, zoglin, zombified_piglin]
+  # Breathe underwater (traitWaterBreather).
+  # Vanilla's can_breathe_under_water tag: water mobs plus every undead mob.
+  water-breathing: [squid, glow_squid, cod, salmon, pufferfish, tropical_fish, guardian, elder_guardian, axolotl, turtle, frog, tadpole,
+    nautilus, copper_golem,
+    zombie, husk, drowned, zombie_villager, zombified_piglin, zoglin, zombie_horse, camel_husk, zombie_nautilus,
+    skeleton, stray, wither_skeleton, bogged, parched, skeleton_horse, wither, phantom]
+  # Swim fast (traitSwimmer): Dolphin's Grace while in water.
+  swim-boost: [dolphin, cod, salmon, tropical_fish, pufferfish, squid, glow_squid, guardian, elder_guardian, axolotl, turtle, nautilus, zombie_nautilus, polar_bear, drowned]
+  # Fish and squid can only breathe in water: on land you slowly suffocate (the original "swim" trait's downside).
+  water-only-breathing: [cod, salmon, tropical_fish, pufferfish, squid, glow_squid, tadpole]
+  # Heavy mobs sink in water instead of swimming (traitSink).
+  sink: [slime, magma_cube, iron_golem]
+  # Climb walls by walking into them (abilityClimb). Sneak to hold position.
+  climb: [spider, cave_spider]
+  # Burn in daylight without a helmet (traitSunburn).
+  # Vanilla's burn_in_daylight tag (wither skeletons are on it too, but they are fire immune).
+  sunburn: [zombie, skeleton, stray, bogged, phantom, drowned, zombie_villager, zombie_horse, zombie_nautilus, wither_skeleton]
+  # Water and rain hurt you (traitWaterSensitivity).
+  water-damage: [blaze, enderman, snow_golem, strider]
+  # Constant effects while morphed: type -> [effect:amplifier]
+  effects:
+    bat: [night_vision:0]
+    # Fish see clearly underwater.
+    cod: [night_vision:0]
+    salmon: [night_vision:0]
+    tropical_fish: [night_vision:0]
+    pufferfish: [night_vision:0]
+    rabbit: [jump_boost:1]
+    horse: [speed:1]
+    ocelot: [speed:1]
+    cat: [night_vision:0]
+    fox: [night_vision:0]
+    glow_squid: [night_vision:0]
+    piglin_brute: [strength:1]
+    vindicator: [strength:0]
+    giant: [strength:2, slowness:1]
+    creaking: [strength:0, resistance:1]
+    warden: [strength:2, resistance:1]
+    hoglin: [strength:0]
+    zoglin: [strength:0]
+    skeleton_horse: [speed:1]
+    zombie_horse: [speed:0]
+    camel_husk: [jump_boost:0]
+    sulfur_cube: [jump_boost:1]
+    endermite: [speed:1]
+    silverfish: [speed:1]
+    villager: [hero_of_the_village:0]
+    camel: [jump_boost:0]
+    slime: [jump_boost:1]
+    magma_cube: [jump_boost:2]
+    frog: [jump_boost:1]
+    breeze: [jump_boost:1]
+    polar_bear: [strength:0]
+    iron_golem: [resistance:1, slowness:0]
+    ravager: [resistance:0]
+    goat: [jump_boost:1]
+    dolphin: [speed:0]
+  # Long jump: jump while sneaking to leap the way the mob does (vanilla long jumps leave at 65-80 degrees; look up
+  # for the steeper, higher arc). velocity is the launch speed in blocks per tick: 1.0 peaks 5-6 blocks up,
+  # 1.25 about 7-9, 1.5 (the most a vanilla frog or goat can use) 10-12.
+  leap:
+    frog: { velocity: 1.0, cooldown-seconds: 1, sound: minecraft:entity.frog.long_jump }
+    goat: { velocity: 1.25, cooldown-seconds: 2, sound: minecraft:entity.goat.long_jump }
+    breeze: { velocity: 1.4, cooldown-seconds: 1, sound: minecraft:entity.breeze.jump }
+    # Foxes pounce on prey with a short high hop.
+    fox: { velocity: 0.75, cooldown-seconds: 1, sound: minecraft:entity.fox.aggro }
+    # Wolves, cats and ocelots pounce the same way.
+    wolf: { velocity: 0.75, cooldown-seconds: 1, sound: minecraft:entity.wolf.growl }
+    cat: { velocity: 0.75, cooldown-seconds: 1, sound: minecraft:entity.cat.hiss }
+    ocelot: { velocity: 0.75, cooldown-seconds: 1, sound: minecraft:entity.ocelot.hurt }
+    # Slimes and magma cubes bounce; magma cubes go higher.
+    slime: { velocity: 0.9, cooldown-seconds: 1, sound: minecraft:entity.slime.jump }
+    magma_cube: { velocity: 1.1, cooldown-seconds: 1, sound: minecraft:entity.magma_cube.jump }
+    # Horses charge their jump like a ridden horse: the longer you hold sneak before jumping (up to a second), the
+    # higher it goes, from min-velocity up to velocity.
+    horse: { velocity: 1.35, min-velocity: 0.6, charged: true, cooldown-seconds: 1, sound: minecraft:entity.horse.jump }
+    donkey: { velocity: 1.15, min-velocity: 0.6, charged: true, cooldown-seconds: 1, sound: minecraft:entity.horse.jump }
+    mule: { velocity: 1.15, min-velocity: 0.6, charged: true, cooldown-seconds: 1, sound: minecraft:entity.horse.jump }
+    skeleton_horse: { velocity: 1.35, min-velocity: 0.6, charged: true, cooldown-seconds: 1, sound: minecraft:entity.horse.jump }
+    zombie_horse: { velocity: 1.25, min-velocity: 0.6, charged: true, cooldown-seconds: 1, sound: minecraft:entity.horse.jump }
+  # Powder snow doesn't freeze you (vanilla freeze_immune_entity_types).
+  freeze-immunity: [stray, polar_bear, snow_golem, wither]
+  # Projectiles bounce back off you (vanilla deflects_projectiles).
+  deflect-projectiles: [breeze]
+  # Projectiles never hit you: you teleport out of the way, like a real enderman.
+  teleport-from-projectiles: [enderman]
+  # Vanilla's #undead: Healing potions hurt you and Harming heals you.
+  undead: [zombie, husk, drowned, zombie_villager, zombified_piglin, zoglin, zombie_horse, camel_husk, zombie_nautilus,
+    skeleton, stray, wither_skeleton, bogged, parched, skeleton_horse, wither, phantom]
+  # Move through cobwebs at full speed (spiders), through sweet berry bushes (foxes), and walk on top of powder snow
+  # (vanilla powder_snow_walkable_mobs). Without the client mod the server stops the slowdown and the freezing, but
+  # the player's own game still slows them a little.
+  web-walk: [spider, cave_spider]
+  berry-walk: [fox]
+  powder-snow-walk: [rabbit, endermite, silverfish, fox]
+  # Stand on top of lava like a strider (client mod; without it you float up through the lava instead).
+  lava-stand: [strider]
+  # Can't move while any player is looking at you, like a creaking.
+  freeze-when-watched: [creaking]
+  # Teleport away when you step into water, like an enderman.
+  teleport-out-of-water: [enderman]
+  # Snowballs do 3 damage to you, as they do to blazes.
+  hurt-by-snowballs: [blaze]
+  # Share of magic damage you shrug off (witches take 85% less).
+  magic-resistance:
+    witch: 0.85
+  # Walking speed on land as a share of a player's; sprinting doesn't go faster. Turtles plod on land (vanilla's own
+  # pace is 0.6) and their leg animation flails at full player speed. In water they swim normally.
+  land-speed:
+    turtle: 0.6
+  # Seconds out of water before you dry out and start taking damage. The air bar shows the time left.
+  dry-out:
+    axolotl: 300
+    dolphin: 120
+    nautilus: 15
+  # These count rain as water for drying out.
+  rain-keeps-wet: [axolotl, dolphin]
+  # Seconds you can stay underwater before drowning (a player gets 15).
+  breath-hold:
+    dolphin: 240
+  # Effects you can never receive while morphed (traitEffectResistance). Undead ignore poison and regeneration
+  # (vanilla ignores_poison_and_regen).
+  effect-immunity:
+    wither_skeleton: [wither, poison, regeneration]
+    wither: [wither, poison, regeneration]
+    spider: [poison]
+    cave_spider: [poison]
+    zombie: [poison, regeneration]
+    husk: [poison, regeneration]
+    drowned: [poison, regeneration]
+    zombie_villager: [poison, regeneration]
+    zombified_piglin: [poison, regeneration]
+    zoglin: [poison, regeneration]
+    zombie_horse: [poison, regeneration]
+    camel_husk: [poison, regeneration]
+    zombie_nautilus: [poison, regeneration]
+    skeleton: [poison, regeneration]
+    stray: [poison, regeneration]
+    bogged: [poison, regeneration]
+    parched: [poison, regeneration]
+    skeleton_horse: [poison, regeneration]
+    phantom: [poison, regeneration]
+  # Original rule: attack effects only apply when punching with an empty hand.
+  attack-effects-unarmed-only: false
+  # Effects your melee hits apply: type -> [effect:amplifier:seconds] (abilityEffectAttack)
+  attack-effects:
+    cave_spider: [poison:0:7]
+    wither_skeleton: [wither:0:10]
+    husk: [hunger:0:7]
+    stray: [slowness:0:5]
+    bogged: [poison:0:4]
+    parched: [weakness:0:5]
+    zombie_villager: [hunger:0:4]
+  # Mobs that hit you in melee get these: type -> [effect:amplifier:seconds]
+  retaliate-effects:
+    pufferfish: [poison:0:6]
+  # While morphed into a hostile mob, hostile mobs leave you alone until you attack them (traitHostile).
+  hostile-camouflage: true
+  # These morphs scare the listed mobs away from targeting you (traitIntimidate).
+  intimidate:
+    cat: [creeper, phantom]
+    ocelot: [creeper, phantom]
+    wolf: [skeleton, stray, bogged]
+  # Mobs that actively run away from these morphs (the original "fear" trait: villagers flee zombies, etc.).
+  fear:
+    zombie: [villager, wandering_trader]
+    husk: [villager, wandering_trader]
+    drowned: [villager, wandering_trader]
+    zombie_villager: [villager, wandering_trader]
+    vindicator: [villager, wandering_trader]
+    pillager: [villager, wandering_trader]
+    evoker: [villager, wandering_trader]
+    illusioner: [villager, wandering_trader]
+    ravager: [villager, wandering_trader]
+    vex: [villager, wandering_trader]
+    wolf: [skeleton, stray, bogged, rabbit, sheep, fox]
+    cat: [creeper, phantom, rabbit, chicken]
+    ocelot: [creeper, phantom, chicken]
+    fox: [chicken, rabbit]
+    polar_bear: [fox]
+  # Other players can milk these morphs with a bucket (mooshroom: stew with a bowl).
+  milkable: [cow, goat, mooshroom]
+  # Snow golems leave a trail of snow in cold places.
+  snow-trail: [snow_golem]
+  # Snow golems melt in hot biomes (they take damage where it is too warm to snow).
+  heat-sensitive: [snow_golem]
+  # Float up through lava like a strider instead of sinking into it.
+  lava-walk: [strider]
+  # Walk through sweet berry bushes without taking damage.
+  berry-bush-immunity: [fox, bee]
+  # Periodic effect on nearby players: type -> {effect, amplifier, seconds, radius, every-seconds}
+  # in-water: only while you are in water. targets-in-water: only players who are swimming. Players in creative or
+  # spectator are never affected.
+  auras:
+    elder_guardian: {effect: mining_fatigue, amplifier: 2, seconds: 30, radius: 50, every-seconds: 60, in-water: true}
+    warden: {effect: darkness, amplifier: 0, seconds: 12, radius: 20, every-seconds: 10}
+    # Dolphins speed up players swimming with them.
+    dolphin: {effect: dolphins_grace, amplifier: 0, seconds: 5, radius: 10, every-seconds: 2, in-water: true, targets-in-water: true}
+
+active:
+  explode:
+    types: [creeper, sulfur_cube]
+    cooldown-seconds: 8
+    power: 3.0
+    # A creeper morph struck by lightning is charged, like a real creeper: the blue aura shows for everyone and its
+    # next explosion is this many times as big (vanilla: 2). The charge is spent by exploding, dying or changing form.
+    charged-multiplier: 2.0
+    # Whether the blast breaks blocks, and whether you die in it, are in config.yml (world-effects).
+    set-fire: false
+  teleport:
+    types: [enderman]
+    cooldown-seconds: 4
+    range: 32
+  large-fireball:
+    types: [ghast]
+    cooldown-seconds: 5
+    yield: 1.0
+  small-fireball:
+    types: [blaze]
+    cooldown-seconds: 2
+  wither-skull:
+    types: [wither]
+    cooldown-seconds: 3
+  dragon-fireball:
+    types: [ender_dragon]
+    cooldown-seconds: 5
+  snowball:
+    types: [snow_golem]
+    cooldown-seconds: 0.5
+  llama-spit:
+    types: [llama, trader_llama]
+    cooldown-seconds: 2
+  evoker-fangs:
+    types: [evoker]
+    cooldown-seconds: 6
+  sonic-boom:
+    types: [warden]
+    cooldown-seconds: 10
+    damage: 10.0
+    range: 16
+  shulker-bullet:
+    types: [shulker]
+    cooldown-seconds: 4
+  wind-charge:
+    types: [breeze]
+    cooldown-seconds: 1.5
+  arrow:
+    types: [skeleton, stray, bogged, parched, pillager, piglin]
+    cooldown-seconds: 1.5
+    # Tipped arrows like the real mobs shoot: type -> effect:amplifier:seconds
+    tipped:
+      stray: slowness:0:30
+      bogged: poison:0:4
+      parched: weakness:0:30
+  trident:
+    types: [drowned]
+    cooldown-seconds: 3
+  ram:
+    types: [goat, ravager, hoglin, zoglin]
+    cooldown-seconds: 5
+    strength: 1.6
+  # Right-click a block with an empty hand to pick it up; right-click again to put it down.
+  # The carried block is shown in the enderman's hands to everyone. "Morph ability" key still teleports.
+  enderman-carry:
+    types: [enderman]
+    # Which blocks can be picked up is world-effects.enderman-pickup in config.yml.
+  # Hiss and swell like a real creeper, then explode (uses the explode settings above).
+  creeper-fuse-ticks: 30
+  # A sulfur cube only explodes if the block it swallowed is explosive (vanilla), after a TNT-length fuse.
+  sulfur-cube-fuse-ticks: 120
+  # Throw or drink the potion shown in the action bar. Change it with sneak + ability key (client mod) or F without
+  # sneaking (no mod). "throw:" splashes it at what you look at, "drink:" drinks it, like a real witch does.
+  witch-potions:
+    types: [witch]
+    cooldown-seconds: 3
+    potions: [throw:harming, throw:poison, throw:slowness, throw:weakness, drink:healing, drink:fire_resistance, drink:water_breathing, drink:swiftness]
+  toss:
+    types: [iron_golem]
+    cooldown-seconds: 2
+    damage: 7.0
+  # The beam locks on and charges, and only hits if the target stays in sight the whole time.
+  guardian-beam:
+    types: [guardian, elder_guardian]
+    cooldown-seconds: 4
+    charge-seconds: 2
+    damage: 6.0
+    elder-damage: 8.0
+    range: 16
+  lay-egg:
+    types: [chicken]
+    cooldown-seconds: 30
+  # Eat grass to fill up; a sheared sheep's wool grows back. Other players can shear a sheep morph with shears.
+  graze:
+    types: [sheep]
+    cooldown-seconds: 4
+  web:
+    types: [spider, cave_spider]
+    cooldown-seconds: 5
+    range: 16
+    # seconds before the web disappears again (0 = permanent)
+    duration: 30
+  # Camels dash on land; dolphins and nautiluses dash only through water.
+  dash:
+    types: [camel, camel_husk, dolphin, nautilus, zombie_nautilus]
+    water-only: [dolphin, nautilus, zombie_nautilus]
+    cooldown-seconds: 3
+    strength: 1.4
+  # Rabbit: a long hop forward (strength: forward speed, lift: upward speed), with the rabbit's hop animation.
+  hop:
+    types: [rabbit]
+    cooldown-seconds: 3
+    strength: 1.4
+    lift: 0.35
+  # Bat: hang upside down from the underside of a block above you (within reach blocks of your head), like a resting
+  # bat. Press the ability key again, press a movement key or jump, or get hurt to let go: you go back to flying or
+  # standing, whichever you were doing. The block's underside must be a full face.
+  perch:
+    types: [bat]
+    cooldown-seconds: 0.5
+    reach: 2.5
+  ink:
+    types: [squid, glow_squid]
+    cooldown-seconds: 8
+    radius: 5
+  # Wandering traders drink an invisibility potion.
+  vanish:
+    types: [wandering_trader]
+    cooldown-seconds: 15
+    seconds: 5
+  # Illusioner spells: look at a creature to blind it, or at nothing to vanish behind mirror images.
+  illusion:
+    types: [illusioner]
+    cooldown-seconds: 6
+    range: 16
+    blindness-seconds: 20
+    invisible-seconds: 5
+  # Frog tongue: eat a small slime (slimeball) or small magma cube (froglight matching the frog's variant);
+  # anything else small gets lashed and pulled in.
+  tongue:
+    types: [frog]
+    cooldown-seconds: 2
+    range: 5
+  # Sniff out ancient seeds from grass, dirt or moss underfoot.
+  sniff:
+    types: [sniffer]
+    cooldown-seconds: 60
+  # Curl into a ball: heavy damage resistance but almost no movement.
+  roll-up:
+    types: [armadillo]
+    cooldown-seconds: 10
+    seconds: 6
+  # Puff up and poison everything close by.
+  puff:
+    types: [pufferfish]
+    cooldown-seconds: 6
+    radius: 3
+  # Imitate a random hostile mob's sound.
+  mimic:
+    types: [parrot]
+    cooldown-seconds: 3
+  # Pull nearby dropped items to you.
+  magnet:
+    types: [allay]
+    cooldown-seconds: 2
+    radius: 8
+  # Copper golem: look at a copper chest to carry a stack out of it into a nearby chest (one that already holds that
+  # item if there is one).
+  sort:
+    types: [copper_golem]
+    cooldown-seconds: 1
+    range: 4
+    radius: 8
+  # Play dead: regenerate while mobs lose track of you.
+  play-dead:
+    types: [axolotl]
+    cooldown-seconds: 30
+    seconds: 8
+  # Sting what is in front of you (poison). A bee only has one sting: afterwards it dies, like a real bee
+  # (world-effects.bee-sting-kills-user in config.yml).
+  sting:
+    types: [bee]
+    cooldown-seconds: 1
+    range: 3
+    damage: 2.0
+    poison-seconds: 10
+    dies-after-seconds: 60
+  # Lay turtle eggs on sand.
+  turtle-eggs:
+    types: [turtle]
+    cooldown-seconds: 120
+  # Rear up and roar: whatever is in front of you is shoved back.
+  rear-up:
+    types: [polar_bear]
+    cooldown-seconds: 4
+  # Hide a silverfish in the stone you look at (it becomes infested).
+  infest:
+    types: [silverfish]
+    cooldown-seconds: 5
+    range: 4
+  # Roll forward like a panda.
+  roll:
+    types: [panda]
+    cooldown-seconds: 3
+    strength: 0.7
+  # Dive along where you are looking (phantom swoop, vex charge).
+  swoop:
+    types: [phantom, vex]
+    cooldown-seconds: 3
+    strength: 1.8
+
+# Who attacks whom. While morphed, a mob only targets (and only damages) you if it would attack the mob you
+# look like in vanilla, or if you attacked it first. Disguised as a zombie, slimes and creepers ignore you;
+# disguised as a cow, nothing hostile cares; disguised as a rabbit, wolves and foxes come for you.
+targeting:
+  enabled: true
+  # Mobs listed here that are normally peaceful/neutral (golems, wolves, axolotls, ...) actively hunt you when you
+  # look like their prey.
+  predators-hunt-morphs: true
+  # Mobs that attack every morph (and are not fooled by any disguise).
+  always-hostile: [zoglin, wither, warden, ender_dragon]
+  # Player-shaped morphs are attacked like players.
+  # mob -> mob types it naturally attacks. Mobs not listed keep vanilla behaviour towards morphed players.
+  attacks:
+    zombie: [villager, wandering_trader, iron_golem, snow_golem, turtle, copper_golem]
+    husk: [villager, wandering_trader, iron_golem, snow_golem, turtle, copper_golem]
+    drowned: [villager, wandering_trader, iron_golem, snow_golem, turtle, axolotl, copper_golem]
+    zombie_villager: [villager, wandering_trader, iron_golem, snow_golem, turtle]
+    skeleton: [iron_golem, snow_golem, turtle]
+    stray: [iron_golem, snow_golem, turtle]
+    bogged: [iron_golem, snow_golem, turtle]
+    parched: [iron_golem, snow_golem, turtle]
+    wither_skeleton: [iron_golem, snow_golem, piglin, piglin_brute]
+    spider: [iron_golem, snow_golem]
+    cave_spider: [iron_golem, snow_golem]
+    slime: [iron_golem, snow_golem]
+    magma_cube: [iron_golem, snow_golem]
+    sulfur_cube: [iron_golem, snow_golem]
+    creeper: []
+    enderman: [endermite]
+    endermite: []
+    silverfish: []
+    blaze: [iron_golem, snow_golem]
+    ghast: [iron_golem, snow_golem]
+    phantom: []
+    shulker: []
+    breeze: [iron_golem, snow_golem]
+    guardian: [squid, glow_squid, axolotl]
+    elder_guardian: [squid, glow_squid, axolotl]
+    pillager: [villager, wandering_trader, iron_golem, snow_golem]
+    vindicator: [villager, wandering_trader, iron_golem, snow_golem]
+    evoker: [villager, wandering_trader, iron_golem, snow_golem]
+    illusioner: [villager, wandering_trader, iron_golem, snow_golem]
+    ravager: [villager, wandering_trader, iron_golem, snow_golem]
+    vex: [villager, wandering_trader, iron_golem, snow_golem]
+    witch: []
+    piglin: [wither_skeleton, wither]
+    piglin_brute: [wither_skeleton, wither]
+    hoglin: []
+    creaking: []
+    giant: [villager, iron_golem]
+    zombified_piglin: []
+    # neutral/peaceful predators (they hunt you when predators-hunt-morphs is on)
+    iron_golem: [zombie, husk, drowned, zombie_villager, skeleton, stray, bogged, parched, wither_skeleton, spider, cave_spider, slime, magma_cube, sulfur_cube, enderman, endermite, silverfish, blaze, ghast, phantom, shulker, breeze, guardian, elder_guardian, pillager, vindicator, evoker, illusioner, ravager, vex, witch, piglin, piglin_brute, hoglin, zoglin, zombified_piglin, giant, wither, creaking, warden]
+    snow_golem: [zombie, husk, drowned, zombie_villager, skeleton, stray, bogged, parched, wither_skeleton, spider, cave_spider, slime, magma_cube, sulfur_cube, blaze, ghast, phantom, shulker, breeze, pillager, vindicator, evoker, illusioner, ravager, vex, witch, hoglin, zoglin, giant]
+    wolf: [skeleton, stray, bogged, parched, wither_skeleton, rabbit, sheep, fox, llama, trader_llama]
+    fox: [chicken, rabbit, cod, salmon, tropical_fish, turtle]
+    cat: [rabbit, chicken, turtle]
+    ocelot: [chicken, turtle]
+    axolotl: [cod, salmon, tropical_fish, pufferfish, squid, glow_squid, tadpole, drowned, guardian, elder_guardian]
+    frog: [slime, magma_cube, sulfur_cube]
+    polar_bear: [fox]
+    llama: [wolf]
+    trader_llama: [wolf]
+    dolphin: []
+    bee: []
+    goat: []

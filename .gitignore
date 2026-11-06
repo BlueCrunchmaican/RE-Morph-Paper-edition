@@ -1,0 +1,17 @@
+# Mojang-decompiled sources and third-party binaries are reference material only; never commit them.
+reference/mc-26.3-src/
+reference/supplied-jars/
+reference/src/
+paper-plugin/libs/
+test-server/
+**/build/
+**/.gradle/
+fabric-client/run/
+fabric-client/run-*/
+*.log
+release/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+*.iml

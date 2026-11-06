@@ -1,0 +1,57 @@
+plugins {
+	id 'java'
+}
+
+group = 'dev.morphreborn'
+version = '6.1.2'
+
+repositories {
+	mavenCentral()
+	maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+	maven { url = 'https://repo.codemc.io/repository/maven-releases/' }
+}
+
+dependencies {
+	compileOnly "io.papermc.paper:paper-api:26.3.build.235-stable"
+	// Lib's Disguises is a server-side dependency the admin installs; it is never shaded into our jar.
+	compileOnly files('libs/LibsDisguises-26.10.24-Free.jar')
+	// Only needed so javac can read Lib's Disguises' signatures; both are provided at runtime by Lib's Disguises.
+	compileOnly "com.github.retrooper:packetevents-spigot:2.14.0"
+	compileOnly "org.jetbrains:annotations:26.0.2"
+
+	testImplementation "io.papermc.paper:paper-api:26.3.build.235-stable"
+	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.release = 25
+	options.encoding = 'UTF-8'
+}
+
+// Lib's Disguises isn't in the repository (we don't redistribute it), so a fresh clone needs it added by hand.
+tasks.named('compileJava') {
+	def libsDisguises = file('libs/LibsDisguises-26.10.24-Free.jar')
+	doFirst {
+		if (!libsDisguises.exists()) {
+			throw new GradleException("Missing ${libsDisguises}. Download Lib's Disguises 26.10.24 (Free) and put it there; see docs/BUILDING.md.")
+		}
+	}
+}
+
+processResources {
+	inputs.property 'version', project.version
+	filesMatching('plugin.yml') {
+		expand 'version': project.version
+	}
+}
+
+test {
+	useJUnitPlatform()
+}
+
+jar {
+	archiveBaseName = 'RE-Morph-paper'
+	from('../LICENSE') { rename { 'LICENSE_RE-Morph' } }
+	from('../NOTICE.md')
+}

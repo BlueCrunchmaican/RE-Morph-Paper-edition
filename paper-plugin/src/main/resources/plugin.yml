@@ -1,0 +1,29 @@
+name: RE-Morph
+version: '${version}'
+main: dev.morphreborn.paper.MorphRebornPlugin
+api-version: '26.3'
+description: The original Morph mod experience on Paper. Pair with the RE:Morph Fabric client mod.
+authors: [RE:Morph contributors]
+contributors: [iChun (original Morph mod, LGPL-3.0)]
+website: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
+depend: [LibsDisguises]
+# Called MorphReborn before 6.1.2; this stops the old jar and this one loading side by side.
+provides: [MorphReborn]
+commands:
+  morph:
+    description: Pick, list and manage morphs.
+    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id>
+    aliases: [remorph, morphreborn]
+permissions:
+  morphreborn.use:
+    description: Morph into unlocked forms.
+    default: true
+  morphreborn.acquire:
+    description: Unlock morphs by killing mobs and players.
+    default: true
+  morphreborn.ability:
+    description: Use morph abilities and traits.
+    default: true
+  morphreborn.admin:
+    description: Grant, revoke, reset and force morphs; reload the plugin.
+    default: op

@@ -1,0 +1,72 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+loom {
+	accessWidenerPath = file("src/main/resources/morphreborn.accesswidener")
+	runs {
+		// Dev clients for the multiplayer tests; each joins the local test server (test-server/, port 25599) directly.
+		client {
+			programArgs "--username", "MorphTester1", "--quickPlayMultiplayer", "localhost:25599"
+			vmArgs "-Xmx2G"
+		}
+		client2 {
+			client()
+			name = "Client 2"
+			programArgs "--username", "MorphTester2", "--quickPlayMultiplayer", "localhost:25599"
+			vmArgs "-Xmx2G"
+			runDir "run-client2"
+		}
+		// Stand-in for an unmodded player: the mod is switched off, so the server treats this client as vanilla.
+		vanilla {
+			client()
+			name = "Vanilla viewer"
+			programArgs "--username", "VanillaViewer", "--quickPlayMultiplayer", "localhost:25599"
+			vmArgs "-Xmx2G", "-Dmorphreborn.disable=true"
+			runDir "run-vanilla"
+		}
+	}
+}
+
+processResources {
+	inputs.property "version", project.version
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = "UTF-8"
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+}
+
+jar {
+	from("../LICENSE") {
+		rename { "LICENSE_${project.archives_base_name}" }
+	}
+	from("../NOTICE.md")
+}
