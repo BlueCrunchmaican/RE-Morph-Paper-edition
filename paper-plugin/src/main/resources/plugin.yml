@@ -12,7 +12,7 @@ provides: [MorphReborn]
 commands:
   morph:
     description: Pick, list and manage morphs.
-    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id>
+    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id> | mode [classic|survival]
     aliases: [remorph, morphreborn]
 permissions:
   morphreborn.use:
@@ -25,5 +25,5 @@ permissions:
     description: Use morph abilities and traits.
     default: true
   morphreborn.admin:
-    description: Grant, revoke, reset and force morphs; reload the plugin.
+    description: Grant, revoke, reset and force morphs; switch the gameplay mode; reload the plugin.
     default: op

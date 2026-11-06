@@ -7,8 +7,8 @@
 - Two **Fabric 26.3** clients with the mod (Fabric Loader 0.20.1, Fabric API 0.165.0+26.3), run side by side so
   each could watch the other.
 - Admin commands sent from the server console over RCON.
-- Unit tests: `paper-plugin` → `gradlew test`, **17 of 17 pass** (variant filter, config versions, Survival
-  upgrade curves).
+- Unit tests: `paper-plugin` → `gradlew test`, **20 of 20 pass** (variant filter, config versions, config.yml
+  upgrades, Survival upgrade curves).
 
 ## Checked and working
 
@@ -148,6 +148,33 @@ Server side only, over RCON; the client's changes are names and text.
 
 The saved-data keys (`morphreborn:morph_scale` and the others) were built from the plugin's name; they're now fixed
 strings, so they're the same as before the rename.
+
+### config.yml upgrades (6.1.4, 2026-11-05)
+
+On the local test server; the merge rules also have unit tests (`ConfigMergeTest`).
+
+| Check | Result |
+|---|---|
+| The first release's config.yml with an admin's edits (40-tick transitions, an extra disabled mob, max health without a cap, `debug: true`, a note of their own) | Added `gameplay-mode`, `bee-sting-kills-user`, `min-max-health` and `health-overrides` in their places with their comments, and the console named them. Every edited value kept; the max-health entry wasn't given its default cap back. Backup `config-old-pre-6.1.4.yml` holds the old file and the note. Started with 40-tick transitions |
+| The test server's 6.1.2 config.yml, scrambled by earlier `/morph setting` saves | Put back in the release's order with its comments; no new settings, values unchanged |
+| Restart with an up-to-date config.yml | Nothing written, no backup |
+| `/morph reload` with an old config.yml | Same upgrade as on startup |
+| A config.yml with a YAML error | Error logged, file left byte-for-byte as it was, no backup |
+| Long messages | Stay on one line (Paper wraps at 80 characters unless told otherwise; `/morph setting` saves fixed the same way) |
+
+### /morph mode (6.1.4, 2026-11-05)
+
+Local test server; MorphTester1 (with the mod) and VanillaViewer (without) online in survival game mode.
+
+| Check | Result |
+|---|---|
+| `/morph mode`, `/morph mode survival` twice, `/morph mode bogus` | Shows the mode; switches and saves `gameplay-mode: survival`; "Already in survival mode."; "The mode can be classic or survival." |
+| Hand-edit `gameplay-mode` and `/morph reload` | Switched without a restart |
+| Classic → Survival, MorphTester1 an allay with no Survival progress | Turned back to their own body, flight off; their client got the new mode (a second hello in its log) |
+| Classic → Survival, VanillaViewer an allay with the Morph Ability but not Morph Flight | Stayed an allay, flight off (gliding) |
+| Survival → Classic | VanillaViewer's flight back; MorphTester1 could morph again |
+| Collections and progress across both switches | Unchanged (103 and 7 variants) |
+| 6.1.3-numbered config.yml (an unreleased build) | Updated to 6.1.4 on startup, no new settings |
 
 ## Still to check live
 

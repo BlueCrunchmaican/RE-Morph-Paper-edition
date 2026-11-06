@@ -1,12 +1,18 @@
 # RE:Morph - server configuration
-# Every option is read on startup and on /morph reload (except gameplay-mode).
+# Every option is read on startup and on /morph reload.
+
+# The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
+# this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
+# old file stays next to it (named like config-old-6.1.4.yml).
+config-version: 6.1.4
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
 #           the same time), absorb creatures' biomass and spend it on upgrades, including the ability to morph.
 #           Settings in survival.yml.
-# Takes effect on restart. Switching never deletes anything: collections and Survival progress are kept in both
-# modes. Switching to survival keeps collections but locks them until the player buys the Morph Ability.
+# Change it in game with /morph mode classic|survival (takes effect at once and is saved here), or edit it here and
+# run /morph reload. Switching never deletes anything: collections and Survival progress are kept in both modes.
+# Switching to survival keeps collections but locks them until the player buys the Morph Ability.
 gameplay-mode: classic
 
 morphs:
@@ -19,7 +25,7 @@ morphs:
   required-kills-per-type: {}
   # Entity types that can never be morphed into. Supports * wildcards, e.g. "somemod:*".
   disabled-types:
-    - minecraft:armor_stand
+  - minecraft:armor_stand
   # Whether baby mobs are unlocked as separate baby variants. If false, babies unlock the adult form.
   allow-baby-morphs: true
   # Allow killing a player to unlock their form.
@@ -101,14 +107,26 @@ attributes:
   # "more" with a cap means the player gets min(mob value, cap); "less" means max(mob value, cap).
   enabled: true
   list:
-    minecraft:max_health: { direction: more, cap: 20 }
-    minecraft:knockback_resistance: { direction: more }
-    minecraft:movement_speed: { direction: more, cap: 0.1 }
-    minecraft:attack_damage: { direction: more }
-    minecraft:attack_knockback: { direction: more }
-    minecraft:armor: { direction: more }
-    minecraft:step_height: { direction: more, cap: 1.0 }
-    minecraft:jump_strength: { direction: more, cap: 0.7 }
+    minecraft:max_health:
+      direction: more
+      cap: 20
+    minecraft:knockback_resistance:
+      direction: more
+    minecraft:movement_speed:
+      direction: more
+      cap: 0.1
+    minecraft:attack_damage:
+      direction: more
+    minecraft:attack_knockback:
+      direction: more
+    minecraft:armor:
+      direction: more
+    minecraft:step_height:
+      direction: more
+      cap: 1.0
+    minecraft:jump_strength:
+      direction: more
+      cap: 0.7
   # No morph gets less max health than this (small slimes and magma cubes have half a heart in vanilla).
   min-max-health: 4
   # Exact max health for these morphs. The creaking has 1 health in vanilla but can't be hurt while its heart lives.

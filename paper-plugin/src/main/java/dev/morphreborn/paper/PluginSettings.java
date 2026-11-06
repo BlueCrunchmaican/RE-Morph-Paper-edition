@@ -92,7 +92,7 @@ public final class PluginSettings {
 	public final String outdatedMessage;
 	public final boolean unlockChatMessage;
 	public final boolean debug;
-	/** "classic" or "survival" (config.yml gameplay-mode). Only read at startup; switching needs a restart. */
+	/** "classic" or "survival" (config.yml gameplay-mode). Applied at startup, on /morph reload and by /morph mode. */
 	public final String gameplayMode;
 
 	PluginSettings(FileConfiguration c) {

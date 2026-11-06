@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.1.2** (2026-11-05). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **6.1.4** (2026-11-05). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.1.2.)
 
 ## Priority 1: existing functionality
@@ -83,7 +83,8 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 - [x] Build guide: [BUILDING.md](BUILDING.md), including the Lib's Disguises jar a fresh clone needs.
 - [x] `git ls-files` review: nothing from `reference/`, `test-server/` or `release/`; no personal paths.
 - [ ] Ask iChun? Optional, but the project uses his name and design.
-- [ ] GitHub release for 6.1.2 with the jars attached (the repository only holds source).
+- [x] GitHub release for 6.1.2 with the jars attached (the repository only holds source).
+- [ ] GitHub release for 6.1.4.
 - [ ] Split GUIDE.md into a server guide and a client guide.
 - [ ] Mob reference: add columns for "needs the client mod" and special interactions to ABILITIES.md.
 - [ ] Mob spreadsheet: generate `mobs.csv` (and an .xlsx) from abilities.yml with `tools/gen_abilities_doc.py`, so
@@ -108,3 +109,5 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-05 | Client protocol 3 | The mode, biomass and can-morph status reach the client for the selector and the bar |
 | 2026-11-05 | Renamed to RE:Morph; plugin `RE-Morph`, jars `RE-Morph-paper` / `RE-Morph-fabric` | The name for the public release. The plugin moves `plugins/MorphReborn` to `plugins/RE-Morph` on first start |
 | 2026-11-05 | Kept the internal ids (`dev.morphreborn`, mod id, channel, permissions, saved-data keys) | Changing them would break live servers' permissions, saved attribute modifiers and older clients |
+| 2026-11-05 | config.yml is updated on startup when its `config-version` is older: new settings merged in, every value kept, old file backed up (6.1.4) | Settings added after a server's first install (gameplay-mode among them) never reached its config.yml; config files should follow new releases |
+| 2026-11-05 | `/morph mode classic\|survival` switches live, saves to config.yml; /morph reload applies a hand-edited mode (6.1.4) | Admins needed an in-game command; every rule already asks `plugin.mode()`, so only online players need bringing in line |

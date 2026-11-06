@@ -29,8 +29,8 @@ Nobody is kicked for not having the mod.
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, an
   advancement-style upgrade tree, a biomass bar, and a settings screen (`/morphclient`).
 - **Admin control:** the gameplay mode, every ability, cooldowns and limits are in the plugin's config files. A newer
-  release replaces outdated ability, variant and Survival files by itself and keeps a backup; `config.yml` is never
-  overwritten.
+  release updates the config files by itself and keeps a backup: new settings appear in `config.yml` with their
+  defaults, and every value you set stays.
 
 ## Requirements
 
@@ -41,7 +41,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.1.2 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.1.4 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 

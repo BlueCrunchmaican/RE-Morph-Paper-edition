@@ -99,16 +99,7 @@ public final class ClientChannel implements PluginMessageListener {
 		int protocol = in.varInt();
 		String modVersion = in.hasMore() ? in.string(64) : "?";
 		boolean accepted = protocol == Wire.PROTOCOL_VERSION;
-		send(player, new Wire.Out(Wire.S_HELLO)
-				.varInt(Wire.PROTOCOL_VERSION)
-				.bool(accepted)
-				.string(accepted ? "" : plugin.settings().outdatedMessage)
-				.varInt(plugin.settings().transitionTicks)
-				.bool(plugin.settings().allowDelete)
-				.bool(plugin.settings().selectorEnabled)
-				.bool(plugin.abilities().anyActive())
-				.string(plugin.settings().nameTagMode.name())
-				.string(plugin.mode().id()));
+		send(player, hello(accepted));
 		if (!accepted) {
 			plugin.getLogger().info(player.getName() + " has RE:Morph client protocol " + protocol + " (server speaks " + Wire.PROTOCOL_VERSION
 					+ "); treating them as a vanilla client.");
@@ -124,6 +115,24 @@ public final class ClientChannel implements PluginMessageListener {
 		fullSync(player);
 		sendTraits(player, plugin.abilities().clientTraits(player));
 		plugin.survival().sync(player);
+	}
+
+	private Wire.Out hello(boolean accepted) {
+		return new Wire.Out(Wire.S_HELLO)
+				.varInt(Wire.PROTOCOL_VERSION)
+				.bool(accepted)
+				.string(accepted ? "" : plugin.settings().outdatedMessage)
+				.varInt(plugin.settings().transitionTicks)
+				.bool(plugin.settings().allowDelete)
+				.bool(plugin.settings().selectorEnabled)
+				.bool(plugin.abilities().anyActive())
+				.string(plugin.settings().nameTagMode.name())
+				.string(plugin.mode().id());
+	}
+
+	/** Send the server settings again (the gameplay mode changed). The client takes a repeated hello as an update. */
+	public void resendHello(Player player) {
+		if (isModded(player)) send(player, hello(true));
 	}
 
 	/** Collection plus the morph state of everyone in the player's world. */

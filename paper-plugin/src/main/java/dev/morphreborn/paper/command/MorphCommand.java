@@ -32,7 +32,7 @@ import org.jspecify.annotations.Nullable;
 /** /morph: player selection for unmodded clients plus admin management. */
 public final class MorphCommand implements TabExecutor {
 	private static final List<String> PLAYER_SUBS = List.of("list", "use", "off", "ability", "fav", "upgrades", "upgrade", "biomass");
-	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "info", "clients", "carry", "setting", "reload", "survival");
+	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "info", "clients", "carry", "setting", "reload", "survival", "mode");
 	private static final List<String> SURVIVAL_ACTIONS = List.of("info", "unlock", "lock", "give", "take", "set", "level", "buy", "reset");
 
 	private final MorphRebornPlugin plugin;
@@ -78,6 +78,7 @@ public final class MorphCommand implements TabExecutor {
 				case "clients" -> clients(sender);
 				case "carry" -> carry(sender, args);
 				case "setting" -> setting(sender, args);
+				case "mode" -> mode(sender, args);
 				case "reload" -> {
 					plugin.reloadEverything();
 					sender.sendMessage(Component.text("RE:Morph reloaded.", NamedTextColor.GREEN));
@@ -97,10 +98,32 @@ public final class MorphCommand implements TabExecutor {
 		if (sender.hasPermission("morphreborn.admin")) {
 			sender.sendMessage(Component.text("/" + label + " grant <player> <type> [snbt] | revoke <player> <type|id|all> | reset <player>", NamedTextColor.GRAY));
 			sender.sendMessage(Component.text("/" + label + " force <player> <type|id|off> [snbt] | info <player> | clients | reload", NamedTextColor.GRAY));
-			sender.sendMessage(Component.text("/" + label + " carry <player> <block|none> | setting [name] [value]", NamedTextColor.GRAY));
+			sender.sendMessage(Component.text("/" + label + " carry <player> <block|none> | setting [name] [value] | mode [classic|survival]", NamedTextColor.GRAY));
 			sender.sendMessage(Component.text("/" + label + " survival <player> info | unlock | lock | give|take|set <biomass> | level <upgrade> <n> | buy <upgrade> | reset",
 					NamedTextColor.GRAY));
 		}
+	}
+
+	/** /morph mode [classic|survival]: show or switch the gameplay mode, live, and save it to config.yml. */
+	private void mode(CommandSender sender, String[] args) {
+		String current = plugin.mode().id();
+		if (args.length < 2) {
+			sender.sendMessage(Component.text("Gameplay mode: " + current + ". Switch with /morph mode classic|survival.", NamedTextColor.GOLD));
+			return;
+		}
+		String wanted = args[1].toLowerCase(Locale.ROOT);
+		if (wanted.equals("default")) wanted = "survival";
+		if (!wanted.equals("classic") && !wanted.equals("survival")) throw new IllegalArgumentException("The mode can be classic or survival.");
+		if (!plugin.switchMode(wanted, true)) {
+			sender.sendMessage(Component.text("Already in " + current + " mode.", NamedTextColor.GRAY));
+			return;
+		}
+		sender.sendMessage(Component.text("Switched to " + wanted + " mode and saved it to config.yml. Collections and Survival progress are kept.",
+				NamedTextColor.GREEN));
+		Component notice = Component.text(wanted.equals("survival")
+				? "The server switched to Survival Mode: morphing is now earned with biomass. /morph upgrades shows your progress."
+				: "The server switched to Classic Mode: kill a creature to unlock it as a morph.", NamedTextColor.GOLD);
+		for (Player p : Bukkit.getOnlinePlayers()) if (p != sender) p.sendMessage(notice);
 	}
 
 	private @Nullable Player self(CommandSender sender) {
@@ -408,6 +431,7 @@ public final class MorphCommand implements TabExecutor {
 		String value = args[2].toLowerCase(Locale.ROOT);
 		if (!allowed.contains(value)) throw new IllegalArgumentException(name + " can be " + String.join(", ", allowed) + ".");
 		plugin.getConfig().set("world-effects." + name, allowed.contains("true") ? Boolean.parseBoolean(value) : value);
+		if (plugin.getConfig() instanceof org.bukkit.configuration.file.YamlConfiguration yaml) yaml.options().width(1000); // no wrapped lines
 		plugin.saveConfig();
 		plugin.reloadSettings();
 		sender.sendMessage(Component.text(name + " set to " + value + ".", NamedTextColor.GREEN));
@@ -451,6 +475,9 @@ public final class MorphCommand implements TabExecutor {
 		if (args.length == 2 && sub.equals("upgrade")) return filter(List.copyOf(plugin.survival().config().upgrades.keySet()), args[1]);
 		if (args.length == 2 && List.of("grant", "revoke", "reset", "force", "info", "list", "carry", "ability", "biomass").contains(sub)) {
 			return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
+		}
+		if (sub.equals("mode") && sender.hasPermission("morphreborn.admin")) {
+			return args.length == 2 ? filter(List.of("classic", "survival"), args[1]) : List.of();
 		}
 		if (sub.equals("setting") && sender.hasPermission("morphreborn.admin")) {
 			if (args.length == 2) return filter(List.copyOf(SETTINGS.keySet()), args[1]);
