@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.1.4** (2026-11-05). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **6.1.5** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.1.2.)
 
 ## Priority 1: existing functionality
@@ -37,6 +37,10 @@ Open, carried over or found while working:
 
 - [x] Separate Absorbing and Transforming settings (Morph / Plain), local to the player, in a `/morphclient` screen.
 - [x] ~~On-screen figure (paper doll)~~: built in 5.2.0, then removed.
+- [x] Paper doll (6.1.5): built on the same render path as the world, so it shows the morph, its
+      animations, the transformation, poses and vehicles; its own settings page and toggle key.
+- [ ] Humanoid morphs don't take the player's swimming or elytra pose (the player renderer turns the body for those;
+      mob renderers don't). Sitting in vehicles is copied since 6.1.5.
 - [ ] Optional Mod Menu entry for the settings screen (needs Mod Menu as an optional dependency).
 - [ ] The Plain transformation always uses the shrink/grow version. If an admin turns `vanilla-transition` off,
       unmodded players see an instant swap instead. The server could tell clients that setting in the handshake.
@@ -84,7 +88,8 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 - [x] `git ls-files` review: nothing from `reference/`, `test-server/` or `release/`; no personal paths.
 - [ ] Ask iChun? Optional, but the project uses his name and design.
 - [x] GitHub release for 6.1.2 with the jars attached (the repository only holds source).
-- [ ] GitHub release for 6.1.4.
+- [x] GitHub release for 6.1.4.
+- [ ] GitHub release for 6.1.5.
 - [ ] Split GUIDE.md into a server guide and a client guide.
 - [ ] Mob reference: add columns for "needs the client mod" and special interactions to ABILITIES.md.
 - [ ] Mob spreadsheet: generate `mobs.csv` (and an .xlsx) from abilities.yml with `tools/gen_abilities_doc.py`, so
@@ -111,3 +116,6 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-05 | Kept the internal ids (`dev.morphreborn`, mod id, channel, permissions, saved-data keys) | Changing them would break live servers' permissions, saved attribute modifiers and older clients |
 | 2026-11-05 | config.yml is updated on startup when its `config-version` is older: new settings merged in, every value kept, old file backed up (6.1.4) | Settings added after a server's first install (gameplay-mode among them) never reached its config.yml; config files should follow new releases |
 | 2026-11-05 | `/morph mode classic\|survival` switches live, saves to config.yml; /morph reload applies a hand-edited mode (6.1.4) | Admins needed an in-game command; every rule already asks `plugin.mode()`, so only online players need bringing in line |
+| 2026-11-06 | The hitbox and copied attributes change in one step at the transformation's half-way point, growing only into free space | Easing them every tick desynced client and server movement (corrections, jitter); vanilla never moves a growing player out of blocks |
+| 2026-11-06 | The modded client eases the camera height over the transformation itself | The one-step hitbox change made the camera jump; it should follow the animation |
+| 2026-11-06 | Paper doll drawn from `EntityRenderDispatcher.extractEntity`, the world's own path, into its own off-screen texture | The doll shows exactly what the world shows, with no animation code of its own and no effect on the real entities |

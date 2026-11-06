@@ -143,6 +143,8 @@ public final class MorphSync {
 		}
 		if (morphState instanceof HumanoidRenderState humanoid && playerState instanceof HumanoidRenderState p) {
 			humanoid.isCrouching = p.isCrouching;
+			// Sitting in a boat, minecart or saddle: humanoid models have the pose; the morph entity itself never rides.
+			humanoid.isPassenger = p.isPassenger;
 		}
 	}
 }

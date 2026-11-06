@@ -26,6 +26,8 @@ public final class Keys {
 	public static final KeyMapping BIOMASS = key("biomass", InputConstants.KEY_B);
 	/** Opens the client settings (also /morphclient). Unbound by default. */
 	public static final KeyMapping SETTINGS = key("settings", InputConstants.UNKNOWN.getValue());
+	/** Shows or hides the paper doll (and saves it). Unbound by default. */
+	public static final KeyMapping DOLL = key("doll", InputConstants.UNKNOWN.getValue());
 
 	/** Original keys were "holdable": held keys keep scrolling. Delay then repeat, in ticks. */
 	private static final int HOLD_DELAY = 8;

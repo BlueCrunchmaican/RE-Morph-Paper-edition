@@ -4,14 +4,17 @@
   "package": "dev.morphreborn.client.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "CameraMixin",
     "EntityMixin",
     "EntityRenderDispatcherMixin",
+    "EntityRendererMixin",
     "IllusionerAccessor",
     "LevelExtractorMixin",
     "LivingEntityMixin",
     "LivingEntityRendererInvoker",
     "ModelPartAccessor",
     "MouseHandlerMixin",
+    "PictureInPictureRendererAccessor",
     "PowderSnowBlockMixin"
   ],
   "injectors": {

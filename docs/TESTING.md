@@ -176,6 +176,42 @@ Local test server; MorphTester1 (with the mod) and VanillaViewer (without) onlin
 | Collections and progress across both switches | Unchanged (103 and 7 variants) |
 | 6.1.3-numbered config.yml (an unreleased build) | Updated to 6.1.4 on startup, no new settings |
 
+## 6.1.5 (2026-11-06)
+
+### Movement while transforming
+
+Local test server, MorphTester1 with the mod, survival game mode, sliding along a tunnel wall (slab bumps, a low
+ceiling) for 9 seconds. Distance covered:
+
+| Run | 6.1.4 | 6.1.5 |
+|---|---|---|
+| Plain player, no morph (baseline) | 27.4 blocks | |
+| Already an enderman, starting clear of the wall | 27.2 | |
+| Turning into an enderman while walking | 15.0 | 27.4 |
+| Switching enderman / player / enderman while walking | 12.2 | 26.8 |
+
+| Check | Result |
+|---|---|
+| Growing into a ghast under a 3-block ceiling | Kept a player-sized body (scale 1.0); grew to 2.22 the moment it was in the open |
+| Ghast to rabbit, rabbit to baby zombie, baby zombie to zombie | Sizes 0.33, 0.54, 1.08, each applied once at the half-way point |
+| Zombie to iron golem against a wall | Nudged 0.11 blocks off the wall before growing |
+| A 6.1.4 enderman teleported overlapping a wall | Couldn't move at all (0.02 blocks in 9 seconds): the stuck state the fix prevents |
+| Camera during player to ghast and ghast to rabbit (297 ticks logged) | Largest change between ticks 0.064 blocks; the one-tick drop at the swap (the client's stored eye height lags the new scale by a tick) is gone |
+
+### Paper doll
+
+| Check | Result |
+|---|---|
+| Player, rabbit, baby zombie, zombie, snowy librarian villager, ghast | Each shown with its own look; the rabbit small and whole, the baby half the zombie's size, the ghast shrunk to fit with its tentacles |
+| Mid-transformation (ghast to rabbit) | The black melting boxes, then the rabbit |
+| Boat with the player and a pig | Boat, both passengers; a zombie or husk morph sits (riding pose now copied to humanoid morphs, in the world too) |
+| Reconnecting while morphed, also while in a boat | Doll shows the morph |
+| A zombie morph in daylight | Doll shows it burning, as the world does (the sunburn trait sets the player on fire); in a small screenshot the flames first looked like a player in an orange shirt |
+| Opacity 60% | Doll drawn see-through |
+
+Not tested in game: walking/sneaking/swimming/sleeping poses on the doll (they come from the same render state as the
+world, so they match it), the settings page itself and the toggle key.
+
 ## Still to check live
 
 **New in 5.2.0**

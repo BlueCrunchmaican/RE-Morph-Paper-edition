@@ -65,9 +65,8 @@ public final class MorphWorldRenderer {
 			if (!state.isTransitioning()) {
 				return formState(dispatcher, player, state.next, playerState, partialTick);
 			}
-			// The server eases the player's hitbox (scale attribute) once per tick during a transformation; that is
-			// gameplay only. Drawing the player's own body at that stepped scale made the animation judder, so the
-			// player form is always drawn at natural size, as in the original.
+			// The player's hitbox (scale attribute) is gameplay only: the server changes it in one step half-way through.
+			// The player form is always drawn at natural size, as in the original, so the animation doesn't jump with it.
 			if (playerState instanceof LivingEntityRenderState own && own.scale != 1F && own.scale > 0F) {
 				own.boundingBoxWidth /= own.scale;
 				own.boundingBoxHeight /= own.scale;
