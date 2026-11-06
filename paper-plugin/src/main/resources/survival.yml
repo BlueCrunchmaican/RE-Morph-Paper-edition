@@ -1,0 +1,162 @@
+# RE:Morph - Survival Mode (only used when config.yml has gameplay-mode: survival).
+#
+# Survival Mode is iChun's planned "Default Mode" for Morph: morphing is earned. Having Wither and Regeneration at the
+# same time unlocks the Biomass ability ("A Mutation Complication"). From then on, killing a creature absorbs its
+# biomass, which buys the upgrades below; one of them is the ability to morph. Until a player has bought that, kills
+# give biomass only.
+#
+# iChun's original code had the formulas, the unlock and the upgrade names, but placeholder numbers (a single zombie
+# would have overflowed the starting storage forty times over). The numbers below are RE:Morph's.
+
+# The RE:Morph release this file comes from; don't change it. A newer release replaces an older file on startup
+# and keeps yours next to it (named like survival-old-6.1.2.yml), so copy back any changes you made.
+config-version: 6.1.2
+
+unlock:
+  # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
+  # and Regeneration, which you can find around Nether fortresses).
+  effects: [wither, regeneration]
+  # true: skip it, everyone can absorb biomass from the start.
+  bypass: false
+
+biomass:
+  # A creature's mass is width x width x height x 1000 kg ("meat averages about 1000 kg per cubic metre", iChun).
+  # A zombie is 702 kg, a cow 1,134 kg, an iron golem 5,292 kg, a ghast 64,000 kg, the ender dragon 2,048,000 kg.
+  # Biomass from a kill = mass x value x the player's Biomass Efficiency.
+  value: 0.3
+  # Per mob: multiply its mass, or give it a fixed mass in kg. For example:
+  #   multipliers: { minecraft:slime: 0.5 }
+  #   masses: { minecraft:ender_dragon: 50000 }
+  multipliers: {}
+  masses: {}
+  # Creatures that give no biomass at all.
+  none: [minecraft:armor_stand]
+
+# The upgrade tree. Each upgrade:
+#   name, description, icon (an item)  - how it shows in the chest menu (players without the mod)
+#   effect-icon                        - the status effect icon the client mod's upgrade tree shows instead
+#   parent                             - must be bought (level 1+) first; root = none
+#   requires                           - other upgrades and the level each needs, e.g. { biomass_capacity: 2 }
+#   start-level                        - what every player starts with (0 = not bought)
+#   max-level
+#   value, cost                        - by level, with iChun's formulas: {base, increment, multiplier, equation}
+#        equation 1: base + increment x multiplier x level
+#        equation 2: base + increment x (level - 1) ^ multiplier
+#        equation 3: base + increment x multiplier ^ (level - 1)
+#        equation 4: base + increment x log10(level x multiplier)
+#        equation 5: base + increment x sqrt((level - 1) x multiplier)
+#      "cost" is the price of buying that level.
+#   format                             - how the value reads, {value} replaced
+# The upgrade ids are what the plugin understands; remove one and what it unlocks stays locked (or unlimited, for
+# capacities). Changes apply on /morph reload.
+upgrades:
+  biomass_capacity:
+    name: Biomass Capacity
+    description: How much biomass you can store. Upgrades are paid from it, so bigger upgrades need more room.
+    icon: minecraft:chest
+    effect-icon: minecraft:absorption
+    parent: root
+    start-level: 1
+    max-level: 10
+    value: { base: 0, increment: 100, multiplier: 2, equation: 3 }     # 100, 200, 400 ... 51,200
+    cost: { base: 0, increment: 40, multiplier: 2, equation: 3 }       # level 2: 80, level 3: 160 ...
+    format: "{value} biomass"
+  biomass_efficiency:
+    name: Biomass Efficiency
+    description: How much of a creature's biomass you absorb.
+    icon: minecraft:fermented_spider_eye
+    effect-icon: minecraft:saturation
+    parent: biomass_capacity
+    start-level: 1
+    max-level: 10
+    value: { base: 5, increment: 5, multiplier: 1, equation: 1 }       # 10% ... 55%
+    cost: { base: 0, increment: 30, multiplier: 1.6, equation: 3 }     # level 2: 48 ... level 10: 2,062
+    format: "{value}%"
+  biomass_reach:
+    name: Biomass Reach
+    description: How far away a creature can die and still be absorbed. Upgrade it to absorb bow and trident kills.
+    icon: minecraft:lead
+    effect-icon: minecraft:glowing
+    parent: biomass_capacity
+    start-level: 1
+    max-level: 6
+    value: { base: 0, increment: 4, multiplier: 1, equation: 1 }       # 4, 8 ... 24 blocks
+    cost: { base: 0, increment: 40, multiplier: 1.8, equation: 3 }     # level 2: 72 ... level 6: 756
+    format: "{value} blocks"
+  biomass_max_mass_absorbable:
+    name: Absorbable Mass
+    description: The heaviest creature you can absorb. Big creatures (golems, ghasts, the dragon) need upgrades first.
+    icon: minecraft:anvil
+    effect-icon: minecraft:strength
+    parent: biomass_capacity
+    start-level: 1
+    max-level: 10
+    value: { base: 0, increment: 1200, multiplier: 2.5, equation: 3 }  # 1,200 kg, 3,000 kg ... 4,577,637 kg
+    cost: { base: 0, increment: 60, multiplier: 2, equation: 3 }       # level 2: 120 ... level 10: 30,720
+    format: "{value} kg"
+  morph_ability:
+    name: Morph Ability
+    description: Lets you morph. Kills start adding morphs to your collection, and morphs you already had open up.
+    icon: minecraft:ender_eye
+    effect-icon: minecraft:nausea
+    parent: biomass_capacity
+    requires: { biomass_capacity: 2 }
+    start-level: 0
+    max-level: 1
+    value: { base: 1, increment: 0, multiplier: 0, equation: 1 }
+    cost: { base: 150, increment: 0, multiplier: 0, equation: 1 }
+  morph_capacity:
+    name: Morph Capacity
+    description: How many kinds of creature your collection can hold.
+    icon: minecraft:bookshelf
+    effect-icon: minecraft:luck
+    parent: morph_ability
+    start-level: 1
+    max-level: 30
+    value: { base: 0, increment: 3, multiplier: 1, equation: 1 }       # 3, 6 ... 90 kinds
+    cost: { base: 0, increment: 50, multiplier: 1.15, equation: 3 }    # level 2: 58 ... level 30: 2,879
+    format: "{value} kinds"
+  morph_variant_capacity:
+    name: Variant Capacity
+    description: How many looks of one creature you can keep (sheep colours, villager jobs, babies...).
+    icon: minecraft:white_wool
+    effect-icon: minecraft:hero_of_the_village
+    parent: morph_capacity
+    start-level: 1
+    max-level: 16
+    value: { base: 0, increment: 1, multiplier: 1, equation: 1 }       # 1 ... 16 looks
+    cost: { base: 0, increment: 40, multiplier: 1.25, equation: 3 }    # level 2: 50 ... level 16: 1,137
+    format: "{value} per creature"
+  morph_efficiency:
+    name: Morph Efficiency
+    description: Transformations take less time.
+    icon: minecraft:clock
+    effect-icon: minecraft:haste
+    parent: morph_ability
+    start-level: 0
+    max-level: 5
+    value: { base: 0, increment: 10, multiplier: 1, equation: 1 }      # 10% ... 50% faster
+    cost: { base: 0, increment: 80, multiplier: 1.6, equation: 3 }     # level 1: 80 ... level 5: 524
+    format: "{value}% faster"
+  morph_abilities:
+    name: Morph Abilities
+    description: Unlocks your morphs' abilities (the ability key, an enderman's block carrying). Each further level shortens cooldowns.
+    icon: minecraft:blaze_powder
+    effect-icon: minecraft:jump_boost
+    parent: morph_ability
+    start-level: 0
+    max-level: 6
+    value: { base: -10, increment: 10, multiplier: 1, equation: 1 }    # level 1: unlocked; then 10% ... 50% shorter cooldowns
+    cost: { base: 0, increment: 100, multiplier: 1.7, equation: 3 }    # level 1: 100 ... level 6: 1,420
+    format: "{value}% shorter cooldowns"
+  morph_flight:
+    name: Morph Flight
+    description: Flying creatures' morphs can fly. Until then they only glide down slowly.
+    icon: minecraft:feather
+    effect-icon: minecraft:levitation
+    parent: morph_ability
+    requires: { biomass_capacity: 3 }
+    start-level: 0
+    max-level: 1
+    value: { base: 1, increment: 0, multiplier: 0, equation: 1 }
+    cost: { base: 300, increment: 0, multiplier: 0, equation: 1 }

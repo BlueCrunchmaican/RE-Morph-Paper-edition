@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "morphreborn",
+  "version": "${version}",
+  "name": "RE:Morph (Client)",
+  "description": "Client companion for the RE:Morph Paper plugin: the original Morph mod's selector, favourites radial, hotkeys and transformation animations. Unofficial port of iChun's Morph.",
+  "authors": ["RE:Morph contributors"],
+  "contributors": ["iChun (original Morph mod and iChunUtil, LGPL-3.0)"],
+  "contact": {
+    "homepage": "https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition",
+    "sources": "https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition",
+    "issues": "https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/issues"
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/morphreborn/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.morphreborn.client.MorphClient"]
+  },
+  "mixins": ["morphreborn.mixins.json"],
+  "accessWidener": "morphreborn.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.20.0",
+    "fabric-api": "*",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}

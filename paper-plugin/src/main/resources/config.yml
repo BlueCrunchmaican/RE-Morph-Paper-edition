@@ -1,0 +1,130 @@
+# RE:Morph - server configuration
+# Every option is read on startup and on /morph reload (except gameplay-mode).
+
+# classic:  the original Morph. Kill a creature to unlock it as a morph.
+# survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
+#           the same time), absorb creatures' biomass and spend it on upgrades, including the ability to morph.
+#           Settings in survival.yml.
+# Takes effect on restart. Switching never deletes anything: collections and Survival progress are kept in both
+# modes. Switching to survival keeps collections but locks them until the player buys the Morph Ability.
+gameplay-mode: classic
+
+morphs:
+  # Length of a transformation in ticks (20 ticks = 1 second). The original Morph mod uses 100 (5 seconds).
+  # Minimum 20 so the animation can play.
+  transition-ticks: 100
+  # Kills of one entity type needed before its variant is unlocked. The original mod uses 1.
+  required-kills: 1
+  # Per-type overrides, e.g. minecraft:wither: 3
+  required-kills-per-type: {}
+  # Entity types that can never be morphed into. Supports * wildcards, e.g. "somemod:*".
+  disabled-types:
+    - minecraft:armor_stand
+  # Whether baby mobs are unlocked as separate baby variants. If false, babies unlock the adult form.
+  allow-baby-morphs: true
+  # Allow killing a player to unlock their form.
+  allow-player-morphs: true
+  # Killing a morphed player unlocks the morph they are currently using (original Morph behaviour).
+  steal-morphs-from-players: true
+  # Entity types that ignore variants entirely (every kill counts as the same morph).
+  single-variant-types: []
+  # Allow players to delete morphs from their own collection (Delete key in the selector).
+  allow-delete: true
+  # Safety cap on variants per entity type in one collection (0 = unlimited).
+  max-variants-per-type: 64
+  # If true, each entity type needs the permission morphreborn.type.<namespace>.<path> to be used.
+  # e.g. morphreborn.type.minecraft.ender_dragon
+  per-type-permissions: false
+  # Seconds a player must wait between starting two morphs (0 = only "not while already transforming").
+  morph-cooldown-seconds: 0
+
+death:
+  # Keep your current form after dying and respawning (original Morph behaviour).
+  keep-morph-on-death: true
+  # Remove the morph you died as from your collection.
+  lose-current-morph-on-death: false
+  # Wipe the whole collection on death (hardcore-style).
+  reset-collection-on-death: false
+
+world-effects:
+  # What morph abilities may do to the world. Admins can change these in game: /morph setting <name> <value>
+  # on = always, off = never, gamerule = follow the world's mobGriefing gamerule (what the real mob does).
+  # Creeper explosions, ghast fireballs and wither skulls breaking blocks.
+  explosion-block-damage: gamerule
+  # Ghast and blaze fireballs (and creepers with set-fire in abilities.yml) setting blocks alight.
+  fire: gamerule
+  # A creeper morph dies in its own explosion, like a real creeper (a totem of undying still saves you).
+  creeper-explosion-kills-user: true
+  # Blocks an enderman morph can pick up: vanilla = only what real endermen take (grass, dirt, sand, gravel, clay,
+  # flowers, mushrooms, pumpkins, melons, cactus, TNT, mud, moss, nether nylium/fungus/roots); any = any block that
+  # can be broken, except ones holding items or text (chests, furnaces, signs) and two-part blocks (doors, beds).
+  enderman-pickup: vanilla
+  # A bee morph dies a minute after using its sting, like a real bee (set the delay in abilities.yml).
+  bee-sting-kills-user: true
+
+persistence:
+  # Restore a player's last form when they log back in.
+  persist-current-morph: true
+  # How often changed collections are written to disk, in seconds. Changes are also saved on quit and shutdown.
+  autosave-seconds: 30
+
+appearance:
+  # Name shown above a morphed player (for modded and unmodded viewers alike):
+  #   morph  - mob morphs show no name (a name-tagged mob variant shows the mob's own name);
+  #            player morphs show the name of the player whose form was copied.
+  #   player - always the real player's name.
+  #   hidden - no name while morphed.
+  name-tags: morph
+  # Let vanilla (unmodded) players see their own disguise in third person / as a self-disguise.
+  vanilla-self-disguise: true
+  # Scale the player's hitbox and eye height to the morph, eased over the transition like the original.
+  hitbox-scaling: true
+  min-scale: 0.2
+  # 7.0 fits the biggest mobs at their real size (giant 6.7, ender dragon 4.4, ghast 2.2).
+  max-scale: 7.0
+  # Shrink/swap/grow animation and particles that unmodded clients see during a transformation.
+  vanilla-transition: true
+  # Particles and trails unmodded clients see when someone unlocks a morph.
+  vanilla-acquisition-effects: true
+  # Sound played half-way through a transformation. "morphreborn:morph" comes from the optional resource
+  # pack (resourcepack/ in the download) and from the Fabric mod; unmodded clients without the pack hear
+  # the fallback instead.
+  morph-sound: morphreborn:morph
+  morph-sound-fallback: minecraft:entity.illusioner.mirror_move
+  morph-sound-volume: 1.0
+  # Send the custom sound to unmodded players (only enable if your server resource pack contains it).
+  vanilla-clients-have-sound-pack: false
+
+attributes:
+  # Copy the morph's attributes onto the player, eased over the transition (original Morph behaviour).
+  # Format: attribute key -> { direction: more|less, cap: number (optional) }
+  # "more" with a cap means the player gets min(mob value, cap); "less" means max(mob value, cap).
+  enabled: true
+  list:
+    minecraft:max_health: { direction: more, cap: 20 }
+    minecraft:knockback_resistance: { direction: more }
+    minecraft:movement_speed: { direction: more, cap: 0.1 }
+    minecraft:attack_damage: { direction: more }
+    minecraft:attack_knockback: { direction: more }
+    minecraft:armor: { direction: more }
+    minecraft:step_height: { direction: more, cap: 1.0 }
+    minecraft:jump_strength: { direction: more, cap: 0.7 }
+  # No morph gets less max health than this (small slimes and magma cubes have half a heart in vanilla).
+  min-max-health: 4
+  # Exact max health for these morphs. The creaking has 1 health in vanilla but can't be hurt while its heart lives.
+  health-overrides:
+    minecraft:creaking: 20
+
+selector:
+  # Allow players to open the selector / pick morphs at all (admins can still force morphs).
+  enabled: true
+  # Players without the client mod can use /morph to pick morphs.
+  allow-commands-for-vanilla: true
+
+client:
+  # Message shown to players whose client mod speaks an older protocol.
+  outdated-message: "<yellow>Your RE:Morph client mod is outdated; update it to use the morph selector."
+  # Broadcast "<player> unlocked <morph>" style messages to the unlocking player in chat (Fabric players get a toast).
+  unlock-chat-message: true
+
+debug: false

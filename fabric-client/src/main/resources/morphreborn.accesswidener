@@ -1,0 +1,3 @@
+accessWidener v2 official
+# Evoker/illusioner casting pose for morph ability animations.
+accessible class net/minecraft/world/entity/monster/illager/SpellcasterIllager$IllagerSpell

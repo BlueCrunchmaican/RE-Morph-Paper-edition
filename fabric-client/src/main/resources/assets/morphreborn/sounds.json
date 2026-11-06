@@ -1,0 +1,14 @@
+{
+  "morph": {
+    "category": "player",
+    "sounds": [
+      "morphreborn:morph1",
+      "morphreborn:morph2",
+      "morphreborn:morph3",
+      "morphreborn:morph4",
+      "morphreborn:morph5",
+      "morphreborn:morph6"
+    ],
+    "subtitle": "subtitles.morphreborn.morph"
+  }
+}

@@ -1,0 +1,188 @@
+# Testing
+
+## How it was tested
+
+- A local **Paper 26.3 build 235** server with Lib's Disguises 26.10.24 Free and PacketEvents 2.14.0, offline mode,
+  flat world.
+- Two **Fabric 26.3** clients with the mod (Fabric Loader 0.20.1, Fabric API 0.165.0+26.3), run side by side so
+  each could watch the other.
+- Admin commands sent from the server console over RCON.
+- Unit tests: `paper-plugin` → `gradlew test`, **17 of 17 pass** (variant filter, config versions, Survival
+  upgrade curves).
+
+## Checked and working
+
+Tried on the test clients during development, but not re-checked after the latest changes:
+
+- Unlocking by killing, the selector (`[` `]`, Shift, Enter, Esc), favourites, and the morph and unlock animations.
+- Morphs are full size (no half-size mobs), show name tags, and wear the player's armour and held items.
+- Mobs that wouldn't attack the mob you're morphed as leave you alone.
+
+Checked in the latest round, between the two modded clients and the console:
+
+- **Enderman:** visibly holds its block (seen on screen), and goes back to empty hands after putting it down.
+- **Creeper:** swells once, explodes once and dies in the blast (`<player> blew up`). It comes back as a normal,
+  unswollen creeper after respawning.
+  - With mobGriefing on, the blast left a crater in a test wall.
+  - With `explosion-block-damage off`, the same blast left the wall untouched.
+- **Frog:** a sneak-jump reached over 5 blocks up (a normal jump about 2.5) and landed on top of a 3-block wall.
+- `/morph setting`: lists, changes, rejects bad values, and saves to `config.yml` with its comments intact. This
+  includes the new `enderman-pickup` setting.
+- `/morph ability <player>` and `/morph carry` from the console.
+- **Spider**, with and without the mod: walking into a wall climbs from the ground up (about 2.4 blocks/second with
+  the mod, matching a ladder; about 3 without), letting go slides down slowly, sneaking holds still.
+- **Skeleton:** holds a bow up in the aiming pose (seen from the front in third person).
+
+## Death and gear (checked 2026-11-02)
+
+- **keepInventory off:** dying as a morph drops everything at the death spot. Tried: the creeper's own blast, drowning,
+  a fish on land, sunburn and a plain kill.
+- **keepInventory on:** a creeper morph that blows itself up keeps its full netherite armor on, undamaged, plus its
+  held sword. Nothing drops, with or without the mod, and the death message is still "blew up".
+- **Vanilla behaviour to know:** a second explosion destroys dropped items, netherite included (netherite only
+  survives fire and lava).
+
+## Live test (2026-11-03)
+
+Tested on the local test server with a modded client and an unmodded viewer.
+
+**Worked:**
+- horse jumps, pounces and leaps;
+- the witch's potion choice;
+- spiders in cobwebs, rabbits and foxes on powder snow;
+- enderman pickup;
+- the creaking freezing while watched;
+- projectiles against breezes and endermen;
+- bee stings;
+- the modded onlooker's view of the illusioner.
+
+**Fixed after it,** each checked on the test server from a modded and an unmodded client:
+
+| Problem | Why | Fix | Checked |
+|---|---|---|---|
+| Ender dragon doesn't flap (no mod) | The hidden template mob that disguises copy had "no AI" set, and a no-AI dragon holds its wings still. | Templates no longer set it. | Wings move from frame to frame |
+| Enderman's block missing (no mod) | Lib's Disguises' material shortcut loses modern blocks. | The real block is sent. | Pumpkin in its hands |
+| Strider bobs on lava instead of walking on it | In 26.3 a mob stands on lava through its own half-block lava "floor", which a player doesn't have. The server's upward push did the rest. | The mod gives strider morphs that floor and floats them up when sunk, like a strider. Modded players no longer get the push. | Lands at the surface and holds the same height; rises from 1.5 blocks deep |
+| Turtle legs flail | The turtle's land walk is made for its slow pace. | On land it walks at 0.6× (a real turtle's pace) and sprinting adds nothing; full speed in water. `land-speed` in `abilities.yml`. | Speed 0.06 on land, 0.1 in water |
+| Copper golem doesn't animate sorting | Never sent. Its animations were also frozen by the "no AI" template. | It reaches into the copper chest, then puts the stack down as the other chest opens, for both kinds of player. | Seen with and without the mod |
+| Sheared sheep keeps its wool (no mod) | Not sent. | Bald after shearing, wool back after grazing. | Seen, including the eating animation |
+| Sulfur cube huge (no mod) | Lib's Disguises picks the cube's size itself. | The variant's own size and age are used. | Matches a real small sulfur cube |
+| Bee keeps its stinger (no mod); no stinger after respawning | Not sent; and the morph's look wasn't reset on death. | Stinger loss shown. Dying resets the look: stinger, wool, primed creeper. | Both seen |
+| Bee wings still | A bee only flaps in the air or while moving, and other players always look motionless to a client. | The bee's real movement is sent (no mod) or worked out (mod). | Wings flap while walking, on both |
+| Illusioner shows overlapping copies and doesn't cast (no mod) | Vanilla draws an invisible illusioner as four mirror images that only spread when it is hurt. | Casting spreads them, as vanilla's mirror spell does; the casting pose shows without the mod. | Copies spread out and the real spot stays empty, on both |
+| Panda roll, goat ram and polar bear rearing not seen (no mod) | Ability animations only went to modded players. | Sent to everyone, with the ghast's attack face and the evokers' casting pose too. The goat also lifts its head again afterwards (it stayed lowered on modded clients). | Panda, polar bear, sheep, illusioner, copper golem seen |
+| Pillager's arms still while loading; no trident wind-up (no mod) | The mob's combat flags weren't sent. | Sent while the player draws a bow, crossbow or trident. | Both poses seen |
+| Not reported | | Iron golems, ravagers, hoglins, zoglins, wardens and creakings play their attack animation on a melee hit, without the mod too. | Not checked yet |
+
+## 5.1.0 fixes and features (2026-11-05)
+
+Checked on the local test server with the modded client (MorphTester1) and the unmodded one (VanillaViewer). Positions
+come from the server over RCON; "seen" means a screenshot from that client.
+
+| Item | Cause found | Change | Checked |
+|---|---|---|---|
+| Piglins and hoglins jiggle left and right (selector, own morph, other players) | Vanilla's "turning into a zombified piglin" shake: outside the Nether, a piglin, brute or hoglin without NoAI or zombification immunity shakes its body (LivingEntityRenderer.isShaking). The morph copies had neither; 5.0.0 removed NoAI from the server templates, so unmodded players saw it too. | Morph copies are marked immune to zombification, on the client and in the disguise. NoAI stays off (it freezes dragon wings and copper golems). | Seen steady from both clients and in the selector, next to a real overworld piglin that visibly shakes |
+| Baby ↔ adult morph pops to the new size at the end | 26.3 renderers keep separate adult and baby models (also cold/warm cows, pigs and chickens, salmon and pufferfish sizes, small sulfur cubes) and only pick one while drawing. The transition read whichever was drawn last, so both ends used the same model. | The transition makes each renderer pick the right model before capturing it. | Seen from a fixed camera: the black body grows step by step from baby to adult height |
+| Chicken stops dead when jumping or running off a ledge | The server capped the fall by sending a whole new velocity, and the server never knows a player's sideways speed, so each push zeroed it. | Client mod: vanilla's chicken rule on the player's own game (falling speed ×0.6 per tick). Without the mod: an invisible Slow Falling effect while airborne. | Mod: falls at a steady 2.26 blocks/s (a vanilla chicken's speed) at full walking speed (4.3 blocks/s). No mod: full walking speed; the fall speeds up on long drops (up to 6 blocks/s over 10 blocks) |
+| Rabbit's R hop gone | Removed in the 4 Nov mob review (it was a camel dash). | Restored as its own `hop` ability (same push as before) with the rabbit's jump sound and hop animation for everyone. | Hop of about 7 blocks; hop pose seen without the mod |
+| Rabbit walking animation | Rabbits only animate when they hop; the original never synced jumps to the morph either. | Left as it is. | — |
+| Bat perching (new) | — | Ability key hangs the bat under a full-faced block within 2.5 blocks of its head, upside down for everyone (BatFlags). Lets go on the ability key, a movement key or jump, getting hurt, or the block vanishing, and restores flying or standing. | Standing → hang → standing (W), flying → hang → flying (R twice), hurt and block removal both release; the hanging pose seen from both clients |
+| Fish night vision (new) | — | Cod, salmon, tropical fish and pufferfish have night vision while morphed. | Effect present for each, gone after demorphing |
+| Absorbing / transforming animation settings (new) | The options existed only in the JSON file, and "off" meant no effect at all. | `/morphclient` settings screen; "Plain" shows what players without the mod see, on this player's screen only. | Screen, saving, Plain transformation and Plain absorbing seen; Morph versions still play after switching back |
+| Flight lost after changing game mode while morphed (found while testing the bat) | Minecraft resets flying on every game mode change; the plugin only granted a morph's flight when the form changed. | The flight grant is redone a tick after the game mode changes (creative and spectator get their normal fly speed back). | Bat: survival → creative → survival keeps flight at the bat's speed; morphed in creative then survival can fly; adventure keeps it; a pig never gets it; demorphing removes it |
+| Config upgrade 5.0.0 → 5.1.0 | — | abilities.yml now `config-version: 5.1.0` | Test server replaced it and kept `abilities-old-5.0.0.yml`; variants.yml (still 5.0.0) was left alone |
+
+## 5.2.0 Survival Mode (2026-11-05)
+
+Checked on the local test server. The unmodded client (VanillaViewer) was driven from the console; the modded client
+(MorphTester1) on screen.
+
+| Check | Result |
+|---|---|
+| Classic unchanged | A kill still unlocks straight away (pig: 91 → 92 morphs); `/morph info` shows "classic" |
+| Fresh Survival player | Biomass locked; a zombie kill gives nothing |
+| Wither + Regeneration together | Unlocked ("unlocked the Biomass ability" in the log); title and chat text seen on the modded client |
+| Zombie kill | +21 biomass (702 kg × 0.3 × 10%); no morph before the Morph Ability |
+| Iron golem kill (5,292 kg) | Nothing: too heavy at Absorbable Mass 1 (1,200 kg) |
+| Zombie killed 10 blocks away | Nothing: beyond Reach 1 (4 blocks) |
+| Buying | Morph Ability refused without Capacity 2; Capacity 2 (80) then Morph Ability (150) bought, from the console and by clicking the chest menu |
+| After the Morph Ability | Cow, pig and sheep unlocked; the chicken gave biomass but no morph (Morph Capacity 3 kinds) |
+| Abilities | Rabbit hop did nothing before Morph Abilities, moved the player after buying it |
+| Flight | Bat and allay can't fly without Morph Flight and glide down at 2.27 blocks/s; flight after buying it |
+| Morph Efficiency 1 | Transformation 100 → 90 ticks |
+| Modded client | Selector refuses with a "can't morph yet" message; B opens the menu; after buying, the selector opens with the old collection; the biomass bar shows 41 / 200 after a kill |
+| Saving | Survival progress in both player files after shutdown; still there after a Classic session |
+
+## 5.2.0 additions (2026-11-05, second round)
+
+| Check | Result |
+|---|---|
+| Creeper morph struck by lightning | Look becomes `{powered:1b}`; blue aura seen from the modded and the unmodded client |
+| Charged explosion | Same blast on a block of dirt: 52 blocks uncharged, 201 charged; the charge is gone after exploding and respawning |
+| Upgrade tree screen (mod) | Opens with B; Morph Ability refused until Capacity 2; clicking Capacity then Morph Ability bought both (250 → 20 biomass), "Bought Morph Ability." shown; dragging reveals the rest of the tree |
+| Biomass bar (mod) | Green static fill, swaying black tendrils, readable label and amount; `+21` after a kill |
+| abilities.yml 5.1.0 → 5.2.0 | Replaced on startup, old file kept as `abilities-old-5.1.0.yml` |
+| Charged-creeper morph | Killing a creeper with `powered:1b` added "Creeper {powered:1b}"; as that morph the blast took 203 blocks (double); the aura shows without the mod |
+| Favourites wheel (Survival) | Opens before the Morph Ability with only the centre Biomass button; clicking it, or letting go of the key over it, opens the upgrade tree |
+| Red accents and effect icons | Tree: effect icons (Absorption, Saturation, Glowing, Strength, Nausea, Luck, Hero of the Village, Haste, Jump Boost, Levitation), red glow and red amount; bar: red fill, red edge, `+21` in red |
+
+## 6.1.2 (2026-11-05)
+
+| Check | Result |
+|---|---|
+| Selector keys bound to mouse buttons 4 and 5 | Was: the first press opened the selector, then it never moved (the selector swallowed every mouse button while open). Now: mouse 5 opened it and moved down two rows, mouse 4 moved back up |
+| Config upgrade 5.2.0 → 6.1.2 | abilities.yml and survival.yml replaced, old copies kept |
+
+### Rename to RE:Morph (2026-11-05)
+
+Server side only, over RCON; the client's changes are names and text.
+
+| Check | Result |
+|---|---|
+| Upgrade from a MorphReborn jar | `plugins/MorphReborn` moved to `plugins/RE-Morph` on first start, byte-for-byte identical to a backup; enabled in Classic mode with no warnings |
+| The move fails (a file in the old folder held open by another process) | Logged the error, refused to start, created nothing; the old folder untouched |
+| Old and new jars both in `plugins/`, in either file order | Paper loads RE-Morph and refuses the old jar (`provides: [MorphReborn]`); no new `MorphReborn` folder |
+| `/morph`, `/remorph`, `/morphreborn reload` | All answer; help header and messages say RE:Morph |
+| Built jars | Plugin name `RE-Morph`; mod name "RE:Morph (Client)" with the GitHub links; key category and settings title "RE:Morph"; licence and NOTICE inside both |
+| Unit tests | 17 of 17 pass |
+
+The saved-data keys (`morphreborn:morph_scale` and the others) were built from the plugin's name; they're now fixed
+strings, so they're the same as before the rename.
+
+## Still to check live
+
+**New in 5.2.0**
+- [ ] A Survival run from the start: getting Wither + Regeneration in a real fortress, the first upgrades.
+- [ ] The upgrade menu from Bedrock (Geyser) and without the mod; the upgrade tree screen at different screen sizes.
+- [ ] A creeper morph caught in a real thunderstorm.
+
+**New in 5.1.0**
+- [ ] Jump forward repeatedly as a chicken, with and without the mod: it should feel like a normal jump.
+- [ ] Rabbit hop (R) seen from a modded onlooker: the legs should kick.
+- [ ] Bat perching without the mod (sneak + F) and as a Bedrock player.
+- [ ] `/morphclient` on a normal client; both Plain settings.
+
+**Re-check on a normal client**
+- [ ] The fixes above, especially the strider (now a solid lava surface) and the turtle's land pace.
+- [ ] A melee hit as an iron golem, ravager, hoglin, zoglin, warden or creaking plays its attack (both kinds of player).
+- [ ] A goat's head comes back up after a ram.
+
+**Needs two players**
+- [ ] **Milking:** milk a cow or goat morph; get stew from a mooshroom.
+- [ ] **Several players at once:** morphing together, and joining while others are already morphed.
+
+**What other players see**
+- [ ] **Players without the mod:** armor shows; the transition plays; a skeleton raises its bow.
+- [ ] **With the mod, as an onlooker:** frog mid-jump pose; piglin loading a crossbow.
+- [ ] **Bedrock players (Geyser/Floodgate):** they can join, see morphs, use `/morph`, and use abilities with
+      sneak + swap hands.
+
+**Server settings and setup**
+- [ ] **Ghast and blaze fireballs** follow the `fire` and `explosion-block-damage` settings.
+- [ ] **Persistence:** log out and back in as a morph (the player should come back morphed); restart the server (collections
+      and favourites kept); die as a morph (the morph is kept, per the `death` settings).
+- [ ] **Snow golem** melts in a hot biome (the test yard has a desert patch).
+- [ ] **Mobs ignoring or hunting morphed players,** by morph. Checked earlier in the project, not re-checked since.
+- [ ] **The optional sound resource pack,** for players without the mod.
+- [ ] **`per-type-permissions: true`** with a permissions plugin such as LuckPerms.
+- [ ] **A mismatched client mod version** is told to update and still works as a player without the mod.
