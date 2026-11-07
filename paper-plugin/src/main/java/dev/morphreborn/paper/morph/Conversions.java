@@ -298,10 +298,13 @@ public final class Conversions implements Listener {
 			}
 			case "minecraft:mooshroom" -> {
 				Map<String, Object> tag = tag(look);
-				tag.put("Type", "brown".equals(tag.get("Type")) ? "red" : "brown");
-				if (plugin.morphs().convert(player, new MorphRef(look.entityType(), look.variantId(), Snbt.write(tag), null))) {
-					play(player, "entity.mooshroom.convert");
-				}
+				String colour = "brown".equals(tag.get("Type")) ? "red" : "brown";
+				tag.put("Type", colour);
+				// back to the colour it was picked as (red when the form doesn't say): the form itself, no conversion
+				ActiveMorph s = plugin.morphs().state(player);
+				MorphRef into = s != null && s.next != null && colour.equals(tag(s.next).getOrDefault("Type", "red"))
+						? s.next : new MorphRef(look.entityType(), look.variantId(), Snbt.write(tag), null);
+				if (plugin.morphs().convert(player, into)) play(player, "entity.mooshroom.convert");
 			}
 			default -> {
 			}
