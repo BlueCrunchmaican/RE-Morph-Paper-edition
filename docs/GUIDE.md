@@ -253,6 +253,10 @@ Abilities are always yours to trigger:
   charge their jump the longer you hold sneak.
 - **Witch:** throws or drinks the potion shown in the action bar. Change it with sneak + ability key, or F without
   sneaking if you don't have the mod.
+- **Fakeout explosion** (6.1.8): as a creeper, or a sulfur cube with TNT inside, sneak + ability key (F without sneaking if you
+  don't have the mod) starts the same fuse, hiss and swell, then fizzles out with a puff of smoke instead of exploding.
+  You're back to normal, a lightning charge is kept, and it has its own short cooldown (`explode.fakeout` and
+  `fakeout-cooldown-seconds` in `abilities.yml`).
 - **Enderman:** picks up a block with an empty-hand right-click and puts it down with the next one.
 - **Jockeys:** as a skeleton (or stray, wither skeleton, bogged, parched), right-click a spider or cave spider to ride
   it; as a baby zombie (or baby husk, drowned, zombie villager, zombified piglin, piglin), a chicken; as a baby piglin,

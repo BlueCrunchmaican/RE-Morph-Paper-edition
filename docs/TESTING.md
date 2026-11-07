@@ -244,6 +244,21 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## Unreleased: 6.1.8 (2026-11-06)
+
+Local test server with the 6.1.8 plugin, MorphTester1 with the mod, in Creative, seen in third person.
+
+| Check | Result |
+|---|---|
+| Server start over a 6.1.6 `abilities.yml` | Replaced with the 6.1.8 file, old one kept as `abilities-old-6.1.6.yml` |
+| Creeper, sneak + ability key | Swells and flashes white for the fuse, then back to its normal look with a puff of smoke; no blast, no crater |
+| Creeper, ability key | Swells, then explodes as before (crater) |
+| Enderman looking nearly straight down, after a step (First-person Model on) | Its shoulders at the bottom edge, the ground ahead clear (before the fix its body sat in front of the camera) |
+| Sulfur cube with TNT, sneak + ability key | Full 6-second fuse, then no explosion; the cube looks the same throughout (only the hiss, as for its real explosion) |
+
+Not tested in game: the fakeout from a player without the mod (F without sneaking), and the fizzle sound (test
+clients run with the sound almost off).
+
 ## 6.1.7 (2026-11-06)
 
 Local test server, MorphTester1 with the 6.1.7 mod and First-person Model 2.7.3 installed.
@@ -273,6 +288,9 @@ A body that seems turned away after a teleport or a quick turn is the body laggi
 do when standing still; it lines up after a step.
 
 ## Still to check live
+
+**New in 6.1.8**
+- [ ] The fakeout from a player without the mod, and how it looks and sounds to onlookers with and without the mod.
 
 **New in 6.1.7**
 - [ ] First-person Model's body view across more mobs, and the wheel's prices at a normal window size.

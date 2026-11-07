@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = '6.1.7'
+VERSION = '6.1.8'
 OUT = ROOT / 'release' / f'RE-Morph-{VERSION}'
 
 SERVER_JAR = ROOT / 'paper-plugin/build/libs' / f'RE-Morph-paper-{VERSION}.jar'

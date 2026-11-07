@@ -880,7 +880,9 @@ public final class AbilityManager {
 	/** True when the second input does something for this form (witch: pick the next potion). */
 	public boolean hasAlternate(Player player) {
 		String type = type(player);
-		return enabled && type != null && isWitch(player, type);
+		if (!enabled || type == null) return false;
+		ActiveAbility ability = actives.get(type);
+		return isWitch(player, type) || (ability != null && ability.name.equals("explode") && ability.config.getBoolean("fakeout", true));
 	}
 
 	private WitchPotion currentWitchPotion(Player player) {
@@ -1329,18 +1331,76 @@ public final class AbilityManager {
 			}
 			return;
 		}
+		// The second input on an exploding mob is a fakeout: the same build-up, then nothing.
+		boolean fakeout = alternate && ability.name.equals("explode");
+		if (fakeout && !ability.config.getBoolean("fakeout", true)) return;
+		String cooldownKey = fakeout ? "explode-fakeout" : ability.name;
+		long cooldownTicks = fakeout ? Math.round(ability.config.getDouble("fakeout-cooldown-seconds", 4) * 20) : ability.cooldownTicks;
 		Map<String, Long> cds = cooldowns.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>());
-		long ready = cds.getOrDefault(ability.name, 0L);
+		long ready = cds.getOrDefault(cooldownKey, 0L);
 		if (tick < ready) {
 			if (cooldownMessage) {
 				player.sendActionBar(Component.text(String.format("Ability ready in %.1fs", (ready - tick) / 20.0), NamedTextColor.GRAY));
 			}
 			return;
 		}
-		if (ability.run(player)) {
-			cds.put(ability.name, tick + Math.round(ability.cooldownTicks * plugin.mode().cooldownFactor(player)));
-			plugin.channel().broadcastAnimation(player, ability.name);
+		if (fakeout ? fuse(player, true) : ability.run(player)) {
+			cds.put(cooldownKey, tick + Math.round(cooldownTicks * plugin.mode().cooldownFactor(player)));
+			if (!fakeout) plugin.channel().broadcastAnimation(player, ability.name);
 		}
+	}
+
+	/**
+	 * A creeper's or explosive sulfur cube's fuse: the hiss (and a creeper's swell) for everyone, then the explosion. A
+	 * {@code fakeout} has the same build-up and then fizzles out: the creeper shrinks back to normal, nothing blows up,
+	 * and a lightning charge is kept.
+	 */
+	private boolean fuse(Player p, boolean fakeout) {
+		ActiveAbility explode = actives.get(type(p));
+		if (explode == null || !explode.name.equals("explode")) return false;
+		ConfigurationSection config = explode.config;
+		MorphRef creeperForm = plugin.morphs().activeForm(p);
+		boolean sulfur = creeperForm != null && creeperForm.entityType().equals("minecraft:sulfur_cube");
+		if (sulfur && !hasExplosiveInside(creeperForm)) {
+			p.sendActionBar(Component.text("Only a sulfur cube with an explosive block inside can explode.", NamedTextColor.GRAY));
+			return false;
+		}
+		if (!fusing.add(p.getUniqueId())) return false;
+		if (!sulfur) plugin.morphs().setOverlay(p, creeperLook(p, true));
+		p.getWorld().playSound(p.getLocation(), sulfur ? Sound.ENTITY_TNT_PRIMED : Sound.ENTITY_CREEPER_PRIMED, 1F, sulfur ? 1F : 0.5F);
+		plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+			fusing.remove(p.getUniqueId());
+			if (!p.isOnline() || p.isDead() || creeperForm == null || !creeperForm.equals(plugin.morphs().activeForm(p))) return;
+			if (fakeout) {
+				// Back to normal with a dud's fizzle; the charge (if any) stays for a real explosion.
+				if (!sulfur) plugin.morphs().setOverlay(p, creeperLook(p, false));
+				Location chest = p.getLocation().add(0, p.getHeight() * 0.6, 0);
+				p.getWorld().spawnParticle(Particle.SMOKE, chest, 12, 0.25, 0.25, 0.25, 0.02);
+				p.getWorld().playSound(chest, Sound.BLOCK_FIRE_EXTINGUISH, 0.5F, 1.6F);
+				return;
+			}
+			// A charged creeper's blast is twice as big (Creeper.explodeCreeper). A lightning charge is spent; a
+			// charged-creeper morph (killed while charged) stays charged.
+			boolean struck = !sulfur && charged.remove(p.getUniqueId());
+			boolean wasCharged = struck || (!sulfur && isPoweredForm(creeperForm));
+			if (!sulfur) plugin.morphs().setOverlay(p, "");
+			var settings = plugin.settings();
+			float power = (float) (config.getDouble("power", 3) * (wasCharged ? config.getDouble("charged-multiplier", 2) : 1));
+			explosionImmune.add(p.getUniqueId());
+			try {
+				p.getWorld().createExplosion(p, p.getLocation(), power,
+						config.getBoolean("set-fire", false) && settings.abilityFire.allows(p.getWorld()),
+						settings.explosionBlockDamage.allows(p.getWorld()));
+			} finally {
+				explosionImmune.remove(p.getUniqueId());
+			}
+			// A real creeper is gone once it explodes: "<player> blew up". Killed outright rather than with a
+			// huge hit, which would wear every armour piece down to nothing before the death drop.
+			if (settings.creeperExplosionKillsUser && (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE)) {
+				killSelf(p, "death.attack.explosion");
+			}
+		}, sulfur ? sulfurCubeFuseTicks : creeperFuseTicks);
+		return true;
 	}
 
 	private final class ActiveAbility {
@@ -1359,39 +1419,7 @@ public final class AbilityManager {
 			Vector dir = eye.getDirection();
 			switch (name) {
 				case "explode" -> {
-					MorphRef creeperForm = plugin.morphs().activeForm(p);
-					boolean sulfur = creeperForm != null && creeperForm.entityType().equals("minecraft:sulfur_cube");
-					if (sulfur && !hasExplosiveInside(creeperForm)) {
-						p.sendActionBar(Component.text("Only a sulfur cube with an explosive block inside can explode.", NamedTextColor.GRAY));
-						return false;
-					}
-					if (!fusing.add(p.getUniqueId())) return false;
-					if (!sulfur) plugin.morphs().setOverlay(p, creeperLook(p, true));
-					p.getWorld().playSound(p.getLocation(), sulfur ? Sound.ENTITY_TNT_PRIMED : Sound.ENTITY_CREEPER_PRIMED, 1F, sulfur ? 1F : 0.5F);
-					plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-						fusing.remove(p.getUniqueId());
-						if (!p.isOnline() || p.isDead() || creeperForm == null || !creeperForm.equals(plugin.morphs().activeForm(p))) return;
-						// A charged creeper's blast is twice as big (Creeper.explodeCreeper). A lightning charge is spent; a
-						// charged-creeper morph (killed while charged) stays charged.
-						boolean struck = !sulfur && charged.remove(p.getUniqueId());
-						boolean wasCharged = struck || (!sulfur && isPoweredForm(creeperForm));
-						if (!sulfur) plugin.morphs().setOverlay(p, "");
-						var settings = plugin.settings();
-						float power = (float) (config.getDouble("power", 3) * (wasCharged ? config.getDouble("charged-multiplier", 2) : 1));
-						explosionImmune.add(p.getUniqueId());
-						try {
-							p.getWorld().createExplosion(p, p.getLocation(), power,
-									config.getBoolean("set-fire", false) && settings.abilityFire.allows(p.getWorld()),
-									settings.explosionBlockDamage.allows(p.getWorld()));
-						} finally {
-							explosionImmune.remove(p.getUniqueId());
-						}
-						// A real creeper is gone once it explodes: "<player> blew up". Killed outright rather than with a
-						// huge hit, which would wear every armour piece down to nothing before the death drop.
-						if (settings.creeperExplosionKillsUser && (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE)) {
-							killSelf(p, "death.attack.explosion");
-						}
-					}, sulfur ? sulfurCubeFuseTicks : creeperFuseTicks);
+					return fuse(p, false);
 				}
 				case "teleport" -> {
 					Block target = p.getTargetBlockExact(config.getInt("range", 32));

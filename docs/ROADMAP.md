@@ -54,6 +54,11 @@ Open, carried over or found while working:
       charge. Transformations play on the body, its placement sliding from the old form's to the new one's. The body
       view pauses for headless forms (slime, magma cube, ghast, squid, pufferfish). The ender dragon gets the same
       placement, measured as it is drawn, and is raised so its head is at the camera.
+- [x] Fakeout explosion (6.1.8): creepers and sulfur cubes with TNT inside get the second input (sneak + ability key,
+      or F without sneaking without the mod), the same fuse and build-up as exploding, then a fizzle and back to
+      normal. Own cooldown (4 s), keeps a lightning charge, can be switched off in `abilities.yml`.
+- [ ] A sulfur cube's fuse shows no build-up on its body (only the TNT hiss); a real primed cube swells a little in
+      its last half second (no white flash). Left as is for now.
 - [ ] First-person Model's body view: check more mobs (tall ones like the iron golem and ender dragon, swimmers, flyers, babies),
       and what non-humanoid morphs show of held items with the body view on.
 - [ ] Humanoid morphs don't take the player's swimming or elytra pose (the player renderer turns the body for those;
@@ -149,8 +154,9 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-06 | First-person Model is supported through its public offset and activation handlers, registered by reflection with Java proxies | No compile dependency and none of its code; the mod keeps drawing and toggling the body, RE:Morph only places it and hides the head |
 | 2026-11-06 | In the first-person body view the camera sits just in front of the morph's body (head, face and legs left out), not at its head or neck | At the head the body was out of sight; at the neck a pig's back covered the crosshair, and a pig's back is higher than its eyes |
 | 2026-11-06 | The docs name First-person Model as an optional compatible mod | It is the mod the support was built and tested against, so players know which one to install |
-| 2026-11-06 | A model part that is hidden is measured where it rests | First-person Model hides a humanoid model's head by moving it 5000 units away; measured there, zombies, husks, skeletons and endermen were pushed forward past the camera instead of keeping that mod's placement (villager-type models aren't humanoid models and were right) |
+| 2026-11-06 | A model part that is hidden is measured where it rests | First-person Model hides a humanoid model's head by moving it 5000 units away; measured there, zombies, husks, skeletons and endermen were pushed forward past the camera instead of keeping that mod's placement (villager-type models aren't humanoid models and were right). A part more than 1000 units out counts as hidden too: the enderman's model shows its head again straight after, still that far away (fixed in 6.1.8) |
 | 2026-11-06 | The ender dragon morph's yaw is turned 180 degrees | The dragon's yaw points the other way from every other mob's (it flies along sin/-cos of it), so it was drawn tail first, in third person too |
+| 2026-11-06 | The fakeout explosion uses the second input (sneak + ability key) rather than a new key | The input already exists for the witch, works without the mod (F without sneaking), and needs no client change |
 | 2026-11-06 | Transformations play in first person instead of pausing the body view | Asked for; the body slides from the old form's placement to the new one's as the boxes move, and head boxes are left out |
 | 2026-11-06 | The head is hidden in ModelFeatureRenderer, between posing and drawing that one submitted model | Rendering is deferred in 26.3, so a flag set while submitting would be gone (or hit other models) by draw time |
 | 2026-11-06 | The favourites wheel's Biomass button is sized to its text; wheel prices sit under each name, in light grey when unaffordable | The fixed-size square was too big; dark grey didn't read on the wheel's dark ring |

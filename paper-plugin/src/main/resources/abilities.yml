@@ -7,7 +7,7 @@
 # The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
 # replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
 # changes you made.
-config-version: 6.1.6
+config-version: 6.1.8
 
 enabled: true
 
@@ -244,6 +244,10 @@ active:
     charged-multiplier: 2.0
     # Whether the blast breaks blocks, and whether you die in it, are in config.yml (world-effects).
     set-fire: false
+    # Fakeout: the same hiss and swell, then it fizzles out and you're back to normal. Sneak + ability key (client
+    # mod), or F without sneaking (no mod, with the sneak-swap-hand trigger). A lightning charge is kept.
+    fakeout: true
+    fakeout-cooldown-seconds: 4
   teleport:
     types: [enderman]
     cooldown-seconds: 4
