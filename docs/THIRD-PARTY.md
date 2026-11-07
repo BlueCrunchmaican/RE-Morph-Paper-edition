@@ -7,7 +7,7 @@ Everything RE:Morph uses, ships or links to, and on what terms. **Status** says 
 
 Being publicly downloadable is never treated as permission to redistribute.
 
-Last reviewed: 2026-11-05 (RE:Morph 6.1.2, before the first public push).
+Last reviewed: 2026-11-05 (RE:Morph 6.0.0, before the first public push).
 
 ## Original work this project is derived from
 

@@ -88,7 +88,7 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 | Upgrades | capacity, efficiency, reach shipped; morph ability, morph capacity, variant capacity, morph efficiency, morph abilities, max absorbable mass named but TODO | all of those working, plus Morph Flight (ours) |
 | Numbers | placeholders (a zombie overflowed the starting capacity 40×; Capacity 2 cost more than Capacity 1 held) | rebalanced (table above) |
 | Early kills | biomass only until the morph ability (his intended code) | the same |
-| Biomass spending | upgrades; ability costs were a TODO | upgrades, and morphing itself (6.1.6); abilities stay free |
+| Biomass spending | upgrades; ability costs were a TODO | upgrades, and morphing itself (6.3.0); abilities stay free |
 | Biomass menu | a client-only GUI, disabled | an advancement-style tree screen with the mod; a server chest menu for everyone else |
 | Biomass bar | client HUD, modes off / on change / always | the same modes, bottom left: red under the morph's black static, swaying tendrils; the action bar without the mod |
 | Trait tiers (`upgradeFor`, bat flapping → full flight) | data field only | flight only: gliding until Morph Flight |
@@ -97,7 +97,7 @@ development wrapped up and "Classic" was released instead ([CurseForge](https://
 
 1. Before the Morph Ability, kills give biomass only. Forms aren't saved; hunt again afterwards (iChun's plan).
 2. Switching Classic → Survival keeps collections, locked until the Morph Ability.
-3. Biomass is spent on upgrades, and since 6.1.6 on morphing (scaled by the form's size, adjustable with
+3. Biomass is spent on upgrades, and since 6.3.0 on morphing (scaled by the form's size, adjustable with
    `/morph cost`). Abilities don't cost biomass.
 4. Death costs no biomass.
 5. The upgrade tree starts from iChun's names.

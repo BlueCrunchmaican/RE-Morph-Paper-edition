@@ -126,12 +126,12 @@ Checked on the local test server. The unmodded client (VanillaViewer) was driven
 | Favourites wheel (Survival) | Opens before the Morph Ability with only the centre Biomass button; clicking it, or letting go of the key over it, opens the upgrade tree |
 | Red accents and effect icons | Tree: effect icons (Absorption, Saturation, Glowing, Strength, Nausea, Luck, Hero of the Village, Haste, Jump Boost, Levitation), red glow and red amount; bar: red fill, red edge, `+21` in red |
 
-## 6.1.2 (2026-11-05)
+## 6.0.0 (2026-11-05)
 
 | Check | Result |
 |---|---|
 | Selector keys bound to mouse buttons 4 and 5 | Was: the first press opened the selector, then it never moved (the selector swallowed every mouse button while open). Now: mouse 5 opened it and moved down two rows, mouse 4 moved back up |
-| Config upgrade 5.2.0 → 6.1.2 | abilities.yml and survival.yml replaced, old copies kept |
+| Config upgrade 5.2.0 → 6.0.0 | abilities.yml and survival.yml replaced, old copies kept |
 
 ### Rename to RE:Morph (2026-11-05)
 
@@ -149,20 +149,20 @@ Server side only, over RCON; the client's changes are names and text.
 The saved-data keys (`morphreborn:morph_scale` and the others) were built from the plugin's name; they're now fixed
 strings, so they're the same as before the rename.
 
-### config.yml upgrades (6.1.4, 2026-11-05)
+### config.yml upgrades (6.1.0, 2026-11-05)
 
 On the local test server; the merge rules also have unit tests (`ConfigMergeTest`).
 
 | Check | Result |
 |---|---|
 | The first release's config.yml with an admin's edits (40-tick transitions, an extra disabled mob, max health without a cap, `debug: true`, a note of their own) | Added `gameplay-mode`, `bee-sting-kills-user`, `min-max-health` and `health-overrides` in their places with their comments, and the console named them. Every edited value kept; the max-health entry wasn't given its default cap back. Backup `config-old-pre-6.1.4.yml` holds the old file and the note. Started with 40-tick transitions |
-| The test server's 6.1.2 config.yml, scrambled by earlier `/morph setting` saves | Put back in the release's order with its comments; no new settings, values unchanged |
+| The test server's 6.0.0 config.yml, scrambled by earlier `/morph setting` saves | Put back in the release's order with its comments; no new settings, values unchanged |
 | Restart with an up-to-date config.yml | Nothing written, no backup |
 | `/morph reload` with an old config.yml | Same upgrade as on startup |
 | A config.yml with a YAML error | Error logged, file left byte-for-byte as it was, no backup |
 | Long messages | Stay on one line (Paper wraps at 80 characters unless told otherwise; `/morph setting` saves fixed the same way) |
 
-### /morph mode (6.1.4, 2026-11-05)
+### /morph mode (6.1.0, 2026-11-05)
 
 Local test server; MorphTester1 (with the mod) and VanillaViewer (without) online in survival game mode.
 
@@ -176,14 +176,14 @@ Local test server; MorphTester1 (with the mod) and VanillaViewer (without) onlin
 | Collections and progress across both switches | Unchanged (103 and 7 variants) |
 | 6.1.3-numbered config.yml (an unreleased build) | Updated to 6.1.4 on startup, no new settings |
 
-## 6.1.5 (2026-11-06)
+## 6.2.0 (2026-11-06)
 
 ### Movement while transforming
 
 Local test server, MorphTester1 with the mod, survival game mode, sliding along a tunnel wall (slab bumps, a low
 ceiling) for 9 seconds. Distance covered:
 
-| Run | 6.1.4 | 6.1.5 |
+| Run | 6.1.0 | 6.2.0 |
 |---|---|---|
 | Plain player, no morph (baseline) | 27.4 blocks | |
 | Already an enderman, starting clear of the wall | 27.2 | |
@@ -195,7 +195,7 @@ ceiling) for 9 seconds. Distance covered:
 | Growing into a ghast under a 3-block ceiling | Kept a player-sized body (scale 1.0); grew to 2.22 the moment it was in the open |
 | Ghast to rabbit, rabbit to baby zombie, baby zombie to zombie | Sizes 0.33, 0.54, 1.08, each applied once at the half-way point |
 | Zombie to iron golem against a wall | Nudged 0.11 blocks off the wall before growing |
-| A 6.1.4 enderman teleported overlapping a wall | Couldn't move at all (0.02 blocks in 9 seconds): the stuck state the fix prevents |
+| A 6.1.0 enderman teleported overlapping a wall | Couldn't move at all (0.02 blocks in 9 seconds): the stuck state the fix prevents |
 | Camera during player to ghast and ghast to rabbit (297 ticks logged) | Largest change between ticks 0.064 blocks; the one-tick drop at the swap (the client's stored eye height lags the new scale by a tick) is gone |
 
 ### Paper doll
@@ -212,16 +212,16 @@ ceiling) for 9 seconds. Distance covered:
 Not tested in game: walking/sneaking/swimming/sleeping poses on the doll (they come from the same render state as the
 world, so they match it), the settings page itself and the toggle key.
 
-The Biomass Menu key is unbound by default since 6.1.5 (it was B), like the Settings and Paper Doll keys; built, not
+The Biomass Menu key is unbound by default since 6.2.0 (it was B), like the Settings and Paper Doll keys; built, not
 checked in game, and neither is the new "Can't morph yet" hint for when it has no key.
 
-## 6.1.6 (2026-11-06)
+## 6.3.0 (2026-11-06)
 
-Local test server (Paper 26.3 build 235), MorphTester1 with the 6.1.6 mod, VanillaViewer without it.
+Local test server (Paper 26.3 build 235), MorphTester1 with the 6.3.0 mod, VanillaViewer without it.
 
 | Check | Result |
 |---|---|
-| Updating a 6.1.4 config.yml and a 6.1.2 survival.yml | Both merged: `trading` and `biomass.gain-multiplier` / `morph-cost` added, values kept, backups written; abilities.yml replaced with a backup |
+| Updating a 6.1.0 config.yml and a 6.0.0 survival.yml | Both merged: `trading` and `biomass.gain-multiplier` / `morph-cost` added, values kept, backups written; abilities.yml replaced with a backup |
 | `/morph cost` on, off, rate, minimum, price, formula, gain | Each saved to survival.yml and resent to clients |
 | Selector prices in Survival | Shown after each name ("Allay 1 biomass", "Armadillo 4 biomass"), red when affordable |
 | Pig priced 50 with 31 biomass | Refused: "Not enough biomass: that morph costs 50." |
@@ -244,13 +244,13 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
-## 6.1.8 (2026-11-06)
+## 6.5.0 (2026-11-06)
 
-Local test server with the 6.1.8 plugin, MorphTester1 with the mod, in Creative, seen in third person.
+Local test server with the 6.5.0 plugin, MorphTester1 with the mod, in Creative, seen in third person.
 
 | Check | Result |
 |---|---|
-| Server start over a 6.1.6 `abilities.yml` | Replaced with the 6.1.8 file, old one kept as `abilities-old-6.1.6.yml` |
+| Server start over a 6.3.0 `abilities.yml` | Replaced with the 6.5.0 file, old one kept as `abilities-old-6.1.6.yml` |
 | Creeper, sneak + ability key | Swells and flashes white for the fuse, then back to its normal look with a puff of smoke; no blast, no crater |
 | Creeper, ability key | Swells, then explodes as before (crater) |
 | Enderman looking nearly straight down, after a step (First-person Model on) | Its shoulders at the bottom edge, the ground ahead clear (before the fix its body sat in front of the camera) |
@@ -259,9 +259,9 @@ Local test server with the 6.1.8 plugin, MorphTester1 with the mod, in Creative,
 Not tested in game: the fakeout from a player without the mod (F without sneaking), and the fizzle sound (test
 clients run with the sound almost off).
 
-## 6.1.7 (2026-11-06)
+## 6.4.0 (2026-11-06)
 
-Local test server, MorphTester1 with the 6.1.7 mod and First-person Model 2.7.3 installed.
+Local test server, MorphTester1 with the 6.4.0 mod and First-person Model 2.7.3 installed.
 
 | Check | Result |
 |---|---|
@@ -289,13 +289,13 @@ do when standing still; it lines up after a step.
 
 ## Still to check live
 
-**New in 6.1.8**
+**New in 6.5.0**
 - [ ] The fakeout from a player without the mod, and how it looks and sounds to onlookers with and without the mod.
 
-**New in 6.1.7**
+**New in 6.4.0**
 - [ ] First-person Model's body view across more mobs, and the wheel's prices at a normal window size.
 
-**New in 6.1.6**
+**New in 6.3.0**
 - [ ] The paper doll's head modes, tilt, and the vignette at different screen sizes.
 - [ ] Morph prices over a real Survival run: are 0.01 per kg and the minimum of 1 fair?
 - [ ] Trading with a villager morph from a Bedrock player, and the restock the next day.

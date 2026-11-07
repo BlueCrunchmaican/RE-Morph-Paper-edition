@@ -149,7 +149,7 @@ key to cycle).
 
 ## Second review (2026-11-06)
 
-Every mob was reviewed again and marked fine or to change. Done in 6.1.6:
+Every mob was reviewed again and marked fine or to change. Done in 6.3.0:
 
 - **Dolphin:** dries out after 4 minutes on land (was 2).
 - **Phantom:** sees in the dark (night vision), like the other night creatures.

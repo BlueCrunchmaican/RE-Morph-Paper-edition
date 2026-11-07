@@ -4,7 +4,7 @@ Kill a mob, become that mob. RE:Morph brings iChun's [Morph](https://github.com/
 26.3 as a Paper plugin, with an optional Fabric client mod that adds the original selector and animations.
 
 > **Unofficial.** RE:Morph is a fan port. It isn't made or endorsed by iChun, who created Morph. It was called
-> "Morph Reborn" before version 6.1.2.
+> "Morph Reborn" before version 6.0.0.
 
 ## How it works
 
@@ -45,7 +45,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.1.8 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.5.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 
@@ -68,6 +68,7 @@ The [server and player guide](docs/GUIDE.md) covers updating, settings, commands
 | [SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md) | Survival Mode: the unlock, biomass, the upgrade tree and its numbers |
 | [ABILITIES.md](docs/ABILITIES.md) | Every mob's traits and abilities (generated from `abilities.yml`) |
 | [BUILDING.md](docs/BUILDING.md) | Building the plugin and the mod from source |
+| [VERSIONING.md](docs/VERSIONING.md) | How versions are numbered (Semantic Versioning), and how older releases were renumbered |
 | [ROADMAP.md](docs/ROADMAP.md) | What's done, what's open, and why things were decided |
 | [TESTING.md](docs/TESTING.md) | What has been tested, and the live-test checklist |
 | [THIRD-PARTY.md](docs/THIRD-PARTY.md) | Every third-party component and its licence |
