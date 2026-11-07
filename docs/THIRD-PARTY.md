@@ -29,6 +29,12 @@ Last reviewed: 2026-11-05 (RE:Morph 6.1.2, before the first public push).
 | Fabric API 0.165.0+26.3 | Events, key mappings, client commands, rendering hooks | Runtime (client) | FabricMC | Apache-2.0 | To verify | https://github.com/FabricMC/fabric | No: players install it |
 | Minecraft Java Edition 26.3 | The game | Runtime | Mojang | Minecraft EULA and Usage Guidelines | To verify the current wording | https://www.minecraft.net/eula | Never: no Minecraft code or assets go in the repo |
 
+## Optional compatible mods (players may install these; we never bundle them or use their code)
+
+| Component | Purpose | Author | Licence | How RE:Morph uses it | Official source | Redistribute? |
+|---|---|---|---|---|---|---|
+| First-person Model 2.7.3 for 26.3 | Draws the player's own body in first person; with it installed, a morph is that body | tr7zw | tr7zw Protective License | Its public API (`FirstPersonAPI.registerPlayerHandler` with a `PlayerOffsetHandler` and an `ActivationHandler`), reached by reflection at runtime. No compile dependency; none of its code or assets in our repo or jars | https://modrinth.com/mod/first-person-model | No: players install it themselves |
+
 ## Build-time only (not in any jar we ship)
 
 | Component | Purpose | Licence | Status | Source | Notes |

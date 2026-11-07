@@ -244,7 +244,38 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## Unreleased (2026-11-06)
+
+Local test server, MorphTester1 with the mod and First-person Model 2.7.3 installed.
+
+| Check | Result |
+|---|---|
+| Client start with First-person Model | Its API found and both handlers registered (log line), no mixin errors |
+| Pig, horse, chicken, spider looking ahead and 40-60 degrees down | View ahead clear; no head or face in view |
+| Same, looking straight down | Pig and chicken: front of the body below; horse: its back; spider: its legs on both sides and the body below |
+| Zombie looking down | Its outstretched arms on both sides, as the mod draws a player's body |
+| Husk looking 45 degrees down, after a step | Arms out on both sides, middle of the view clear (before the fix the body sat in front of the camera) |
+| Ender dragon, F5 from above | Neck and head point the way the player faces, tail behind (before the fix: tail first) |
+| Ender dragon, first person ahead, down and up | Camera at its head: no dragon in view; it turns with the player, so it stays behind |
+| Husk to pig with the body view on | The animation plays on the body: morph-skin boxes melt into the pig body |
+| Slime | Plain first person: no inside of the cube in view |
+| The mod's toggle key, off and on as a pig | Off: the body goes and the plain hand view returns; on: the pig body is back |
+| F5 back and front views as a pig | Whole pig with its head, in its usual place |
+| Favourites wheel in Survival with four favourites | Biomass button sized to its text ("Biomass 26 / 100"), still opens the upgrade tree; prices under the names (spider 18 in red, iron golem 53, horse 32, ender dragon 20,480 in grey); none under the player's own form |
+
+Tried and dropped during the run: the camera at the head's centre (body out of sight unless looking straight down)
+and at the neck (a pig's back filled the view and covered the crosshair).
+
+Not tested in game: held items as a non-humanoid morph with the body view on; swimming, flying, riding and baby forms
+in the body view; a transformation between two headless forms (the body view pauses, seen only in the code path).
+
+A body that seems turned away after a teleport or a quick turn is the body lagging behind the head, as vanilla bodies
+do when standing still; it lines up after a step.
+
 ## Still to check live
+
+**Unreleased**
+- [ ] First-person Model's body view across more mobs, and the wheel's prices at a normal window size.
 
 **New in 6.1.6**
 - [ ] The paper doll's head modes, tilt, and the vignette at different screen sizes.

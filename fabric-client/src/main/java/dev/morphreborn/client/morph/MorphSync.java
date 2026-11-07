@@ -16,6 +16,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
@@ -60,6 +62,12 @@ public final class MorphSync {
 		morph.yBodyRotO = player.yBodyRotO;
 		morph.yHeadRot = player.yHeadRot;
 		morph.yHeadRotO = player.yHeadRotO;
+		if (morph instanceof EnderDragon) {
+			// The dragon's yaw points the other way from every other mob's: it flies along (sin, -cos) of its yaw
+			// (EnderDragon.aiStep) and its renderer turns by -yaw, so the player's own yaw drew it tail first.
+			morph.setYRot(Mth.wrapDegrees(player.getYRot() + 180.0F));
+			morph.yRotO = player.yRotO + 180.0F;
+		}
 		// Other players' speed is only known when they are knocked back; their position change is the real one, and
 		// some mobs animate from it (a walking bee's wings).
 		morph.setDeltaMovement(player == Minecraft.getInstance().player ? player.getDeltaMovement()

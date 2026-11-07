@@ -47,8 +47,15 @@ Open, carried over or found while working:
 - [x] Separate looks for a new morph and a biomass-only kill (6.1.6): Black Tendrils (the original), Red Tendrils
       (dark red tint), Red Wisps, Plain, Off, chosen separately. Defaults: black for a new morph, dark red for biomass
       (a bright red was tried first and was too strong).
-- [ ] First-person model mods: check every morph looks right through them. Backburner: it needs a lot of
-      testing.
+- [x] [First-person Model](https://modrinth.com/mod/first-person-model) (tr7zw) as an optional compatible mod: the morph is
+      the body in its first-person view, through its public API by reflection, nothing bundled. The head is hidden while that one body is drawn; the body is
+      moved back so its front edge is just behind the camera (aiming stays clear, looking down shows the front legs
+      and back); morphs with the head on top of the body keep the mod's own placement. The mod's toggle stays in
+      charge. Transformations play on the body, its placement sliding from the old form's to the new one's. The body
+      view pauses for headless forms (slime, magma cube, ghast, squid, pufferfish). The ender dragon gets the same
+      placement, measured as it is drawn, and is raised so its head is at the camera.
+- [ ] First-person Model's body view: check more mobs (tall ones like the iron golem and ender dragon, swimmers, flyers, babies),
+      and what non-humanoid morphs show of held items with the body view on.
 - [ ] Humanoid morphs don't take the player's swimming or elytra pose (the player renderer turns the body for those;
       mob renderers don't). Sitting in vehicles is copied since 6.1.5.
 - [ ] Optional Mod Menu entry for the settings screen (needs Mod Menu as an optional dependency).
@@ -138,3 +145,11 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-06 | Trades are copied through MerchantRecipe's getters, never its copy constructor | Paper's copy constructor reads raw fields, which the server's recipes leave at 0: every copy was sold out |
 | 2026-11-06 | Cobweb scaffolding for spiders is client-side (block collision and climbing mixins) | The top of a web has to be solid only for that player, which the server can't do |
 | 2026-11-06 | The music-toast check uses reflection | A Mixin accessor can't name the private toast class it returns |
+| 2026-11-06 | First-person Model is supported through its public offset and activation handlers, registered by reflection with Java proxies | No compile dependency and none of its code; the mod keeps drawing and toggling the body, RE:Morph only places it and hides the head |
+| 2026-11-06 | In the first-person body view the camera sits just in front of the morph's body (head, face and legs left out), not at its head or neck | At the head the body was out of sight; at the neck a pig's back covered the crosshair, and a pig's back is higher than its eyes |
+| 2026-11-06 | The docs name First-person Model as an optional compatible mod | It is the mod the support was built and tested against, so players know which one to install |
+| 2026-11-06 | A model part that is hidden is measured where it rests | First-person Model hides a humanoid model's head by moving it 5000 units away; measured there, zombies, husks, skeletons and endermen were pushed forward past the camera instead of keeping that mod's placement (villager-type models aren't humanoid models and were right) |
+| 2026-11-06 | The ender dragon morph's yaw is turned 180 degrees | The dragon's yaw points the other way from every other mob's (it flies along sin/-cos of it), so it was drawn tail first, in third person too |
+| 2026-11-06 | Transformations play in first person instead of pausing the body view | Asked for; the body slides from the old form's placement to the new one's as the boxes move, and head boxes are left out |
+| 2026-11-06 | The head is hidden in ModelFeatureRenderer, between posing and drawing that one submitted model | Rendering is deferred in 26.3, so a flag set while submitting would be gone (or hit other models) by draw time |
+| 2026-11-06 | The favourites wheel's Biomass button is sized to its text; wheel prices sit under each name, in light grey when unaffordable | The fixed-size square was too big; dark grey didn't read on the wheel's dark ring |

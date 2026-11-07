@@ -41,6 +41,7 @@ Nobody is kicked for not having the mod.
 |---|---|
 | Server | Paper 26.3 on Java 25 or newer, [Lib's Disguises](https://www.spigotmc.org/resources/libs-disguises-free.81/) 26.10.24 or newer (the Free build works), [PacketEvents](https://modrinth.com/plugin/packetevents) 2.14.0 or newer |
 | Client (optional) | [Fabric Loader](https://fabricmc.net/use/installer/) 0.20.1 or newer and [Fabric API](https://modrinth.com/mod/fabric-api) 0.165.0+26.3 for Minecraft 26.3 |
+| Optional compatible mod | [First-person Model](https://modrinth.com/mod/first-person-model) by tr7zw (tested with 2.7.3 for 26.3): with it, your morph is your body in first person. Not required, not bundled |
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
@@ -54,7 +55,8 @@ Download the release, then:
 
 1. **Server:** put `RE-Morph-paper-<version>.jar`, Lib's Disguises and PacketEvents in `plugins/`, then start the
    server.
-2. **Players (optional):** put `RE-Morph-fabric-<version>+26.3.jar` and Fabric API in `.minecraft/mods/`.
+2. **Players (optional):** put `RE-Morph-fabric-<version>+26.3.jar` and Fabric API in `.minecraft/mods/`. Add
+   [First-person Model](https://modrinth.com/mod/first-person-model) too if you want your morph as your body in first person.
 
 The [server and player guide](docs/GUIDE.md) covers updating, settings, commands, permissions and known limitations.
 
