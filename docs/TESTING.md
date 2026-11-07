@@ -244,9 +244,9 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
-## Unreleased (2026-11-06)
+## 6.1.7 (2026-11-06)
 
-Local test server, MorphTester1 with the mod and First-person Model 2.7.3 installed.
+Local test server, MorphTester1 with the 6.1.7 mod and First-person Model 2.7.3 installed.
 
 | Check | Result |
 |---|---|
@@ -274,7 +274,7 @@ do when standing still; it lines up after a step.
 
 ## Still to check live
 
-**Unreleased**
+**New in 6.1.7**
 - [ ] First-person Model's body view across more mobs, and the wheel's prices at a normal window size.
 
 **New in 6.1.6**
