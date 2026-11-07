@@ -1,4 +1,4 @@
-# RE:Morph 6.1.8
+# RE:Morph 6.5.0
 
 Kill a mob, become that mob. An unofficial port of iChun's Morph mod to Minecraft Java 26.3.
 
@@ -14,8 +14,8 @@ The client mod is optional. Nobody is ever kicked for not having it.
 
 | Path | What it is |
 |---|---|
-| `server/RE-Morph-paper-6.1.8.jar` | The Paper plugin |
-| `client/RE-Morph-fabric-6.1.8+26.3.jar` | The Fabric client mod (optional, Java players only) |
+| `server/RE-Morph-paper-6.5.0.jar` | The Paper plugin |
+| `client/RE-Morph-fabric-6.5.0+26.3.jar` | The Fabric client mod (optional, Java players only) |
 | `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
@@ -29,7 +29,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 Needs a **Paper 26.3** server (built against build 235) running Java 25 or newer.
 
 1. Put these three jars in the server's `plugins` folder:
-   - `RE-Morph-paper-6.1.8.jar` (this release)
+   - `RE-Morph-paper-6.5.0.jar` (this release)
    - **Lib's Disguises** 26.10.24 or newer: https://www.spigotmc.org/resources/libs-disguises-free.81/
    - **PacketEvents** 2.14.0 or newer (Lib's Disguises needs it): https://modrinth.com/plugin/packetevents
 2. Start the server once. The plugin creates `plugins/RE-Morph/` with `config.yml`, `abilities.yml` and
@@ -45,7 +45,7 @@ Replace the old `RE-Morph-paper-*.jar` with the new one (don't keep both) and re
 - **`config.yml` and `survival.yml`** keep every value you set. When a release adds settings, the plugin updates the
   file on startup: the new settings appear in their place with their defaults and explanations, and the console lists
   them. Your old file is kept next to it (for example `config-old-6.1.4.yml`), along with any notes you wrote in it.
-  (`survival.yml` does this since 6.1.6; before that it was replaced like the two below.)
+  (`survival.yml` does this since 6.3.0; before that it was replaced like the two below.)
 - **`abilities.yml` and `variants.yml`** are replaced automatically when they come from an older release. Each one
   says which release it comes from in its `config-version` line. The console names the backup it keeps, for example
   `abilities-old-pre-5.0.0.yml`; copy back any changes you had made.
@@ -54,43 +54,43 @@ Replace the old `RE-Morph-paper-*.jar` with the new one (don't keep both) and re
 Players with the client mod should swap their old `RE-Morph-fabric-*.jar` for the new one; two copies in the
 `mods` folder stop the game from starting.
 
-**Coming from Morph Reborn** (the project's name until 6.1.2): remove `MorphReborn-paper-*.jar` and put
-`RE-Morph-paper-6.1.8.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
+**Coming from Morph Reborn** (the project's name until 6.0.0): remove `MorphReborn-paper-*.jar` and put
+`RE-Morph-paper-6.5.0.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
 so settings and collections carry over. Permissions (`morphreborn.*`), `/morph` and its old `/morphreborn` alias,
 and the client mod's settings file keep their names. Players swap `morphreborn-fabric-*.jar` for
-`RE-Morph-fabric-6.1.8+26.3.jar`.
+`RE-Morph-fabric-6.5.0+26.3.jar`.
 
-**6.1.2 changes the client protocol.** On a 6.1.2 server, an older client mod (5.x) is told to update and is treated
+**6.0.0 changes the client protocol.** On a 6.0.0 server, an older client mod (5.x) is told to update and is treated
 as a player without the mod until it does: they still see and use morphs, just without the selector and animations.
 
-6.1.2 also adds `survival.yml` and the `gameplay-mode` setting (see Survival Mode).
+6.0.0 also adds `survival.yml` and the `gameplay-mode` setting (see Survival Mode).
 
-**6.1.4 updates `config.yml` for you.** Before 6.1.4 the plugin never touched an existing `config.yml`, so settings
+**6.1.0 updates `config.yml` for you.** Before 6.1.0 the plugin never touched an existing `config.yml`, so settings
 added since your first install (such as `gameplay-mode`) were missing from it and silently used their defaults. On
-the first start with 6.1.4 they are added, at their defaults, and your values stay.
+the first start with 6.1.0 they are added, at their defaults, and your values stay.
 
-**6.1.4 also adds `/morph mode`**, so admins can switch between Classic and Survival in game, at once, without a
+**6.1.0 also adds `/morph mode`**, so admins can switch between Classic and Survival in game, at once, without a
 restart (see Admin commands).
 
-**6.1.5** fixes players getting stuck or jittering against walls and rough ground while transforming, and adds the
+**6.2.0** fixes players getting stuck or jittering against walls and rough ground while transforming, and adds the
 paper doll to the client mod. The Biomass Menu key no longer takes B by default (bind it in Controls if you want it;
 its Reset button there unbinds it on clients that still have B). Nothing to change in your config files. Players should update the client mod to get the
-doll and the smooth camera; 6.1.4 clients still work.
+doll and the smooth camera; 6.1.0 clients still work.
 
-**6.1.6** adds, in Survival, a biomass price for morphing (`/morph cost`, see Survival Mode); jockeys; trading with
+**6.3.0** adds, in Survival, a biomass price for morphing (`/morph cost`, see Survival Mode); jockeys; trading with
 villager morphs; climbing cobwebs as a spider; and many more paper doll settings, including a soft vignette around the
 doll. A kill that only gives biomass now looks different from unlocking a new morph (dark red tendrils instead of
 black ones). The phantom morph sees in the dark, and the dolphin dries out after 4 minutes instead of 2. On first start
 `config.yml` and `survival.yml` get the new settings and keep your values; `abilities.yml` is replaced (copy back any
-changes from the backup). 6.1.5 clients still work, but only 6.1.6 shows morph prices in the selector, the new absorb
+changes from the backup). 6.2.0 clients still work, but only 6.3.0 shows morph prices in the selector, the new absorb
 looks and the web climbing.
 
-**6.1.7** is a client update. It adds optional support for First-person Model (your morph is your body in its
+**6.4.0** is a client update. It adds optional support for First-person Model (your morph is your body in its
 first-person view, see Playing), shows morph prices on the favourites wheel with a smaller Biomass button in its
-middle, and the ender dragon morph no longer faces backwards. The plugin only changed its version number, so a 6.1.6
-server and 6.1.6 clients keep working with it.
+middle, and the ender dragon morph no longer faces backwards. The plugin only changed its version number, so a 6.3.0
+server and 6.3.0 clients keep working with it.
 
-**6.1.8** adds a fakeout explosion for creepers and sulfur cubes with TNT inside (sneak + ability key, see Abilities)
+**6.5.0** adds a fakeout explosion for creepers and sulfur cubes with TNT inside (sneak + ability key, see Abilities)
 and fixes endermen in First-person Model's view. On first start `abilities.yml` is replaced with the new version (your
 old one is kept as `abilities-old-6.1.6.yml`; copy back any changes); `config.yml` and `survival.yml` don't change.
 Older clients still work, fakeout included; update the client mod for the enderman fix.
@@ -105,7 +105,7 @@ resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `
 
 1. Install **Fabric Loader** 0.20.1 or newer for Minecraft 26.3: https://fabricmc.net/use/installer/
 2. Put these in the `.minecraft/mods` folder:
-   - `RE-Morph-fabric-6.1.8+26.3.jar` (this release)
+   - `RE-Morph-fabric-6.5.0+26.3.jar` (this release)
    - **Fabric API** 0.165.0+26.3 or newer: https://modrinth.com/mod/fabric-api
    - Optional: **First-person Model** by tr7zw (tested with 2.7.3), for your morph as your body in first person:
      https://modrinth.com/mod/first-person-model
@@ -258,7 +258,7 @@ Abilities are always yours to trigger:
   charge their jump the longer you hold sneak.
 - **Witch:** throws or drinks the potion shown in the action bar. Change it with sneak + ability key, or F without
   sneaking if you don't have the mod.
-- **Fakeout explosion** (6.1.8): as a creeper, or a sulfur cube with TNT inside, sneak + ability key (F without sneaking if you
+- **Fakeout explosion** (6.5.0): as a creeper, or a sulfur cube with TNT inside, sneak + ability key (F without sneaking if you
   don't have the mod) starts the same fuse, hiss and swell, then fizzles out with a puff of smoke instead of exploding.
   You're back to normal, a lightning charge is kept, and it has its own short cooldown (`explode.fakeout` and
   `fakeout-cooldown-seconds` in `abilities.yml`).
