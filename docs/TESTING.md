@@ -244,7 +244,7 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
-## Unreleased: 6.1.8 (2026-11-06)
+## 6.1.8 (2026-11-06)
 
 Local test server with the 6.1.8 plugin, MorphTester1 with the mod, in Creative, seen in third person.
 

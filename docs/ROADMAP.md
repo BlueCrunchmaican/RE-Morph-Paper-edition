@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.1.7** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **6.1.8** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.1.2.)
 
 ## Priority 1: existing functionality
@@ -113,7 +113,8 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 - [x] GitHub release for 6.1.4.
 - [x] GitHub release for 6.1.5.
 - [x] GitHub release for 6.1.6.
-- [ ] GitHub release for 6.1.7.
+- [x] 6.1.7: Modrinth only, no GitHub release (its changes are listed in the 6.1.8 release).
+- [x] GitHub release for 6.1.8.
 - [ ] Split GUIDE.md into a server guide and a client guide.
 - [ ] Mob reference: add columns for "needs the client mod" and special interactions to ABILITIES.md.
 - [ ] Mob spreadsheet: generate `mobs.csv` (and an .xlsx) from abilities.yml with `tools/gen_abilities_doc.py`, so
