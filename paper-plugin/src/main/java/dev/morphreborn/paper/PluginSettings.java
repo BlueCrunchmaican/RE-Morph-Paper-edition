@@ -40,6 +40,10 @@ public final class PluginSettings {
 
 	public final NameTagMode nameTagMode;
 	public final boolean vanillaSelfDisguise;
+	/** Multimorph heads for players without the mod: auto (players whose game loaded the server resource pack), pack (everyone) or off. */
+	public final String multimorphVanillaHeads;
+	/** Players may combine two morphs (a main body and a borrowed form). */
+	public final boolean multimorphEnabled;
 	public final boolean hitboxScaling;
 	public final double minScale;
 	public final double maxScale;
@@ -146,6 +150,9 @@ public final class PluginSettings {
 		}
 		nameTagMode = mode;
 		vanillaSelfDisguise = c.getBoolean("appearance.vanilla-self-disguise", true);
+		String heads = c.getString("multimorph.vanilla-heads", "auto").toLowerCase(java.util.Locale.ROOT);
+		multimorphVanillaHeads = java.util.List.of("auto", "pack", "off").contains(heads) ? heads : "auto";
+		multimorphEnabled = c.getBoolean("multimorph.enabled", true);
 		hitboxScaling = c.getBoolean("appearance.hitbox-scaling", true);
 		minScale = Math.max(0.0625, c.getDouble("appearance.min-scale", 0.2));
 		maxScale = Math.max(minScale, c.getDouble("appearance.max-scale", 2.5));

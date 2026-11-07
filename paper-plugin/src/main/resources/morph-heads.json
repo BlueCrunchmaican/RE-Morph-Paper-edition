@@ -1,0 +1,1782 @@
+{
+ "minecraft:allay": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.1562
+  ],
+  "height": 0.6,
+  "neck": [
+   0.0,
+   0.2816,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.3125,
+   0.3125
+  ],
+  "whole": false
+ },
+ "minecraft:armadillo": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.0625
+  ],
+  "height": 0.65,
+  "neck": [
+   0.0,
+   0.3135,
+   0.4375
+  ],
+  "scale": 1.0,
+  "size": [
+   0.1875,
+   0.375,
+   0.125
+  ],
+  "whole": false
+ },
+ "minecraft:axolotl": {
+  "anchor": [
+   0.0,
+   -0.1251,
+   0.0001
+  ],
+  "height": 0.42,
+  "neck": [
+   0.0,
+   0.2823,
+   0.25
+  ],
+  "scale": 1.0,
+  "size": [
+   0.8751,
+   0.5001,
+   0.3126
+  ],
+  "whole": false
+ },
+ "minecraft:bat": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0625
+  ],
+  "height": 0.9,
+  "neck": [
+   0.0,
+   0.4385,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.375,
+   0.125
+  ],
+  "whole": false
+ },
+ "minecraft:bee": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.5,
+  "neck": [
+   0.0,
+   0.5636,
+   0.0313
+  ],
+  "scale": 1.0,
+  "size": [
+   0.9376,
+   0.5626,
+   0.9375
+  ],
+  "whole": true
+ },
+ "minecraft:blaze": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.25
+  ],
+  "height": 1.8,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:bogged": {
+  "anchor": [
+   0.0,
+   -0.1875,
+   0.2812
+  ],
+  "height": 1.99,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.75,
+   0.75,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:breeze": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.25
+  ],
+  "height": 1.77,
+  "neck": [
+   0.0,
+   1.251,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   0.5,
+   0.5125
+  ],
+  "whole": false
+ },
+ "minecraft:camel": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.25
+  ],
+  "height": 2.375,
+  "neck": [
+   0.0,
+   1.4385,
+   0.625
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   1.375,
+   1.5625
+  ],
+  "whole": false
+ },
+ "minecraft:camel_husk": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.25
+  ],
+  "height": 2.375,
+  "neck": [
+   0.0,
+   1.4385,
+   0.625
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   1.375,
+   1.5625
+  ],
+  "whole": false
+ },
+ "minecraft:cat": {
+  "anchor": [
+   0.0,
+   -0.1875,
+   0.125
+  ],
+  "height": 0.7,
+  "neck": [
+   0.0,
+   0.4508,
+   0.45
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.3125,
+   0.375
+  ],
+  "whole": false
+ },
+ "minecraft:cave_spider": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.0
+  ],
+  "height": 0.5,
+  "neck": [
+   0.0,
+   0.3944,
+   0.1313
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:chicken": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0625
+  ],
+  "height": 0.7,
+  "neck": [
+   0.0,
+   0.5635,
+   0.25
+  ],
+  "scale": 1.0,
+  "size": [
+   0.25,
+   0.375,
+   0.3125
+  ],
+  "whole": false
+ },
+ "minecraft:cod": {
+  "anchor": [
+   -0.004,
+   -0.125,
+   0.0
+  ],
+  "height": 0.3,
+  "neck": [
+   0.0302,
+   0.1,
+   0.0988
+  ],
+  "scale": 1.0,
+  "size": [
+   0.1329,
+   0.25,
+   0.2498
+  ],
+  "whole": false
+ },
+ "minecraft:copper_golem": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.3134
+  ],
+  "height": 0.98,
+  "neck": [
+   0.0,
+   0.6885,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5019,
+   0.8741,
+   0.6884
+  ],
+  "whole": false
+ },
+ "minecraft:cow": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.0
+  ],
+  "height": 1.4,
+  "neck": [
+   0.0,
+   1.251,
+   0.5
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   0.5625,
+   0.4375
+  ],
+  "whole": false
+ },
+ "minecraft:creaking": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.1875
+  ],
+  "height": 2.7,
+  "neck": [
+   -0.25,
+   1.876,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   1.5,
+   0.9375,
+   0.375
+  ],
+  "whole": false
+ },
+ "minecraft:creeper": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.25
+  ],
+  "height": 1.7,
+  "neck": [
+   0.0,
+   1.126,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:dolphin": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.1875
+  ],
+  "height": 0.6,
+  "neck": [
+   0.0,
+   0.376,
+   0.5
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.4375,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:donkey": {
+  "anchor": [
+   0.0,
+   -0.6875,
+   0.3125
+  ],
+  "height": 1.5,
+  "neck": [
+   0.0,
+   1.0884,
+   0.6525
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   1.2671,
+   0.75
+  ],
+  "whole": false
+ },
+ "minecraft:drowned": {
+  "anchor": [
+   0.0,
+   -0.0312,
+   0.2812
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:elder_guardian": {
+  "anchor": [
+   -0.0005,
+   -1.4937,
+   1.4471
+  ],
+  "height": 1.9975,
+  "neck": [
+   0.0,
+   3.5274,
+   0.0
+  ],
+  "scale": 2.5482,
+  "size": [
+   0.9792,
+   2.0824,
+   1.9353
+  ],
+  "whole": false
+ },
+ "minecraft:enderman": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.25
+  ],
+  "height": 2.9,
+  "neck": [
+   0.0,
+   2.3135,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:endermite": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.3,
+  "neck": [
+   0.0,
+   0.251,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.25,
+   0.5625
+  ],
+  "whole": true
+ },
+ "minecraft:evoker": {
+  "anchor": [
+   0.0,
+   -0.625,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.9297,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:fox": {
+  "anchor": [
+   -0.0625,
+   -0.2506,
+   0.0625
+  ],
+  "height": 0.7,
+  "neck": [
+   -0.0625,
+   0.4698,
+   0.1875
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5006,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:frog": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.125
+  ],
+  "height": 0.5,
+  "neck": [
+   0.0,
+   0.251,
+   -0.1875
+  ],
+  "scale": 1.0,
+  "size": [
+   0.4375,
+   0.3125,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:ghast": {
+  "anchor": [
+   0.0,
+   0.8917,
+   0.0
+  ],
+  "height": 4.0,
+  "neck": [
+   0.0,
+   4.0545,
+   0.0
+  ],
+  "scale": 4.1004,
+  "size": [
+   0.8879,
+   0.6021,
+   0.7164
+  ],
+  "whole": true
+ },
+ "minecraft:giant": {
+  "anchor": [
+   0.0,
+   -0.5312,
+   0.2812
+  ],
+  "height": 12.0,
+  "neck": [
+   0.0,
+   9.006,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:glow_squid": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.8,
+  "neck": [
+   0.0,
+   0.8023,
+   0.0
+  ],
+  "scale": 1.5063,
+  "size": [
+   0.4996,
+   1.4937,
+   0.4996
+  ],
+  "whole": true
+ },
+ "minecraft:goat": {
+  "anchor": [
+   0.0312,
+   -0.25,
+   -0.375
+  ],
+  "height": 1.3,
+  "neck": [
+   0.0625,
+   0.626,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.6875,
+   1.25,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:guardian": {
+  "anchor": [
+   -0.0004,
+   -1.3304,
+   1.4937
+  ],
+  "height": 0.85,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.3389,
+  "size": [
+   0.8466,
+   1.1707,
+   1.9159
+  ],
+  "whole": false
+ },
+ "minecraft:happy_ghast": {
+  "anchor": [
+   0.0,
+   0.7029,
+   0.0
+  ],
+  "height": 4.0,
+  "neck": [
+   0.0,
+   4.004,
+   0.0
+  ],
+  "scale": 2.8452,
+  "size": [
+   1.1423,
+   0.7908,
+   0.9226
+  ],
+  "whole": true
+ },
+ "minecraft:hoglin": {
+  "anchor": [
+   -0.0084,
+   -1.3424,
+   0.0
+  ],
+  "height": 1.4,
+  "neck": [
+   0.0164,
+   1.376,
+   0.7498
+  ],
+  "scale": 1.0,
+  "size": [
+   0.9998,
+   1.5299,
+   1.1875
+  ],
+  "whole": false
+ },
+ "minecraft:horse": {
+  "anchor": [
+   0.0,
+   -0.8124,
+   0.3125
+  ],
+  "height": 1.6,
+  "neck": [
+   0.0,
+   1.3761,
+   0.825
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.4374,
+   0.75
+  ],
+  "whole": false
+ },
+ "minecraft:husk": {
+  "anchor": [
+   0.0,
+   -0.5312,
+   0.2812
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.5948,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:illusioner": {
+  "anchor": [
+   0.0,
+   -0.6531,
+   0.2781
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5562,
+   0.9578,
+   0.6531
+  ],
+  "whole": false
+ },
+ "minecraft:iron_golem": {
+  "anchor": [
+   0.0,
+   0.0625,
+   0.1562
+  ],
+  "height": 2.7,
+  "neck": [
+   0.0,
+   1.9385,
+   0.125
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.6875,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:llama": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.0
+  ],
+  "height": 1.87,
+  "neck": [
+   0.0,
+   1.0635,
+   0.375
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   1.3125,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:magma_cube": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.52,
+  "neck": [
+   0.0,
+   0.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": true
+ },
+ "minecraft:mooshroom": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.0
+  ],
+  "height": 1.4,
+  "neck": [
+   0.0,
+   1.251,
+   0.5
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   0.5625,
+   0.4375
+  ],
+  "whole": false
+ },
+ "minecraft:mule": {
+  "anchor": [
+   0.0,
+   -0.6875,
+   0.3125
+  ],
+  "height": 1.6,
+  "neck": [
+   0.0,
+   1.1509,
+   0.69
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   1.3005,
+   0.75
+  ],
+  "whole": false
+ },
+ "minecraft:nautilus": {
+  "anchor": [
+   0.0,
+   0.0,
+   -0.0
+  ],
+  "height": 0.95,
+  "neck": [
+   0.0,
+   1.126,
+   -0.2906
+  ],
+  "scale": 1.0,
+  "size": [
+   0.875,
+   1.1256,
+   1.5812
+  ],
+  "whole": true
+ },
+ "minecraft:ocelot": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.125
+  ],
+  "height": 0.7,
+  "neck": [
+   0.0,
+   0.5635,
+   0.5625
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.3125,
+   0.375
+  ],
+  "whole": false
+ },
+ "minecraft:panda": {
+  "anchor": [
+   0.0,
+   -0.3125,
+   0.3125
+  ],
+  "height": 1.25,
+  "neck": [
+   0.0,
+   0.7823,
+   1.0625
+  ],
+  "scale": 1.0,
+  "size": [
+   1.0625,
+   0.8125,
+   0.6875
+  ],
+  "whole": false
+ },
+ "minecraft:parched": {
+  "anchor": [
+   0.0,
+   -0.0125,
+   0.2625
+  ],
+  "height": 1.99,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.525,
+   0.525,
+   0.525
+  ],
+  "whole": false
+ },
+ "minecraft:parrot": {
+  "anchor": [
+   0.0,
+   -0.1156,
+   0.1344
+  ],
+  "height": 0.9,
+  "neck": [
+   0.0,
+   0.5204,
+   0.1725
+  ],
+  "scale": 1.0,
+  "size": [
+   0.125,
+   0.3125,
+   0.3219
+  ],
+  "whole": false
+ },
+ "minecraft:phantom": {
+  "anchor": [
+   -0.0312,
+   -0.125,
+   0.0
+  ],
+  "height": 0.5,
+  "neck": [
+   0.0,
+   0.17,
+   0.2541
+  ],
+  "scale": 1.0,
+  "size": [
+   0.4375,
+   0.1875,
+   0.3125
+  ],
+  "whole": false
+ },
+ "minecraft:pig": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.0
+  ],
+  "height": 0.9,
+  "neck": [
+   0.0,
+   0.751,
+   0.375
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:piglin": {
+  "anchor": [
+   0.0,
+   -0.5,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   1.1875,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:piglin_brute": {
+  "anchor": [
+   0.0,
+   -0.5,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   1.1875,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:pillager": {
+  "anchor": [
+   0.0,
+   -0.625,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.9297,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:polar_bear": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.25
+  ],
+  "height": 1.4,
+  "neck": [
+   0.0,
+   1.0512,
+   1.2
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:pufferfish": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.35,
+  "neck": [
+   0.0,
+   0.3309,
+   -0.0937
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.1875,
+   0.375
+  ],
+  "whole": true
+ },
+ "minecraft:rabbit": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.0625
+  ],
+  "height": 0.6,
+  "neck": [
+   0.0,
+   0.5634,
+   0.0923
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.625,
+   0.3125
+  ],
+  "whole": false
+ },
+ "minecraft:ravager": {
+  "anchor": [
+   0.125,
+   -0.125,
+   0.125
+  ],
+  "height": 2.2,
+  "neck": [
+   0.0,
+   0.9385,
+   0.7188
+  ],
+  "scale": 1.0,
+  "size": [
+   1.25,
+   1.375,
+   1.25
+  ],
+  "whole": false
+ },
+ "minecraft:salmon": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.0
+  ],
+  "height": 0.4,
+  "neck": [
+   0.0882,
+   0.1,
+   0.4442
+  ],
+  "scale": 1.0,
+  "size": [
+   0.125,
+   0.25,
+   0.1875
+  ],
+  "whole": false
+ },
+ "minecraft:sheep": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.125
+  ],
+  "height": 1.3,
+  "neck": [
+   0.0,
+   1.126,
+   0.5
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.375,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:shulker": {
+  "anchor": [
+   0.0,
+   -0.375,
+   0.1875
+  ],
+  "height": 1.0,
+  "neck": [
+   0.0,
+   0.751,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.375,
+   0.375
+  ],
+  "whole": false
+ },
+ "minecraft:silverfish": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.3,
+  "neck": [
+   0.0,
+   0.501,
+   -0.25
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   0.5,
+   1.0625
+  ],
+  "whole": true
+ },
+ "minecraft:skeleton": {
+  "anchor": [
+   0.0,
+   -0.0312,
+   0.2812
+  ],
+  "height": 1.99,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:skeleton_horse": {
+  "anchor": [
+   0.0,
+   -0.8124,
+   0.3125
+  ],
+  "height": 1.6,
+  "neck": [
+   0.0,
+   1.251,
+   0.75
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.4374,
+   0.75
+  ],
+  "whole": false
+ },
+ "minecraft:slime": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.52,
+  "neck": [
+   0.0,
+   0.4371,
+   0.0156
+  ],
+  "scale": 0.999,
+  "size": [
+   0.4062,
+   0.375,
+   0.4062
+  ],
+  "whole": true
+ },
+ "minecraft:sniffer": {
+  "anchor": [
+   0.0,
+   -0.7188,
+   -0.0312
+  ],
+  "height": 1.75,
+  "neck": [
+   0.0,
+   0.7823,
+   1.2175
+  ],
+  "scale": 1.0,
+  "size": [
+   0.9387,
+   1.1875,
+   1.25
+  ],
+  "whole": false
+ },
+ "minecraft:snow_golem": {
+  "anchor": [
+   0.0,
+   0.0312,
+   0.2188
+  ],
+  "height": 1.9,
+  "neck": [
+   0.0,
+   1.251,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.4375,
+   0.4375,
+   0.4375
+  ],
+  "whole": false
+ },
+ "minecraft:spider": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.0
+  ],
+  "height": 0.9,
+  "neck": [
+   0.0,
+   0.5635,
+   0.1875
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:squid": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.8,
+  "neck": [
+   0.0,
+   0.8023,
+   0.0
+  ],
+  "scale": 1.5063,
+  "size": [
+   0.4996,
+   1.4937,
+   0.4996
+  ],
+  "whole": true
+ },
+ "minecraft:stray": {
+  "anchor": [
+   0.0,
+   -0.0312,
+   0.2812
+  ],
+  "height": 1.99,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:strider": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 1.7,
+  "neck": [
+   0.0,
+   1.8135,
+   0.0
+  ],
+  "scale": 1.2134,
+  "size": [
+   0.8241,
+   1.4937,
+   0.8241
+  ],
+  "whole": true
+ },
+ "minecraft:sulfur_cube": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.49,
+  "neck": [
+   0.0,
+   0.5714,
+   0.0
+  ],
+  "scale": 0.4995,
+  "size": [
+   1.125,
+   1.125,
+   1.125
+  ],
+  "whole": true
+ },
+ "minecraft:tadpole": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "height": 0.3,
+  "neck": [
+   0.0,
+   0.1885,
+   -0.125
+  ],
+  "scale": 1.0,
+  "size": [
+   0.1875,
+   0.125,
+   0.625
+  ],
+  "whole": true
+ },
+ "minecraft:trader_llama": {
+  "anchor": [
+   0.0,
+   -0.125,
+   0.0
+  ],
+  "height": 1.87,
+  "neck": [
+   0.0,
+   1.0635,
+   0.375
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   1.3125,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:tropical_fish": {
+  "anchor": [
+   0.113,
+   -0.0366,
+   0.0001
+  ],
+  "height": 0.4,
+  "neck": [
+   0.0118,
+   0.2509,
+   -0.1842
+  ],
+  "scale": 1.0,
+  "size": [
+   0.2578,
+   0.3125,
+   0.7498
+  ],
+  "whole": true
+ },
+ "minecraft:turtle": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.1875
+  ],
+  "height": 0.4,
+  "neck": [
+   0.0,
+   0.3135,
+   0.625
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.3125,
+   0.375
+  ],
+  "whole": false
+ },
+ "minecraft:vex": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.1562
+  ],
+  "height": 0.8,
+  "neck": [
+   0.0,
+   0.4073,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.3125,
+   0.3125,
+   0.3125
+  ],
+  "whole": false
+ },
+ "minecraft:villager": {
+  "anchor": [
+   0.0,
+   -0.6569,
+   0.2819
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   1.0,
+   1.1569,
+   0.6569
+  ],
+  "whole": false
+ },
+ "minecraft:vindicator": {
+  "anchor": [
+   0.0,
+   -0.625,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5,
+   0.9297,
+   0.625
+  ],
+  "whole": false
+ },
+ "minecraft:wandering_trader": {
+  "anchor": [
+   0.0,
+   -0.6569,
+   0.2819
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   1.0,
+   1.1569,
+   0.6569
+  ],
+  "whole": false
+ },
+ "minecraft:warden": {
+  "anchor": [
+   -0.0,
+   0.0,
+   0.2987
+  ],
+  "height": 2.9,
+  "neck": [
+   0.0,
+   2.126,
+   0.0
+  ],
+  "scale": 1.046,
+  "size": [
+   2.868,
+   1.4937,
+   0.5975
+  ],
+  "whole": false
+ },
+ "minecraft:witch": {
+  "anchor": [
+   0.334,
+   -0.625,
+   0.332
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.4072,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   1.168,
+   1.9223,
+   1.0
+  ],
+  "whole": false
+ },
+ "minecraft:wither": {
+  "anchor": [
+   0.0,
+   -0.25,
+   0.25
+  ],
+  "height": 3.5,
+  "neck": [
+   0.0,
+   3.002,
+   0.0
+  ],
+  "scale": 2.0,
+  "size": [
+   0.5,
+   0.5,
+   0.5
+  ],
+  "whole": false
+ },
+ "minecraft:wither_skeleton": {
+  "anchor": [
+   0.0,
+   -0.5312,
+   0.2812
+  ],
+  "height": 2.4,
+  "neck": [
+   0.0,
+   1.8012,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:wolf": {
+  "anchor": [
+   -0.0625,
+   -0.1875,
+   0.125
+  ],
+  "height": 0.85,
+  "neck": [
+   -0.0625,
+   0.6573,
+   0.4375
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.5,
+   0.4375
+  ],
+  "whole": false
+ },
+ "minecraft:zoglin": {
+  "anchor": [
+   0.0,
+   -1.3424,
+   0.0
+  ],
+  "height": 1.4,
+  "neck": [
+   0.0,
+   1.376,
+   0.75
+  ],
+  "scale": 1.0,
+  "size": [
+   1.0,
+   1.5299,
+   1.1875
+  ],
+  "whole": false
+ },
+ "minecraft:zombie": {
+  "anchor": [
+   0.0,
+   -0.0312,
+   0.2812
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.5625,
+   0.5625,
+   0.5625
+  ],
+  "whole": false
+ },
+ "minecraft:zombie_horse": {
+  "anchor": [
+   0.0,
+   -0.8124,
+   0.3125
+  ],
+  "height": 1.6,
+  "neck": [
+   0.0,
+   1.251,
+   0.75
+  ],
+  "scale": 1.0,
+  "size": [
+   0.375,
+   0.4374,
+   0.75
+  ],
+  "whole": false
+ },
+ "minecraft:zombie_nautilus": {
+  "anchor": [
+   0.0,
+   0.0,
+   -0.0
+  ],
+  "height": 0.95,
+  "neck": [
+   0.0,
+   1.126,
+   -0.2906
+  ],
+  "scale": 1.0,
+  "size": [
+   0.875,
+   1.1256,
+   1.5812
+  ],
+  "whole": true
+ },
+ "minecraft:zombie_villager": {
+  "anchor": [
+   0.0,
+   -0.0625,
+   0.5
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   1.0,
+   0.7188,
+   1.0
+  ],
+  "whole": false
+ },
+ "minecraft:zombified_piglin": {
+  "anchor": [
+   0.0,
+   0.0,
+   0.25
+  ],
+  "height": 1.95,
+  "neck": [
+   0.0,
+   1.501,
+   0.0
+  ],
+  "scale": 1.0,
+  "size": [
+   0.625,
+   0.6875,
+   0.5625
+  ],
+  "whole": false
+ }
+}

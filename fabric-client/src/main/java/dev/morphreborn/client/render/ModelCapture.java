@@ -11,6 +11,7 @@ import java.util.Set;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.renderer.SubmitNodeStorage;
+import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -50,8 +51,44 @@ public final class ModelCapture {
 	}
 
 	/** As {@link #capture(EntityRenderer, LivingEntityRenderState)}; {@code noFace} leaves out the head and face. */
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static List<Box> capture(EntityRenderer<?, ?> renderer, LivingEntityRenderState state, boolean noFace) {
+		return capture(renderer, state, noFace, false);
+	}
+
+	/**
+	 * A multimorph as it is drawn: the main body with its head collapsed where it was (when a borrowed head replaces
+	 * it; collapsed rather than left out, so the rest of the boxes keep their places in the list and morph into the same
+	 * parts), and the borrowed head and parts at the end, which grow out of the body during a transformation.
+	 */
+	public static List<Box> captureHybrid(EntityRenderDispatcher dispatcher, EntityRenderer<?, ?> renderer, LivingEntityRenderState state, boolean noFace) {
+		boolean hybrid = state instanceof HybridMorph.Mark mark && mark.morph$borrowed() != null;
+		boolean headless = hybrid && ((HybridMorph.Mark) state).morph$hideHead();
+		List<Box> out = capture(renderer, state, noFace, headless && !noFace);
+		if (hybrid && !noFace) out.addAll(HybridMorph.boxes(dispatcher, state));
+		return out;
+	}
+
+	/** One model cube, posed, as a box. */
+	public static Box box(Matrix4f pose, Matrix3f normal, ModelPart.Cube cube) {
+		Vector3f lo = new Vector3f(Float.MAX_VALUE);
+		Vector3f hi = new Vector3f(-Float.MAX_VALUE);
+		for (ModelPart.Polygon polygon : cube.polygons) {
+			for (ModelPart.Vertex v : polygon.vertices()) {
+				lo.min(new Vector3f(v.x(), v.y(), v.z()));
+				hi.max(new Vector3f(v.x(), v.y(), v.z()));
+			}
+		}
+		float w = cube.maxX - cube.minX;
+		float h = cube.maxY - cube.minY;
+		float d = cube.maxZ - cube.minZ;
+		float gx = Math.max(0F, ((hi.x - lo.x) - w) / 2F);
+		float gy = Math.max(0F, ((hi.y - lo.y) - h) / 2F);
+		float gz = Math.max(0F, ((hi.z - lo.z) - d) / 2F);
+		return new Box(new Matrix4f(pose), new Matrix3f(normal), cube.minX, cube.minY, cube.minZ, w, h, d, gx, gy, gz);
+	}
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static List<Box> capture(EntityRenderer<?, ?> renderer, LivingEntityRenderState state, boolean noFace, boolean collapseFace) {
 		List<Box> out = new ArrayList<>();
 		if (!(renderer instanceof LivingEntityRenderer living)) return out;
 		selectModel(living, state);
@@ -64,7 +101,7 @@ public final class ModelCapture {
 		poseStack.translate(0.0F, -1.501F, 0.0F);
 		EntityModel model = living.getModel();
 		model.setupAnim(state);
-		walk(model.root(), poseStack, out, noFace);
+		walk(model.root(), poseStack, out, noFace, collapseFace, false);
 		return out;
 	}
 
@@ -78,7 +115,7 @@ public final class ModelCapture {
 	 * model for this state, exactly as it would to draw it; nothing submitted there is ever drawn.
 	 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	static void selectModel(LivingEntityRenderer living, LivingEntityRenderState state) {
+	public static void selectModel(LivingEntityRenderer living, LivingEntityRenderState state) {
 		try {
 			living.submit(state, new PoseStack(), new SubmitNodeStorage(), NO_CAMERA);
 		} catch (RuntimeException e) {
@@ -86,7 +123,7 @@ public final class ModelCapture {
 		}
 	}
 
-	private static void walk(ModelPart part, PoseStack poseStack, List<Box> out, boolean noFace) {
+	private static void walk(ModelPart part, PoseStack poseStack, List<Box> out, boolean noFace, boolean collapseFace, boolean collapsed) {
 		if (!part.visible) return;
 		ModelPartAccessor access = (ModelPartAccessor) (Object) part;
 		List<ModelPart.Cube> cubes = access.morph$cubes();
@@ -97,25 +134,15 @@ public final class ModelCapture {
 		if (!part.skipDraw) {
 			PoseStack.Pose pose = poseStack.last();
 			for (ModelPart.Cube cube : cubes) {
-				Vector3f lo = new Vector3f(Float.MAX_VALUE);
-				Vector3f hi = new Vector3f(-Float.MAX_VALUE);
-				for (ModelPart.Polygon polygon : cube.polygons) {
-					for (ModelPart.Vertex v : polygon.vertices()) {
-						lo.min(new Vector3f(v.x(), v.y(), v.z()));
-						hi.max(new Vector3f(v.x(), v.y(), v.z()));
-					}
-				}
-				float w = cube.maxX - cube.minX;
-				float h = cube.maxY - cube.minY;
-				float d = cube.maxZ - cube.minZ;
-				float gx = Math.max(0F, ((hi.x - lo.x) - w) / 2F);
-				float gy = Math.max(0F, ((hi.y - lo.y) - h) / 2F);
-				float gz = Math.max(0F, ((hi.z - lo.z) - d) / 2F);
-				out.add(new Box(new Matrix4f(pose.pose()), new Matrix3f(pose.normal()), cube.minX, cube.minY, cube.minZ, w, h, d, gx, gy, gz));
+				Box b = box(pose.pose(), pose.normal(), cube);
+				// a collapsed part: a box of no size at its middle, keeping its place in the list
+				if (collapsed) b = new Box(b.pose(), b.normal(), b.x() + b.w() / 2F, b.y() + b.h() / 2F, b.z() + b.d() / 2F, 0, 0, 0, 0, 0, 0);
+				out.add(b);
 			}
 		}
 		for (java.util.Map.Entry<String, ModelPart> child : children.entrySet()) {
-			if (!noFace || !FirstPersonMorph.faceName(child.getKey())) walk(child.getValue(), poseStack, out, noFace);
+			boolean face = FirstPersonMorph.faceName(child.getKey());
+			if (!noFace || !face) walk(child.getValue(), poseStack, out, noFace, collapseFace, collapsed || (collapseFace && face));
 		}
 		poseStack.popPose();
 	}

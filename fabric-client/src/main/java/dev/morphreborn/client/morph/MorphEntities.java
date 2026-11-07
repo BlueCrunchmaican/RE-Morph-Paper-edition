@@ -64,10 +64,15 @@ public final class MorphEntities {
 	}
 
 	/** Drop instances for appearances a player no longer uses. */
-	public void retain(UUID owner, @Nullable MorphRef a, @Nullable MorphRef b) {
+	public void retain(UUID owner, @Nullable MorphRef... keep) {
 		Map<String, LivingEntity> map = world.get(owner);
 		if (map == null) return;
-		map.keySet().removeIf(k -> (a == null || !k.equals(a.appearanceKey())) && (b == null || !k.equals(b.appearanceKey())));
+		map.keySet().removeIf(k -> {
+			for (MorphRef ref : keep) {
+				if (ref != null && k.equals(ref.appearanceKey())) return false;
+			}
+			return true;
+		});
 		if (map.isEmpty()) world.remove(owner);
 	}
 

@@ -38,6 +38,8 @@ public final class ClientNet {
 	private static int serverTransitionTicks = 100;
 	private static boolean deleteAllowed = true;
 	private static boolean selectorAllowed = true;
+	/** The server lets players combine morphs (multimorph.enabled); servers before 6.7.0 don't say, and can't. */
+	private static boolean multimorphAllowed;
 	private static boolean abilitiesAvailable;
 	/** Server's appearance.name-tags: MORPH, PLAYER or HIDDEN. */
 	private static String nameTagMode = "MORPH";
@@ -135,6 +137,14 @@ public final class ClientNet {
 		return morphCosts.getOrDefault(variantId, 0);
 	}
 
+	/** Survival: percent on top of a multimorph's price (survival.yml morph-cost.multimorph-extra). */
+	private static int multimorphExtraPercent;
+
+	/** A multimorph's price: the forms that are new to the body ({@code cost}) and the extra on top. */
+	public static int multimorphCost(int cost) {
+		return cost <= 0 ? 0 : cost + (int) Math.ceil(cost * multimorphExtraPercent / 100.0 - 1e-9);
+	}
+
 	public static int biomass() {
 		return biomass;
 	}
@@ -188,6 +198,15 @@ public final class ClientNet {
 		send(new Wire.Out(Wire.C_SELECT).string(variantId));
 	}
 
+	/** Multimorph: become {@code mainId} borrowing from {@code borrowedId}. Rides after the main id; older servers ignore it. */
+	public static void select(String mainId, String borrowedId) {
+		send(new Wire.Out(Wire.C_SELECT).string(mainId).string(borrowedId));
+	}
+
+	public static boolean multimorphAllowed() {
+		return multimorphAllowed;
+	}
+
 	public static void favourite(String variantId, boolean favourite) {
 		send(new Wire.Out(Wire.C_FAVOURITE).string(variantId).bool(favourite));
 	}
@@ -233,6 +252,7 @@ public final class ClientNet {
 					morphCosts.clear();
 					int count = in.count();
 					for (int i = 0; i < count; i++) morphCosts.put(in.string(), in.varInt());
+					multimorphExtraPercent = in.hasMore() ? in.varInt() : 0;
 				}
 				case Wire.S_FORGET -> {
 					UUID who = in.uuid();
@@ -257,6 +277,7 @@ public final class ClientNet {
 		nameTagMode = in.hasMore() ? in.string() : "MORPH";
 		gameplayMode = in.hasMore() ? in.string() : "classic";
 		serverVersion = in.hasMore() ? in.string() : ""; // since 6.6.0
+		multimorphAllowed = in.hasMore() && in.bool(); // since 6.7.0
 		active = accepted && protocol == Wire.PROTOCOL_VERSION;
 		if (!active) {
 			MorphClient.LOGGER.warn("RE:Morph server speaks protocol {} (this mod: {}); {}", protocol, Wire.PROTOCOL_VERSION, message);
@@ -339,15 +360,46 @@ public final class ClientNet {
 		state.duration = in.varInt();
 		String overlay = in.hasMore() ? in.string() : "";
 		if (!overlay.isEmpty() && state.next != null && !state.next.isPlayer()) state.next = withOverlay(state.next, overlay);
+		state.borrowed = in.hasMore() ? in.optionalRef() : null;
 		MorphClient.LOGGER.debug("Morph state for {}: next={} overlay={}", player, state.next == null ? null : state.next.snbt(), overlay);
 		state.receivedAt = tick;
+		carryBorrowed(MorphClient.STATES.get(player), state);
 		if (state.next == null || (state.next.isSelf() && !state.isTransitioning())) {
 			MorphClient.STATES.remove(player);
 			MorphClient.ENTITIES.forget(player);
 		} else {
 			MorphClient.STATES.put(player, state);
-			MorphClient.ENTITIES.retain(player, state.prev, state.next);
+			MorphClient.ENTITIES.retain(player, state.prev, state.next, state.borrowed, state.prevBorrowed);
 		}
+	}
+
+	/**
+	 * Multimorph: what the borrowed form was, so its parts morph away instead of vanishing. A transformation takes the
+	 * old body's borrowed form along as {@code prevBorrowed}; another borrowed form on the same body starts a short
+	 * transformation of its own (half the server's, at least half a second). A repeated state (a new look, the same
+	 * forms) keeps whatever is under way.
+	 */
+	private static void carryBorrowed(@org.jspecify.annotations.Nullable MorphState old, MorphState state) {
+		if (old == null) return;
+		if (state.isTransitioning()) {
+			state.prevBorrowed = old.isTransitioning() ? old.prevBorrowed : old.borrowed;
+			return;
+		}
+		boolean sameBody = old.next != null && state.next != null && old.next.variantId().equals(state.next.variantId()) && !old.isTransitioning();
+		if (!sameBody) return;
+		if (!sameForm(old.borrowed, state.borrowed)) {
+			state.prevBorrowed = old.borrowed;
+			state.borrowDuration = Math.max(10, serverTransitionTicks / 2);
+			state.borrowTime = 0;
+		} else if (old.isBorrowChanging()) {
+			state.prevBorrowed = old.prevBorrowed;
+			state.borrowDuration = old.borrowDuration;
+			state.borrowTime = old.borrowTime;
+		}
+	}
+
+	private static boolean sameForm(@org.jspecify.annotations.Nullable MorphRef a, @org.jspecify.annotations.Nullable MorphRef b) {
+		return a == null ? b == null : b != null && a.appearanceKey().equals(b.appearanceKey());
 	}
 
 	/**

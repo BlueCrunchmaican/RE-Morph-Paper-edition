@@ -16,7 +16,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 |---|---|
 | `server/RE-Morph-paper-6.5.0.jar` | The Paper plugin |
 | `client/RE-Morph-fabric-6.5.0+26.3.jar` | The Fabric client mod (optional, Java players only) |
-| `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
+| `resourcepack/RE-Morph-pack.zip` | Optional server resource pack for players without the mod: the original morph sound, and the heads multimorphs borrow (until 6.6.1 called `RE-Morph-sounds.zip`) |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
 | `MOB-MASSES.md` | Survival Mode: every mob's mass, biomass and morph cost |
@@ -96,11 +96,13 @@ and fixes endermen in First-person Model's view. On first start `abilities.yml` 
 old one is kept as `abilities-old-6.1.6.yml`; copy back any changes); `config.yml` and `survival.yml` don't change.
 Older clients still work, fakeout included; update the client mod for the enderman fix.
 
-### Optional: the morph sound for players without the mod
+### Optional: the resource pack for players without the mod
 
-The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead. To give
-them the real sound, add `resourcepack/RE-Morph-sounds.zip` to your server resource pack (or use it as the server
-resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `config.yml`.
+The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead, and see
+a multimorph's borrowed head only where the game has a skull for it. `resourcepack/RE-Morph-pack.zip` gives them the real
+sound and every borrowed head: add it to your server resource pack (or use it as the server resource pack), then set
+`appearance.vanilla-clients-have-sound-pack: true` in `config.yml`. `multimorph.vanilla-heads` decides who is sent the
+pack's heads (`auto`: players whose game loaded the server's pack; `pack`: everyone, when the pack is required).
 
 ## Client install (Java players, optional)
 
@@ -187,6 +189,33 @@ is plain again. Transformations play on your body. As a morph with no head to lo
 ghasts, squid), first person is plain. As the ender dragon the camera is at its head, so the rest of it stays behind
 you. RE:Morph doesn't need First-person Model: without it, first person is unchanged.
 
+### Multimorph: two morphs at once
+
+A multimorph is a main body with a second form it borrows from. In Survival it needs the **Multimorph** upgrade first.
+
+- **Picking (client mod):** hold `Shift` when you pick a creature in the selector (Enter or click) or the favourites
+  wheel. Its tile turns red with tendrils (a red ring in the wheel), and a panel shows the body with the morph under
+  your cursor on it, and the price. Pick a second creature to combine them. Picking the first again makes you just
+  that creature; right click, `Esc` or `Backspace` closes without changing anything. In the wheel you can also let go
+  of its key with `Shift` held and click the second favourite.
+- **Without the mod:** `/morph combine <main> <borrowed>` (a new pair), `/morph combine <borrowed>` (onto the body
+  you're in), `/morph combine off`.
+- **What the borrowed form lends:** a creature known by its wings, rods or fins (bat, phantom, parrot, bee, chicken,
+  allay, vex, blaze, breeze, fish, dolphin, the ender dragon) lends those, with its tail and stinger; the body keeps
+  its own head. Anything else lends its head (at its real size) and any tail. The ender dragon's wings and tail are
+  scaled to the body. Parts morph in with the transformation.
+- **Traits and abilities:** the combination has every trait either form has (good ones still need their Survival
+  unlocks), and every drawback. With two different abilities, the second input (sneak + ability key with the mod,
+  `F` without) steps through both; the action bar shows which one the ability key uses. A borrowed creeper's blast
+  grows with the body: a ghast's is huge, a chicken's a pop (`multimorph-max-power` under `explode` in
+  `abilities.yml` caps it).
+- **Price (Survival):** each form that is new to your body costs its price, plus a quarter
+  (`morph-cost.multimorph-extra` in `survival.yml`).
+- Picking your body again (normally) drops what it borrows. The combination is saved with you and comes back when you
+  log in.
+- `/morphclient preview [main] [borrowed]` shows any two creatures combined, without owning or becoming them.
+- Players without the mod see the body with the borrowed head on it (see the resource pack above).
+
 ### Without the client mod (plain Java and Bedrock)
 
 | Command | Does |
@@ -195,6 +224,7 @@ you. RE:Morph doesn't need First-person Model: without it, first person is uncha
 | `/morph use <id or mob>` | Morph, e.g. `/morph use pig` |
 | `/morph off` | Back to your own body |
 | `/morph fav <id>` | Favourite / unfavourite |
+| `/morph combine <main> <borrowed>`, `/morph combine <borrowed>`, `/morph combine off` | Multimorph (see above) |
 | Sneak + swap hands (`F`) | Use the morph's ability (`abilities.yml` → `activation.vanilla-trigger`) |
 
 `/morph ability` also works for everyone.
@@ -299,6 +329,7 @@ All need `morphreborn.admin` (ops by default).
 | `/morph revoke <player> <mob, id or all>` | Take morphs away |
 | `/morph reset <player>` | Wipe someone's whole collection |
 | `/morph force <player> <mob, id or off> [snbt]` | Morph someone right now |
+| `/morph borrow <player> <mob, id or off> [snbt]` | Give a morphed player a borrowed form (multimorph), or take it away |
 | `/morph info <player>` | Their form, collection size, and whether they have the mod |
 | `/morph clients` | Who online has the mod |
 | `/morph ability <player>` | Fire someone's ability |
@@ -323,6 +354,7 @@ All need `morphreborn.admin` (ops by default).
 | `morphreborn.use` | everyone | Morphing into unlocked forms |
 | `morphreborn.acquire` | everyone | Unlocking morphs by killing |
 | `morphreborn.ability` | everyone | Abilities and traits |
+| `morphreborn.multimorph` | everyone | Combining two morphs (when `multimorph.enabled` is on) |
 | `morphreborn.admin` | ops | Admin commands |
 | `morphreborn.type.<namespace>.<mob>` | — | Only checked when `morphs.per-type-permissions: true`, e.g. `morphreborn.type.minecraft.ender_dragon` |
 
@@ -373,6 +405,9 @@ If one is, the console says so and players with `morphreborn.admin` are told whe
 in `config.yml`). Players whose client mod is older than the plugin are told when they join, with short [Modrinth] and
 [GitHub] links (`client.old-client-message`, `""` turns it off). The client mod has its own Update Check setting. Only
 GitHub's public "latest release" page is requested; nothing about the server or its players is sent.
+
+**Multimorph** (`config.yml`, `multimorph`): `enabled` (on by default) and `vanilla-heads` (see the resource pack
+above). In Survival, the Multimorph upgrade and `morph-cost.multimorph-extra` are in `survival.yml`.
 
 Player collections are saved in `plugins/RE-Morph/players/`, one file per player.
 

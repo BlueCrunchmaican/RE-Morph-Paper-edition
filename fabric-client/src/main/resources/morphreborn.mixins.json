@@ -7,6 +7,7 @@
     "BlockBehaviourMixin",
     "CameraMixin",
     "ClientLevelMixin",
+    "EnderDragonRendererAccessor",
     "EntityMixin",
     "EntityRenderDispatcherMixin",
     "EntityRenderStateMixin",

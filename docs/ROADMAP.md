@@ -65,6 +65,107 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## Next release: 6.7.0, Multimorph (combining morphs)
+
+Two forms at once: the first one picked is the main body, the second is borrowed and lends it parts and powers. Designed
+for any number of forms, shipped with two (three only if it turns out simple: the data, traits and cost don't care
+how many, but every extra form multiplies the part placement and testing).
+
+Decided:
+
+- [x] Traits: a combined form is a list of types (AbilityManager.types: main, then borrowed). Every trait check is
+      "any of the forms has it", still gated by Survival's `traits:` unlocks; drawbacks combine too. Where a number
+      combines: drying out takes the shorter limit, holding breath the longer, land speed the slower, magic resistance
+      the better; effects from both. Size, health and the body's own abilities (carrying blocks, jockeys, villager
+      trading) stay the main form's. Changing only the borrowed form re-applies the traits.
+- [x] Active abilities: one ability among the forms keeps its own second input (a witch's next potion, a creeper's
+      fakeout). Two different abilities share one rotation: every thing the key can do (each witch potion, Explode,
+      Fake explosion...), stepped by the second input (sneak + ability key with the mod, F without); the action bar
+      shows the selected one every 2 seconds. Each ability runs as its own form (tipped arrows, the elder guardian's
+      beam, water-only dashes); cooldown keys stay per ability. A borrowed creeper (or explosive sulfur cube) explodes
+      without changing the body's look, and its blast grows with the body: the cube root of the body's mass against
+      the creeper's (the weight chart), capped by `multimorph-max-power` (16) under `explode` in abilities.yml (the
+      user's idea).
+- [x] Looks (client mod), first step: the borrowed form's head replaces the main body's own (hidden at draw time),
+      posed with it so it turns and nods, at its real size; mobs without a head part lend their whole body. Shown
+      in the world and on the paper doll. Tried: zombie + cow, chicken + cow (a giant cow head), cow + chicken (a tiny
+      chicken head), looking down.
+- [x] Looks, second step: the borrowed form's wings, tails, fins, blaze and breeze rods and stinger are grafted onto
+      the main body at their real size, with their own animation. Each goes to the same place on the main torso as
+      on its own, measured in the body's frame; a lying torso maps onto a standing one as if it stood up (front to
+      the top, top to the back), so a wolf's tail joins a zombie at the small of its back. Wings go on the back (on
+      top of a lying body) and wings and tails stand clear of the body so they don't cut through it or the arms;
+      anything past the borrowed torso (blaze rods) keeps its distance. Tried on a zombie: bat, phantom, wolf, blaze,
+      bee (whole body, upright); on a wolf: phantom. Headless mobs' whole bodies now stand upright (they were drawn
+      upside down).
+- [x] What a borrowed form lends (client mod): a creature known by its wings, rods or fins (bat, phantom, parrot,
+      bee, chicken, allay, vex, blaze, breeze, fish, dolphin) lends only those, with its tail and stinger, and the main
+      body keeps its own head: a zombie with bat wings, not a zombie with a bat's head and wings. Everything else lends
+      its head (and any tail). Players without the mod still see the borrowed head (an item display can only show a
+      head). Borrowed phantom wings beat 4.5 times as fast as a phantom's own (it glides; on a body it read as a
+      stutter, and two or three times as fast still looked slow on a dragon).
+- [x] The ender dragon, either way round (its renderer isn't a living-entity one, so the hybrid drawing handles both
+      kinds of body). Borrowed, it lends its wings and tail, scaled to the body they go on (the user's choice): the
+      cube root of the two torsos' volume ratio, so a zombie gets wings about as big for its body as a dragon's are
+      for its own; its 12 tail segments move as one tail from the first; its flap (wings and tail) runs at 0.4 of a
+      hovering dragon's, which beats about four times a second and looked frantic. As the main body it takes a
+      borrowed head on its neck (a cow's, at a cow's size) and borrowed wings on its back. Borrowed parts now take the
+      main body's facing too, so they line up when the two bodies face slightly differently (previews, the dragon).
+      Tried: zombie + dragon (wings on the back, tail from the small of the back), dragon + cow. Players without the
+      mod see no borrowed head for a dragon either way yet (no head model, no neck data for it).
+- [x] Animation: multimorph parts take part in the morph animation (the user's idea). Captures include them (the main
+      head collapsed where it was, so the other boxes keep their places; borrowed head and parts appended, growing out
+      of the body); the old borrowed form morphs out with the old body; changing only the borrowed form plays a short
+      transformation of its own (half the server's, at least half a second).
+- [x] Heads sit where the main head meets its neck (the bottom of each head, at the back, lined up), not pivot to
+      pivot: a wolf's head sank into an iron golem's chest (the user saw it). Same for players without the mod.
+- [ ] Looks, still to try: more main bodies across size groups (see TESTING.md, 6.7.0).
+- [x] Protocol: the borrowed form rides at the end of the morph-state packet, which older clients stop reading
+      before, so they keep working; with saved data and settings only added, multimorph can be a MINOR release
+      (6.7.0) rather than 7.0.0.
+- [x] Survival: the Multimorph upgrade, a one-time unlock under Morph Ability (1,200 biomass, needs Morph Capacity 4).
+      A combination costs each form that is new to the body (both for a new pair, the borrowed one when the body
+      stays) plus 25% (`morph-cost.multimorph-extra`); the client's price panel includes it. A saved combination is
+      dropped at login without the upgrade.
+- [x] Saved data: the borrowed form is saved with the player's current morph (`borrowed` next to `current`) and
+      comes back after a relog or a server restart, if the player still owns it and may combine. A new body drops it
+      (it borrows only what it was picked with); deleting or revoking the borrowed morph drops it too.
+- [x] Picking: the normal pick is unchanged. Hold Shift when picking a creature in the selector or the favourites
+      wheel and it becomes the main body, with a pulsing red ring on it; the selector (or wheel) stays open and a
+      preview panel shows the main body with the morph under the cursor on it (and the Survival price); the next
+      pick combines them, picking the main body again calls it off. In the wheel, letting go of the key with Shift held
+      keeps the wheel open for the second pick. Picking the body you're in drops what it borrows. Without the mod:
+      `/morph combine <main> <borrowed>`, `/morph combine <borrowed>` (onto the body you're in), `/morph combine off`.
+      Switched by `multimorph.enabled` and the `morphreborn.multimorph` permission (both on by default). The highlight
+      is the whole tile in red with goo tendrils (a ring in the wheel); picking the first creature again makes you just
+      it; right click, Esc and Backspace close (the user's rules). Player forms can be combined both ways.
+- [x] Preview: `/morphclient preview [main] [borrowed]` shows any two creatures combined, as the world draws them,
+      without owning or becoming them: arrows change the forms, drag turns, scroll zooms. Built for checking that
+      combinations look right; the selector's panel uses the same drawing.
+- [x] Checked live: the Shift-pick in the selector and the wheel, the panel and its price, the preview screen,
+      `/morph combine`, a Survival purchase of a pair, saving across relogs and restarts.
+
+Open:
+
+- [x] Decided: players without the mod see the main body (Lib's Disguises) with the borrowed creature's head on its
+      neck, at that creature's real size. The head is an unsaved item display that follows the neck, showing a head
+      model from RE:Morph's resource pack; `multimorph.vanilla-heads` in config.yml (auto: players whose game loaded the
+      pack; pack: everyone; off). Prototype working (zombie with a cow's head, seen from a vanilla client), with
+      `/morph borrow <player> <type|off>` for testing.
+- [x] Head models for 89 mobs: the dev client dumps every mob's head from the game's own models
+      (`/morphclient dumpheads`, or MORPHREBORN_DUMPHEADS=1), `tools/gen_head_pack.py` turns that into the pack's head
+      models and the plugin's neck table (`morph-heads.json`). Mobs without a head part lend their whole body.
+- [x] Vanilla skulls (zombie, skeleton, wither skeleton, creeper, piglin, dragon, a player form's head with its skin)
+      for players without the pack, and for the forms the pack has no head for (the dragon, player forms). A body
+      that wears things on its head (CustomHeadLayer: zombies, skeletons, piglins, villagers, illagers, copper golems,
+      players) wears the skull in its head slot: it covers the body's own head and turns with it exactly.
+- [x] A borrowed head smaller than the body's own is drawn just big enough to cover it for players without the mod
+      (their disguise always draws the body's head; the wolf hid inside the iron golem's).
+- [ ] Variant textures for borrowed heads (sheep colours, cat breeds...): the pack has one head per mob; players with
+      the mod see the right variant.
+- [ ] Players without the mod: no borrowed head on an ender dragon body (no neck data for it).
+- [x] The Survival node: a one-time unlock of its own (above).
+
 ## Priority 1: existing functionality
 
 Done in 5.1.0 (details and test results in TESTING.md):
@@ -219,6 +320,10 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-06 | The docs name First-person Model as an optional compatible mod | It is the mod the support was built and tested against, so players know which one to install |
 | 2026-11-06 | A model part that is hidden is measured where it rests | First-person Model hides a humanoid model's head by moving it 5000 units away; measured there, zombies, husks, skeletons and endermen were pushed forward past the camera instead of keeping that mod's placement (villager-type models aren't humanoid models and were right). A part more than 1000 units out counts as hidden too: the enderman's model shows its head again straight after, still that far away (fixed in 6.5.0) |
 | 2026-11-06 | The ender dragon morph's yaw is turned 180 degrees | The dragon's yaw points the other way from every other mob's (it flies along sin/-cos of it), so it was drawn tail first, in third person too |
+| 2026-11-07 | Multimorph: the first form is the body, the second lends parts and powers; traits are "any form has it", drawbacks combine | Simple to explain and to check; combining shouldn't be free |
+| 2026-11-07 | Multimorph abilities join the existing ability rotation, with the selected one always on the HUD | An ability-cycle bind already exists; sneak-to-cycle would clash with alternate inputs |
+| 2026-11-07 | Multimorph looks graft iChun-style body parts onto the main body, tested in size groups | Keeps the testing manageable: one placement fits every mob of that size |
+| 2026-11-07 | Multimorph in Survival: an expensive upgrade; a combination costs the sum of its forms plus an extra | It is the strongest thing a morph can do |
 | 2026-11-07 | Beneficial traits are bought one kind at a time in Survival; drawbacks are always on | Morphing alone shouldn't hand over every perk at once, and a downside isn't something to buy away |
 | 2026-11-07 | Survival speeds start 30% slower than Classic and end 30% faster, shown to players as seconds and multipliers; reach 3 to 150 blocks; 5 mass levels | Survival should start harder than Classic and end a little better; ten mass levels were too many steps |
 | 2026-11-07 | Fish, squid, axolotls and nautiluses always breathe underwater | Without it they could breathe nowhere |

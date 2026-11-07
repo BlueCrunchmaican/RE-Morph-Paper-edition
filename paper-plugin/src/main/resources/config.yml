@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 6.6.0
+config-version: 6.7.0
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
@@ -155,6 +155,22 @@ client:
   # Told to players whose client mod is older than this plugin when they join (it still works, it just misses the
   # newest features). {client} and {server} are the two versions. "" turns it off.
   old-client-message: "<yellow>Your RE:Morph client mod is {client}; this server runs {server}. Get the newest client mod for everything the server offers: <click:open_url:'https://modrinth.com/plugin/re-morph'><hover:show_text:'https://modrinth.com/plugin/re-morph'><aqua>[Modrinth]</aqua></hover></click> <click:open_url:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><hover:show_text:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><aqua>[GitHub]</aqua></hover></click>"
+
+multimorph:
+  # Players may combine two morphs: a main body, and a second form it borrows from. With the client mod, hold Shift when
+  # picking in the selector or the favourites wheel; without it, /morph combine <main> <borrowed>. In Survival it needs
+  # the Multimorph upgrade, and costs both forms' prices plus morph-cost.multimorph-extra (survival.yml). Needs the
+  # morphreborn.multimorph permission (everyone by default).
+  enabled: true
+  # Players without the client mod see a multimorph as its main body with the borrowed creature's head on it, at that
+  # creature's real size. The heads come from RE:Morph's resource pack (RE-Morph-pack.zip). Bodies that wear things on
+  # their head (zombies, skeletons, piglins, villagers, illagers, players...) wear the borrowed creature's skull
+  # instead when the game has one (zombie, skeleton, wither skeleton, creeper, piglin, dragon, player), and skulls
+  # also stand in for the pack's heads for players without it.
+  #   auto - shown to players whose game loaded the server's resource pack
+  #   pack - shown to everyone (when the server requires the pack)
+  #   off  - never
+  vanilla-heads: auto
 
 # Ask GitHub at startup and every 12 hours whether a newer RE:Morph release is out. If one is, the console says so and
 # players with morphreborn.admin are told when they join. Only the public "latest release" page is requested.

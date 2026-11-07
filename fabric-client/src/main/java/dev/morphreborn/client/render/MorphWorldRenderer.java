@@ -75,6 +75,17 @@ public final class MorphWorldRenderer {
 			if (!state.isTransitioning()) {
 				EntityRenderState formed = formState(dispatcher, player, state.next, playerState, partialTick);
 				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, formed));
+				// another borrowed form on the same body: a short transformation of its own, old parts into new
+				if (state.isBorrowChanging() && ClientConfig.INSTANCE.transitionAnimation) {
+					EntityRenderState before = formState(dispatcher, player, state.next, playerState, partialTick);
+					borrow(dispatcher, player, state.next, state.prevBorrowed, before, playerState, partialTick);
+					borrow(dispatcher, player, state.next, state.borrowed, formed, playerState, partialTick);
+					if (before instanceof LivingEntityRenderState f && formed instanceof LivingEntityRenderState t) {
+						float p = state.borrowProgress(partialTick);
+						return transition(dispatcher, playerState, f, t, MorphState.transitionAt(p), MorphState.skinAlphaAt(p));
+					}
+				}
+				borrow(dispatcher, player, state.next, state.borrowed, formed, playerState, partialTick);
 				return formed;
 			}
 			// The player's hitbox (scale attribute) is gameplay only: the server changes it in one step half-way through.
@@ -87,33 +98,24 @@ public final class MorphWorldRenderer {
 			if (!ClientConfig.INSTANCE.transitionAnimation) {
 				// RE:Morph's animation switched off in the settings: what players without the mod see instead.
 				// The old body shrinks, swaps at the midpoint and the new one grows (particles: VanillaStyleEffects).
-				MorphRef shown = state.morphProgress(partialTick) < 0.5F ? state.prev : state.next;
+				boolean before = state.morphProgress(partialTick) < 0.5F;
+				MorphRef shown = before ? state.prev : state.next;
 				EntityRenderState plain = formState(dispatcher, player, shown, playerState, partialTick);
+				borrow(dispatcher, player, shown, before ? state.prevBorrowed : state.borrowed, plain, playerState, partialTick);
 				if (plain instanceof LivingEntityRenderState living) living.scale *= state.vanillaScale(partialTick);
 				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, shown, plain));
 				return plain;
 			}
 			EntityRenderState from = formState(dispatcher, player, state.prev, playerState, partialTick);
 			EntityRenderState to = formState(dispatcher, player, state.next, playerState, partialTick);
+			// multimorph parts morph with the bodies: the old body's borrowed form away, the new one's in
+			borrow(dispatcher, player, state.prev, state.prevBorrowed, from, playerState, partialTick);
+			borrow(dispatcher, player, state.next, state.borrowed, to, playerState, partialTick);
 			if (!(from instanceof LivingEntityRenderState f) || !(to instanceof LivingEntityRenderState t)) {
 				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, to));
 				return to;
 			}
-			MorphTransitionRenderState out = new MorphTransitionRenderState();
-			out.entityType = playerState.entityType;
-			out.x = playerState.x;
-			out.y = playerState.y;
-			out.z = playerState.z;
-			out.lightCoords = playerState.lightCoords;
-			out.boundingBoxWidth = playerState.boundingBoxWidth;
-			out.boundingBoxHeight = playerState.boundingBoxHeight;
-			out.distanceToCameraSq = playerState.distanceToCameraSq;
-			out.from = f;
-			out.to = t;
-			out.fromRenderer = dispatcher.getRenderer(f);
-			out.toRenderer = dispatcher.getRenderer(t);
-			out.transition = state.transitionSine(partialTick);
-			out.skinAlpha = state.skinAlpha(partialTick);
+			MorphTransitionRenderState out = transition(dispatcher, playerState, f, t, state.transitionSine(partialTick), state.skinAlpha(partialTick));
 			// In first person the animation plays on the body First-person Model draws, heads left out, and the body
 			// slides from the old form's placement to the new one's as the boxes move.
 			if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.prev, f), firstPersonBody(dispatcher, state.next, t), out.transition);
@@ -145,6 +147,34 @@ public final class MorphWorldRenderer {
 
 	private static boolean noFace(EntityRenderState state) {
 		return ((FirstPersonMorph.Mark) state).morph$firstPersonBody();
+	}
+
+	/** Multimorph: {@code body} (the form {@code form}) is drawn with {@code lent}'s head and parts, if it can be. */
+	private static void borrow(EntityRenderDispatcher dispatcher, AbstractClientPlayer player, @Nullable MorphRef form, @Nullable MorphRef lent,
+			EntityRenderState body, EntityRenderState playerState, float partialTick) {
+		if (lent == null || form == null || form.isSelf()) return;
+		HybridMorph.attach(dispatcher, body, formState(dispatcher, player, lent, playerState, partialTick));
+	}
+
+	/** A transformation's render state: {@code from} morphing into {@code to}, the player's place and light. */
+	private static MorphTransitionRenderState transition(EntityRenderDispatcher dispatcher, EntityRenderState playerState, LivingEntityRenderState f,
+			LivingEntityRenderState t, float transition, float skinAlpha) {
+		MorphTransitionRenderState out = new MorphTransitionRenderState();
+		out.entityType = playerState.entityType;
+		out.x = playerState.x;
+		out.y = playerState.y;
+		out.z = playerState.z;
+		out.lightCoords = playerState.lightCoords;
+		out.boundingBoxWidth = playerState.boundingBoxWidth;
+		out.boundingBoxHeight = playerState.boundingBoxHeight;
+		out.distanceToCameraSq = playerState.distanceToCameraSq;
+		out.from = f;
+		out.to = t;
+		out.fromRenderer = dispatcher.getRenderer(f);
+		out.toRenderer = dispatcher.getRenderer(t);
+		out.transition = transition;
+		out.skinAlpha = skinAlpha;
+		return out;
 	}
 
 	/** Render state for one form of {@code player}. The player's own form is their regular state. */
@@ -196,13 +226,13 @@ public final class MorphWorldRenderer {
 			PoseStack poseStack, SubmitNodeCollector collector) {
 		if (s.transition <= 0F) {
 			dispatcher.submit(s.from, camera, x, y, z, poseStack, collector);
-			submitSkin(ModelCapture.capture(s.fromRenderer, s.from, noFace(s.from)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
+			submitSkin(ModelCapture.captureHybrid(dispatcher, s.fromRenderer, s.from, noFace(s.from)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
 		} else if (s.transition >= 1F) {
 			dispatcher.submit(s.to, camera, x, y, z, poseStack, collector);
-			submitSkin(ModelCapture.capture(s.toRenderer, s.to, noFace(s.to)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
+			submitSkin(ModelCapture.captureHybrid(dispatcher, s.toRenderer, s.to, noFace(s.to)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
 		} else {
-			List<ModelCapture.Box> from = ModelCapture.capture(s.fromRenderer, s.from, noFace(s.from));
-			List<ModelCapture.Box> to = ModelCapture.capture(s.toRenderer, s.to, noFace(s.to));
+			List<ModelCapture.Box> from = ModelCapture.captureHybrid(dispatcher, s.fromRenderer, s.from, noFace(s.from));
+			List<ModelCapture.Box> to = ModelCapture.captureHybrid(dispatcher, s.toRenderer, s.to, noFace(s.to));
 			List<ModelCapture.Box> mid = ModelCapture.interpolate(from, to, s.from.boundingBoxHeight / 2F, s.to.boundingBoxHeight / 2F, s.transition);
 			submitSkin(mid, x, y, z, poseStack, collector, s.lightCoords, 1F, false);
 		}

@@ -182,6 +182,18 @@ public final class DisguiseBridge {
 
 	/** What each disguise currently shows per slot, so equipment packets only go out when something changes. */
 	private final Map<UUID, Map<EquipmentSlot, ItemStack>> shownEquipment = new HashMap<>();
+	/** Multimorph: what the disguise wears on its head instead of the player's helmet (a borrowed form's skull). */
+	private final Map<UUID, ItemStack> headOverride = new HashMap<>();
+
+	/** Put {@code item} on the disguise's head in place of the player's helmet, or (null) give the helmet back. */
+	public void setHeadOverride(Player player, @Nullable ItemStack item) {
+		UUID id = player.getUniqueId();
+		ItemStack before = item == null ? headOverride.remove(id) : headOverride.put(id, item);
+		if (java.util.Objects.equals(before, item)) return;
+		Map<EquipmentSlot, ItemStack> shown = shownEquipment.get(id);
+		if (shown != null) shown.remove(EquipmentSlot.HEAD);
+		syncEquipment(player);
+	}
 	private static final EquipmentSlot[] GEAR = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.HAND,
 			EquipmentSlot.OFF_HAND};
 
@@ -197,7 +209,8 @@ public final class DisguiseBridge {
 		FlagWatcher watcher = disguise.getWatcher();
 		for (EquipmentSlot slot : GEAR) {
 			if (slot == EquipmentSlot.HAND && watcher instanceof EndermanWatcher) continue; // its "hand" is the carried block
-			ItemStack item = equipment.getItem(slot);
+			ItemStack item = slot == EquipmentSlot.HEAD && headOverride.containsKey(player.getUniqueId()) ? headOverride.get(player.getUniqueId())
+					: equipment.getItem(slot);
 			ItemStack last = shown.get(slot);
 			if (last != null && last.equals(item)) continue;
 			ItemStack copy = item.clone();

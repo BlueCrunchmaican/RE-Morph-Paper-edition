@@ -42,6 +42,8 @@ public final class PlayerMorphData {
 	public Map<String, Integer> killCounts = new HashMap<>();
 	/** Last selected form, restored on login when {@code persist-current-morph} is on. */
 	public @Nullable MorphRef current;
+	/** Multimorph: the form the current one borrows from, or null. Kept with {@link #current}. */
+	public @Nullable MorphRef borrowed;
 	/** Block an enderman morph is carrying (BlockData string), kept across logins. */
 	public @Nullable String carriedBlock;
 	/** Survival Mode progress; absent until the player first plays in Survival Mode, kept when the server is Classic. */

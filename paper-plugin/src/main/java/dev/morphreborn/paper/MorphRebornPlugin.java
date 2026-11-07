@@ -50,6 +50,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	private VariantCapture capture;
 	private MorphTemplates templates;
 	private DisguiseBridge disguises;
+	private dev.morphreborn.paper.disguise.BorrowedHeads borrowedHeads;
 	private ClientChannel channel;
 	private VanillaEffects effects;
 	private AbilityManager abilities;
@@ -115,6 +116,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		capture = new VariantCapture(VariantRules.load(yaml("variants.yml"), getConfig()), getLogger());
 		templates = new MorphTemplates(getLogger());
 		disguises = new DisguiseBridge(getLogger());
+		borrowedHeads = new dev.morphreborn.paper.disguise.BorrowedHeads(this);
+		getServer().getPluginManager().registerEvents(borrowedHeads, this);
 		channel = new ClientChannel(this);
 		effects = new VanillaEffects(this);
 		abilities = new AbilityManager(this);
@@ -143,6 +146,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			morphs.tick();
 			abilities.tick();
 			jockeys.tick();
+			borrowedHeads.tick();
 		}, 1L, 1L);
 		scheduleAutosave();
 
@@ -155,6 +159,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	public void onDisable() {
 		if (jockeys != null) jockeys.releaseAll();
 		if (trading != null) trading.releaseAll();
+		if (borrowedHeads != null) borrowedHeads.removeAll();
 		if (morphs != null) morphs.shutdown();
 		if (channel != null) channel.unregister();
 		if (store != null) store.shutdown();
@@ -360,6 +365,10 @@ public final class MorphRebornPlugin extends JavaPlugin {
 
 	public MorphTemplates templates() {
 		return templates;
+	}
+
+	public dev.morphreborn.paper.disguise.BorrowedHeads borrowedHeads() {
+		return borrowedHeads;
 	}
 
 	public DisguiseBridge disguises() {
