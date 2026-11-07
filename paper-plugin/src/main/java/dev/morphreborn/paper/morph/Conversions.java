@@ -243,7 +243,16 @@ public final class Conversions implements Listener {
 			plugin.getLogger().info("[debug] " + feeder.getName() + " used " + item.getType() + " (" + event.getHand() + ", " + event.getClass().getSimpleName()
 					+ ") on " + target.getName() + " as " + plugin.morphs().activeForm(target));
 		}
-		if (item.getType() == Material.GOLDEN_APPLE) {
+		if (item.getType() == Material.FLINT_AND_STEEL || item.getType() == Material.FIRE_CHARGE) {
+			// lighting a sulfur cube that holds TNT, as vanilla's (SulfurCube.mobInteract)
+			if (on("sulfur-cube") && plugin.abilities().ignite(target, false)) {
+				event.setCancelled(true);
+				if (feeder.getGameMode() != GameMode.CREATIVE) {
+					if (item.getType() == Material.FLINT_AND_STEEL) item.damage(1, feeder);
+					else item.subtract();
+				}
+			}
+		} else if (item.getType() == Material.GOLDEN_APPLE) {
 			if (cure(target)) {
 				event.setCancelled(true);
 				if (feeder.getGameMode() != GameMode.CREATIVE) item.subtract();
@@ -338,6 +347,58 @@ public final class Conversions implements Listener {
 		ActiveMorph s = plugin.morphs().state(player);
 		if (converted == null || s == null || s.next == null || !converted.entityType().equals("minecraft:sulfur_cube")) return;
 		plugin.morphs().convert(player, s.next);
+	}
+
+	/** Damage types a sulfur cube holding a block shrugs off (#minecraft:sulfur_cube_with_block_immune_to, 26.3). */
+	private static final java.util.Set<String> CUBE_IMMUNE = java.util.Set.of("arrow", "cactus", "dry_out", "fall", "falling_anvil", "falling_block",
+			"falling_stalactite", "freeze", "mace_smash", "hot_floor", "mob_attack", "mob_attack_no_aggro", "mob_projectile", "player_attack", "spear",
+			"spit", "stalagmite", "sting", "sulfur_cube_hot", "sweet_berry_bush", "thrown", "trident", "wind_charge");
+	/** #minecraft:is_explosion: immune too, and they light a cube's TNT with a short fuse. */
+	private static final java.util.Set<String> EXPLOSIONS = java.util.Set.of("fireworks", "explosion", "player_explosion", "bad_respawn_point");
+	/** #minecraft:is_fire: they light a cube's TNT. */
+	private static final java.util.Set<String> FIRE = java.util.Set.of("in_fire", "campfire", "on_fire", "lava", "hot_floor", "sulfur_cube_hot",
+			"unattributed_fireball", "fireball");
+
+	/**
+	 * A sulfur cube holding a block, as vanilla's (SulfurCube.hurtServer, knockback): hits, falls, thorns and blasts do no
+	 * harm, they bounce it away from whoever hit it, harder the harder the hit (the archetype's knockback: 0.4125 across,
+	 * 0.09 up, by the square root of the damage). Holding TNT, fire or a burning arrow lights it, and a blast lights it
+	 * with a short fuse. Once lit nothing hurts it.
+	 */
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+	public void onCubeHurt(org.bukkit.event.entity.EntityDamageEvent event) {
+		if (!(event.getEntity() instanceof Player player) || !on("sulfur-cube") || plugin.morphs().isTransitioning(player)) return;
+		MorphRef form = plugin.morphs().activeForm(player);
+		if (form == null || !form.entityType().equals("minecraft:sulfur_cube") || !holdsBlock(form)) return;
+		if (plugin.abilities().ignoresDamage(player, event.getCause())) return; // its own blast, and traits' immunities
+		if (plugin.abilities().isFusing(player)) {
+			event.setCancelled(true);
+			return;
+		}
+		String type = event.getDamageSource().getDamageType().getKey().getKey();
+		Entity direct = event.getDamageSource().getDirectEntity();
+		boolean burningArrow = direct instanceof org.bukkit.entity.AbstractArrow arrow && arrow.getFireTicks() > 0;
+		if (FIRE.contains(type) || burningArrow) plugin.abilities().ignite(player, false);
+		else if (EXPLOSIONS.contains(type)) plugin.abilities().ignite(player, true);
+		if (!CUBE_IMMUNE.contains(type) && !EXPLOSIONS.contains(type)) return;
+		event.setCancelled(true);
+		Entity attacker = event.getDamageSource().getCausingEntity();
+		if (attacker == null || EXPLOSIONS.contains(type)) return;
+		double dx = player.getX() - attacker.getX(), dz = player.getZ() - attacker.getZ();
+		double length = Math.sqrt(dx * dx + dz * dz);
+		if (length < 1.0E-4) {
+			double angle = Math.random() * Math.PI * 2;
+			dx = Math.cos(angle);
+			dz = Math.sin(angle);
+			length = 1;
+		}
+		var resistance = player.getAttribute(org.bukkit.attribute.Attribute.KNOCKBACK_RESISTANCE);
+		double keep = 1.0 - (resistance == null ? 0.0 : Math.min(1.0, resistance.getValue()));
+		double strength = Math.sqrt(Math.max(0.0, event.getDamage()));
+		double across = 0.4125 * strength * 0.4 * keep, up = 0.09 * strength * 1.2 * keep;
+		org.bukkit.util.Vector velocity = player.getVelocity();
+		player.setVelocity(new org.bukkit.util.Vector(velocity.getX() + dx / length * across, velocity.getY() + up, velocity.getZ() + dz / length * across));
+		play(player, plugin.abilities().explosiveInside(form) ? "entity.sulfur_cube.explosive.hit" : "entity.sulfur_cube.regular.hit");
 	}
 
 	private static boolean holdsBlock(MorphRef look) {

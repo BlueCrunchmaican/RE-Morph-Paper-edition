@@ -926,6 +926,11 @@ public final class AbilityManager {
 		return deathMessages.remove(player.getUniqueId());
 	}
 
+	/** The block a sulfur cube form holds is explosive (TNT). */
+	public boolean explosiveInside(MorphRef form) {
+		return hasExplosiveInside(form);
+	}
+
 	/** Vanilla only lets a sulfur cube explode when the block it swallowed is in #sulfur_cube_archetype/explosive. */
 	private static boolean hasExplosiveInside(MorphRef form) {
 		Object equipment = parse(form.snbt()).get("equipment");
@@ -1566,6 +1571,30 @@ public final class AbilityManager {
 	 * and a lightning charge is kept.
 	 */
 	private boolean fuse(Player p, boolean fakeout) {
+		return fuse(p, fakeout, -1);
+	}
+
+	/**
+	 * Vanilla primes a sulfur cube holding TNT from outside (SulfurCube.mobInteract, hurtServer): flint and steel or a
+	 * fire charge, fire, a burning arrow, or a blast nearby ({@code imminent}: a short fuse, as PrimedTnt's). It isn't the
+	 * cube's own choice, so there is no cooldown and no Survival unlock; it blows up as its ability does.
+	 */
+	public boolean ignite(Player p, boolean imminent) {
+		if (!enabled || plugin.morphs().isTransitioning(p)) return false;
+		MorphRef form = plugin.morphs().activeForm(p);
+		if (form == null || !"minecraft:sulfur_cube".equals(form.entityType()) || !explodes(form.entityType()) || !hasExplosiveInside(form)) return false;
+		int ticks = imminent ? java.util.concurrent.ThreadLocalRandom.current().nextInt(Math.max(1, sulfurCubeFuseTicks / 4)) + sulfurCubeFuseTicks / 8
+				: sulfurCubeFuseTicks;
+		return fuse(p, false, ticks);
+	}
+
+	/** A creeper's or sulfur cube's fuse is burning (a primed sulfur cube can't be hurt, as in vanilla). */
+	public boolean isFusing(Player p) {
+		return fusing.contains(p.getUniqueId());
+	}
+
+	/** {@code fuseTicks} below 0: the form's own fuse. */
+	private boolean fuse(Player p, boolean fakeout, int fuseTicks) {
 		MorphRef creeperForm = explodingForm(p);
 		if (creeperForm == null) return false;
 		ConfigurationSection config = actives.get(creeperForm.entityType()).config;
@@ -1622,7 +1651,7 @@ public final class AbilityManager {
 			if (settings.creeperExplosionKillsUser && (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE)) {
 				killSelf(p, "death.attack.explosion");
 			}
-		}, sulfur ? sulfurCubeFuseTicks : creeperFuseTicks);
+		}, fuseTicks >= 0 ? fuseTicks : sulfur ? sulfurCubeFuseTicks : creeperFuseTicks);
 		return true;
 	}
 
