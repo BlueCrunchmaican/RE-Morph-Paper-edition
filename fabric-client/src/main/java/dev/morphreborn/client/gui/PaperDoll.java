@@ -252,7 +252,9 @@ public final class PaperDoll {
 				living.xRot = 0F;
 			}
 			case "AT_VIEWER" -> {
-				living.yRot = c.dollAngle;
+				// the turn back toward the viewer (with +dollAngle it turned further away: at 90 degrees the doll showed
+				// the back of its head), and up at a viewer looking down from the tilt
+				living.yRot = -c.dollAngle;
 				living.xRot = -c.dollTilt;
 			}
 			default -> {

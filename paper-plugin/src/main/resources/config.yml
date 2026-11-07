@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 6.7.0
+config-version: 7.0.0
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at

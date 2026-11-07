@@ -248,6 +248,10 @@ active:
     # mod), or F without sneaking (no mod, with the sneak-swap-hand trigger). A lightning charge is kept.
     fakeout: true
     fakeout-cooldown-seconds: 4
+    # Multimorph: a borrowed creeper (or explosive sulfur cube) blasts with the size of the body it's on: power times
+    # the cube root of the body's mass over a creeper's (a ghast's blast is huge, a chicken's a pop), at most this.
+    # New in 7.0.0, added without replacing older abilities.yml files (they go without it and use 16).
+    multimorph-max-power: 16.0
   teleport:
     types: [enderman]
     cooldown-seconds: 4

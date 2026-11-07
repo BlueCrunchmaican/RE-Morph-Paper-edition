@@ -7,7 +7,7 @@ always share one version. The releases before this rule were renumbered to match
 
 | Bump | When | Examples |
 |---|---|---|
-| **MAJOR** | Something breaks for server admins or players and needs them to act: a new client protocol (older client mods are treated as unmodded), player data or config files that can't be carried over automatically, a renamed or removed command, permission or setting, dropping a Minecraft version | 6.0.0 (client protocol 3: 5.x client mods stopped working with it) |
+| **MAJOR** | Something breaks for server admins or players and needs them to act: a new client protocol (older client mods are treated as unmodded), player data or config files that can't be carried over automatically, a renamed or removed command, permission, setting or download, dropping a Minecraft version | 6.0.0 (client protocol 3: 5.x client mods stopped working with it), 7.0.0 (multimorph; the resource pack's file renamed) |
 | **MINOR** | New features, abilities, settings or config sections that work with what's there: config files update themselves and keep every value, older client mods keep working | morph costs (6.3.0), First-person Model support (6.4.0), the fakeout explosion (6.5.0) |
 | **PATCH** | Bug fixes only: no new settings, nothing new to learn | a morph facing the wrong way, a crash fix |
 

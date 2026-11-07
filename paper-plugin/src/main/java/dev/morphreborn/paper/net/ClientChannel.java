@@ -138,7 +138,7 @@ public final class ClientChannel implements PluginMessageListener {
 				.string(plugin.settings().nameTagMode.name())
 				.string(plugin.mode().id())
 				.string(plugin.getPluginMeta().getVersion()) // since 6.6.0; older clients stop reading before it
-				.bool(plugin.settings().multimorphEnabled); // since 6.7.0
+				.bool(plugin.settings().multimorphEnabled); // since 7.0.0
 	}
 
 	/** Send the server settings again (the gameplay mode changed). The client takes a repeated hello as an update. */
@@ -177,7 +177,7 @@ public final class ClientChannel implements PluginMessageListener {
 		if (!isModded(player)) return;
 		Wire.Out out = new Wire.Out(Wire.S_COSTS).varInt(costs.size());
 		for (Map.Entry<String, Integer> e : costs.entrySet()) out.string(e.getKey()).varInt(e.getValue());
-		out.varInt(plugin.survival().multimorphExtraPercent()); // since 6.7.0: a multimorph's extra, for the price panel
+		out.varInt(plugin.survival().multimorphExtraPercent()); // since 7.0.0: a multimorph's extra, for the price panel
 		send(player, out);
 	}
 

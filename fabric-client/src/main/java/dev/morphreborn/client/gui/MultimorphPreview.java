@@ -8,11 +8,13 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.entity.state.PhantomRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.boss.enderdragon.DragonFlightHistory;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -45,6 +47,10 @@ public final class MultimorphPreview {
 		state.ageInTicks = (mc.player == null ? 0 : mc.player.tickCount) + partialTick;
 		// GUI mobs don't tick: a phantom flaps by the clock instead of standing still
 		if (state instanceof PhantomRenderState phantom) phantom.flapTime = state.ageInTicks;
+		// a GUI dragon has no flight to face along: it faces as a living body would (its renderer turns by -yRot)
+		if (state instanceof EnderDragonRenderState dragon) {
+			for (int i = 0; i < DragonFlightHistory.LENGTH; i++) dragon.flightHistory.record(0.0, bodyRot - 180F);
+		}
 		if (state instanceof LivingEntityRenderState l) {
 			l.bodyRot = bodyRot;
 			l.yRot = headYaw;
@@ -69,13 +75,18 @@ public final class MultimorphPreview {
 		return state;
 	}
 
+	private static final String DRAGON = "minecraft:ender_dragon";
+
 	/** How much room a preview of the pair needs, in blocks: the main body, widened for wings a borrowed flyer spreads. */
 	public static float extent(MorphRef main, @Nullable MorphRef borrowed) {
 		LivingEntity body = MorphClient.ENTITIES.forGui(main);
+		// the dragon's box (16 by 8) is twice what its model shows in a GUI: framed by it, a dragon body was a speck, and
+		// anything it borrows is small beside it
+		if (main.entityType().equals(DRAGON)) return 8F;
 		float size = body == null ? 2F : Math.max(body.getBbHeight(), body.getBbWidth());
-		LivingEntity lent = borrowed == null ? null : MorphClient.ENTITIES.forGui(borrowed);
+		LivingEntity lent = borrowed == null || borrowed.entityType().equals(DRAGON) ? null : MorphClient.ENTITIES.forGui(borrowed);
 		if (lent != null) size = Math.max(size, Math.max(lent.getBbWidth(), body == null ? 0F : body.getBbWidth()) * 1.6F);
-		return Math.max(size, 0.5F);
+		return Math.max(size, 0.5F); // a borrowed dragon's parts are scaled to the body
 	}
 
 	/**
