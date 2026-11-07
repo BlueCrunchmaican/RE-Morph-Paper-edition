@@ -3,8 +3,16 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.5.0** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **6.6.1** (2026-11-07). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
+
+## 6.6.1 (released 2026-11-07)
+
+A fix for 6.6.0, nothing else.
+
+- [x] The client mod crashed as soon as its biomass bar showed at its narrowest, exactly 100 pixels wide (a small
+      Biomass Capacity, such as a new Survival player's 100): one of the falling drops was placed past the bar's end.
+      The drops now stop at the end; every width from 100 to 399 was checked.
 
 ## 6.6.0 (released 2026-11-07)
 

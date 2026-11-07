@@ -244,6 +244,12 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 6.6.1 (2026-11-07)
+
+- [x] A Survival player with Biomass Capacity 100 (a 100-pixel bar): 6.6.0 crashed the moment the bar showed
+      (`ArrayIndexOutOfBoundsException` in `BiomassHud.render`, index 101). With the fix the client ran on with the bar
+      showing (tried with the same fix in a test build); every bar width from 100 to 399 stays inside the bar.
+
 ## 6.6.0 (2026-11-07)
 
 Built with 29 plugin tests passing (SemVer, curves, the upgrade tree, the level conversion, the speed wording), then

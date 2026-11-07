@@ -122,6 +122,7 @@ public final class BiomassHud {
 		// drops of goo: a thread gathers on the underside, then a drop breaks off and falls away
 		for (int j = 0; j * 13 + 6 < width - 2; j++) {
 			int c = j * 13 + 6 + (j * 7) % 5;
+			if (c > width - 2) break; // the jitter can carry the last drop past the end (a 100-wide bar crashed at 101)
 			float phase = (float) ((time * (0.010 + (j % 3) * 0.004) + j * 0.37) % 1.0);
 			int color = c < filled ? 0x8E1616 : 0x101010;
 			int base = bottom[c];
