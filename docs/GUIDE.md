@@ -246,6 +246,10 @@ Multimorphs don't convert. Your action bar says when something is under way (van
 | Creeper | Lightning | Charged (its next blast is twice as big; see Abilities) |
 | Sulfur cube | Another player right-clicks it with a block it can take | Holding the block; TNT makes it explosive, and the blast spends it |
 
+A sulfur cube holding a block (fed, or picked that way) is vanilla's too: hits, arrows, falls and blasts do no harm
+and bounce it away instead. Holding TNT, it can be lit like TNT: flint and steel or a fire charge (another player's
+right click), fire, a burning arrow, or a blast nearby (a short fuse). Lit, it blows up after its fuse.
+
 The new creature's traits and abilities apply (a zombie villager burns in daylight, a drowned breathes under water).
 A creative player isn't struck by lightning. Each kind can be switched off under `conversions` in `config.yml`, along
 with the cure's length.

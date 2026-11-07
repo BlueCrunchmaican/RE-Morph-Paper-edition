@@ -193,7 +193,8 @@ conversions:
   # charges a creeper: abilities.yml, explode.)
   lightning: true
   # A sulfur cube takes a block when another player right-clicks it with one (only blocks sulfur cubes take); TNT
-  # makes it explosive, and exploding spends it.
+  # makes it explosive, and exploding spends it. Holding a block, it shrugs off hits, falls and blasts and bounces
+  # away instead; holding TNT, flint and steel, a fire charge, fire, a burning arrow or a blast lights it, as in vanilla.
   sulfur-cube: true
   # How long a cure takes (vanilla: 3 to 5 minutes).
   cure-seconds: 180

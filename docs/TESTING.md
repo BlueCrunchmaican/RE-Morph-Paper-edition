@@ -244,6 +244,19 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.1.2, sulfur cubes (2026-11-07)
+
+A sulfur cube morph holding TNT (a player without the mod), and a player with the mod hitting and lighting it:
+
+- [x] Before the fix: a player hit took it from 4 health to 2, and nothing could light it.
+- [x] A 6-damage player hit: no damage (the server reports it immune), and it bounced about 1.6 blocks away.
+- [x] Flint and steel on it: lit directly (one use of the flint, not a single fire block placed around it), blew up
+      6 s later. (Tested from a client with "use" on a key: synthetic mouse clicks had left the client's use button
+      held, which lit fire next to the cube instead and muddied the first tries.)
+- [x] Fire damage: lit, blew up 6 s later; fire itself still hurts it, as in vanilla.
+- [x] Primed TNT going off 3 blocks away: no damage to the cube, and it blew up about 2 s later (the short fuse).
+- [ ] Not tried: a fire charge (the flint's code), a burning arrow, falling.
+
 ## 7.1.0, vanilla conversions (2026-11-07)
 
 Tried on the test server with two modded clients and a vanilla one; each conversion watched from all three.

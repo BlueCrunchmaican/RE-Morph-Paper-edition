@@ -65,6 +65,21 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## Released: 7.1.2, sulfur cubes as vanilla's
+
+The user asked whether a sulfur cube morph holding TNT bounces when hit and can be lit. Neither worked: a hit hurt it as
+any player (4 health to 2), and nothing lit it. Now, as vanilla's SulfurCube (hurtServer, knockback, mobInteract):
+
+- [x] Holding a block, it takes no damage from hits, projectiles, falls, thorns, berries, freezing or blasts
+      (#sulfur_cube_with_block_immune_to) and bounces away from whoever hit it instead: the archetype's knockback,
+      0.4125 across and 0.09 up, by the square root of the damage, with the archetype's hit sound.
+- [x] Holding TNT, it is lit by flint and steel or a fire charge (another player's right click; the flint wears, the
+      charge is used up), by fire or a burning arrow (the 6 s fuse), or by a blast nearby (a short fuse, as primed
+      TNT's). It blows up as its ability does, without a cooldown or a Survival unlock: it isn't its choice.
+- [x] Lit, nothing hurts it until it goes off.
+- [x] Under `conversions.sulfur-cube` with the feeding.
+- [x] Released: tag `v7.1.2`, GitHub release `RE:Morph 7.1.2`, Modrinth `7.1.2+paper` / `7.1.2+fabric`.
+
 ## Released: 7.1.1 (fixes)
 
 - [x] A mooshroom struck back to the colour it was picked as ends its conversion (it stayed listed as converted to a
