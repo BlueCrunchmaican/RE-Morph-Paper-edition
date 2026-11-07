@@ -255,7 +255,20 @@ A sulfur cube morph holding TNT (a player without the mod), and a player with th
       held, which lit fire next to the cube instead and muddied the first tries.)
 - [x] Fire damage: lit, blew up 6 s later; fire itself still hurts it, as in vanilla.
 - [x] Primed TNT going off 3 blocks away: no damage to the cube, and it blew up about 2 s later (the short fuse).
-- [ ] Not tried: a fire charge (the flint's code), a burning arrow, falling.
+- [x] Later, on the released 7.1.2 jar: a real arrow did no damage and pushed it half a block; an 8-block fall did no
+      damage (a cow morph lost 5 health from the same fall); a fire charge lit it (one charge used, blew up 5 s later);
+      a burning arrow did no damage and lit it (blew up 6 s later).
+
+**More, the same day (7.1.2 release jar):**
+
+- [x] Dying as a morph: blown up as the TNT sulfur cube, the player came back as the same cube
+      (`keep-morph-on-death: true`, the default).
+- [x] Milking a goat morph (bucket to milk) and stew from a mooshroom morph (bowl to mushroom stew), another player
+      with the mod using them.
+- [x] A zombie villager morph with Weakness eating a golden apple itself: one apple used, the cure started (shaking,
+      the 3-minute timer), Weakness became Strength.
+- [x] A piglin morph in the Nether: no shaking, still a piglin after 20 s. Taken to the Overworld it shook; brought
+      back to the Nether after 9 s it stopped and stayed a piglin (the countdown starts over, as vanilla's).
 
 ## 7.1.0, vanilla conversions (2026-11-07)
 
@@ -452,7 +465,7 @@ do when standing still; it lines up after a step.
 - [x] A goat's head comes back up after a ram (7.0.0).
 
 **Needs two players**
-- [x] **Milking:** milk a cow morph (7.1.0). Still to try: a goat, stew from a mooshroom.
+- [x] **Milking:** a cow morph (7.1.0); a goat, and stew from a mooshroom (7.1.2).
 - [ ] **Several players at once:** morphing together, and joining while others are already morphed.
 
 **What other players see**
@@ -465,7 +478,7 @@ do when standing still; it lines up after a step.
 - [ ] **Ghast and blaze fireballs** follow the `fire` and `explosion-block-damage` settings.
 - [ ] **Persistence:** log out and back in as a morph (the player should come back morphed); restart the server (collections
       and favourites kept); die as a morph (the morph is kept, per the `death` settings). The first two were done
-      many times during 7.0.0 testing, with a multimorph too; dying as a morph is still to try.
+      many times during 7.0.0 testing, with a multimorph too; dying as a morph (the morph is kept, by default) was tried on 7.1.2.
 - [ ] **Snow golem** melts in a hot biome (the test yard has a desert patch).
 - [ ] **Mobs ignoring or hunting morphed players,** by morph. Checked earlier in the project, not re-checked since.
 - [ ] **The optional sound resource pack,** for players without the mod.
