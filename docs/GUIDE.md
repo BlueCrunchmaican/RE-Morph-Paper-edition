@@ -1,4 +1,4 @@
-# RE:Morph 6.1.7
+# RE:Morph 6.1.8
 
 Kill a mob, become that mob. An unofficial port of iChun's Morph mod to Minecraft Java 26.3.
 
@@ -14,8 +14,8 @@ The client mod is optional. Nobody is ever kicked for not having it.
 
 | Path | What it is |
 |---|---|
-| `server/RE-Morph-paper-6.1.7.jar` | The Paper plugin |
-| `client/RE-Morph-fabric-6.1.7+26.3.jar` | The Fabric client mod (optional, Java players only) |
+| `server/RE-Morph-paper-6.1.8.jar` | The Paper plugin |
+| `client/RE-Morph-fabric-6.1.8+26.3.jar` | The Fabric client mod (optional, Java players only) |
 | `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
@@ -29,7 +29,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 Needs a **Paper 26.3** server (built against build 235) running Java 25 or newer.
 
 1. Put these three jars in the server's `plugins` folder:
-   - `RE-Morph-paper-6.1.7.jar` (this release)
+   - `RE-Morph-paper-6.1.8.jar` (this release)
    - **Lib's Disguises** 26.10.24 or newer: https://www.spigotmc.org/resources/libs-disguises-free.81/
    - **PacketEvents** 2.14.0 or newer (Lib's Disguises needs it): https://modrinth.com/plugin/packetevents
 2. Start the server once. The plugin creates `plugins/RE-Morph/` with `config.yml`, `abilities.yml` and
@@ -55,10 +55,10 @@ Players with the client mod should swap their old `RE-Morph-fabric-*.jar` for th
 `mods` folder stop the game from starting.
 
 **Coming from Morph Reborn** (the project's name until 6.1.2): remove `MorphReborn-paper-*.jar` and put
-`RE-Morph-paper-6.1.7.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
+`RE-Morph-paper-6.1.8.jar` in its place. On first start the plugin moves `plugins/MorphReborn/` to `plugins/RE-Morph/`,
 so settings and collections carry over. Permissions (`morphreborn.*`), `/morph` and its old `/morphreborn` alias,
 and the client mod's settings file keep their names. Players swap `morphreborn-fabric-*.jar` for
-`RE-Morph-fabric-6.1.7+26.3.jar`.
+`RE-Morph-fabric-6.1.8+26.3.jar`.
 
 **6.1.2 changes the client protocol.** On a 6.1.2 server, an older client mod (5.x) is told to update and is treated
 as a player without the mod until it does: they still see and use morphs, just without the selector and animations.
@@ -90,6 +90,11 @@ first-person view, see Playing), shows morph prices on the favourites wheel with
 middle, and the ender dragon morph no longer faces backwards. The plugin only changed its version number, so a 6.1.6
 server and 6.1.6 clients keep working with it.
 
+**6.1.8** adds a fakeout explosion for creepers and sulfur cubes with TNT inside (sneak + ability key, see Abilities)
+and fixes endermen in First-person Model's view. On first start `abilities.yml` is replaced with the new version (your
+old one is kept as `abilities-old-6.1.6.yml`; copy back any changes); `config.yml` and `survival.yml` don't change.
+Older clients still work, fakeout included; update the client mod for the enderman fix.
+
 ### Optional: the morph sound for players without the mod
 
 The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead. To give
@@ -100,7 +105,7 @@ resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `
 
 1. Install **Fabric Loader** 0.20.1 or newer for Minecraft 26.3: https://fabricmc.net/use/installer/
 2. Put these in the `.minecraft/mods` folder:
-   - `RE-Morph-fabric-6.1.7+26.3.jar` (this release)
+   - `RE-Morph-fabric-6.1.8+26.3.jar` (this release)
    - **Fabric API** 0.165.0+26.3 or newer: https://modrinth.com/mod/fabric-api
    - Optional: **First-person Model** by tr7zw (tested with 2.7.3), for your morph as your body in first person:
      https://modrinth.com/mod/first-person-model
