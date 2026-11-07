@@ -45,8 +45,13 @@ public final class ModelCapture {
 	 * Replays {@code LivingEntityRenderer.submit}'s transforms and {@code setupAnim}, then flattens the model.
 	 * Returns an empty list for renderers that aren't living-entity renderers.
 	 */
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static List<Box> capture(EntityRenderer<?, ?> renderer, LivingEntityRenderState state) {
+		return capture(renderer, state, false);
+	}
+
+	/** As {@link #capture(EntityRenderer, LivingEntityRenderState)}; {@code noFace} leaves out the head and face. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	public static List<Box> capture(EntityRenderer<?, ?> renderer, LivingEntityRenderState state, boolean noFace) {
 		List<Box> out = new ArrayList<>();
 		if (!(renderer instanceof LivingEntityRenderer living)) return out;
 		selectModel(living, state);
@@ -59,7 +64,7 @@ public final class ModelCapture {
 		poseStack.translate(0.0F, -1.501F, 0.0F);
 		EntityModel model = living.getModel();
 		model.setupAnim(state);
-		walk(model.root(), poseStack, out);
+		walk(model.root(), poseStack, out, noFace);
 		return out;
 	}
 
@@ -73,7 +78,7 @@ public final class ModelCapture {
 	 * model for this state, exactly as it would to draw it; nothing submitted there is ever drawn.
 	 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static void selectModel(LivingEntityRenderer living, LivingEntityRenderState state) {
+	static void selectModel(LivingEntityRenderer living, LivingEntityRenderState state) {
 		try {
 			living.submit(state, new PoseStack(), new SubmitNodeStorage(), NO_CAMERA);
 		} catch (RuntimeException e) {
@@ -81,7 +86,7 @@ public final class ModelCapture {
 		}
 	}
 
-	private static void walk(ModelPart part, PoseStack poseStack, List<Box> out) {
+	private static void walk(ModelPart part, PoseStack poseStack, List<Box> out, boolean noFace) {
 		if (!part.visible) return;
 		ModelPartAccessor access = (ModelPartAccessor) (Object) part;
 		List<ModelPart.Cube> cubes = access.morph$cubes();
@@ -109,7 +114,9 @@ public final class ModelCapture {
 				out.add(new Box(new Matrix4f(pose.pose()), new Matrix3f(pose.normal()), cube.minX, cube.minY, cube.minZ, w, h, d, gx, gy, gz));
 			}
 		}
-		for (ModelPart child : children.values()) walk(child, poseStack, out);
+		for (java.util.Map.Entry<String, ModelPart> child : children.entrySet()) {
+			if (!noFace || !FirstPersonMorph.faceName(child.getKey())) walk(child.getValue(), poseStack, out, noFace);
+		}
 		poseStack.popPose();
 	}
 

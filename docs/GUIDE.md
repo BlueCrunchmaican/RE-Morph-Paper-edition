@@ -97,6 +97,8 @@ resource pack), then set `appearance.vanilla-clients-have-sound-pack: true` in `
 2. Put these in the `.minecraft/mods` folder:
    - `RE-Morph-fabric-6.1.6+26.3.jar` (this release)
    - **Fabric API** 0.165.0+26.3 or newer: https://modrinth.com/mod/fabric-api
+   - Optional: **First-person Model** by tr7zw (tested with 2.7.3), for your morph as your body in first person:
+     https://modrinth.com/mod/first-person-model
 3. Start Minecraft with the Fabric profile and join the server.
 
 The mod only does something on a server running the RE:Morph plugin. If the mod and the plugin don't speak the
@@ -164,6 +166,14 @@ background. Every morph follows the same settings as your own body. Settings (RE
 
 It also steps aside while the selector or the favourites wheel is open.
 
+**First-person Model (optional compatible mod):** with [First-person Model](https://modrinth.com/mod/first-person-model)
+installed, your body in its first-person view is your morph. Its head is left out and the camera sits just in front of its body, so the view ahead stays clear
+and looking down shows its front legs and back (a spider sees its legs on both sides). Humanoid morphs such as zombies
+look like a player's body does. First-person Model's own toggle stays in charge: switch its view off and first person
+is plain again. Transformations play on your body. As a morph with no head to look out of (slimes, magma cubes,
+ghasts, squid), first person is plain. As the ender dragon the camera is at its head, so the rest of it stays behind
+you. RE:Morph doesn't need First-person Model: without it, first person is unchanged.
+
 ### Without the client mod (plain Java and Bedrock)
 
 | Command | Does |
@@ -196,7 +206,8 @@ If the server plays Survival Mode, morphing has to be earned:
    your collection has room (Morph Capacity, Variant Capacity).
 5. **Morphing costs biomass**, paid when the transformation starts; going back to your own body is free. The price
    grows with the creature's size: by default a chicken costs 2, a zombie 8, a cow 12, an iron golem 53. With the
-   mod, the selector shows each price after the name, red when you can afford it and grey when you can't. Without
+   mod, the selector shows each price after the name and the favourites wheel under it, red when you can afford it
+   and grey when you can't. Without
    it, `/morph use` tells you the price if you're short. The admin can turn this off or change it (`/morph cost`).
 6. **Morph Abilities** unlocks the ability key, **Morph Flight** lets flying morphs fly (until then they glide), and
    **Morph Efficiency** makes transformations faster.

@@ -3,6 +3,7 @@ package dev.morphreborn.client.render;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.morphreborn.client.ClientConfig;
 import dev.morphreborn.client.MorphClient;
+import dev.morphreborn.client.compat.FirstPersonCompat;
 import dev.morphreborn.client.data.MorphState;
 import dev.morphreborn.client.morph.MorphSync;
 import dev.morphreborn.client.net.MorphRef;
@@ -15,6 +16,7 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -69,8 +71,11 @@ public final class MorphWorldRenderer {
 		try {
 			EntityRenderer playerRenderer = dispatcher.getRenderer(player);
 			EntityRenderState playerState = playerRenderer.createRenderState(player, partialTick);
+			boolean firstPerson = FirstPersonCompat.drawingBody(player);
 			if (!state.isTransitioning()) {
-				return formState(dispatcher, player, state.next, playerState, partialTick);
+				EntityRenderState formed = formState(dispatcher, player, state.next, playerState, partialTick);
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, formed));
+				return formed;
 			}
 			// The player's hitbox (scale attribute) is gameplay only: the server changes it in one step half-way through.
 			// The player form is always drawn at natural size, as in the original, so the animation doesn't jump with it.
@@ -85,11 +90,15 @@ public final class MorphWorldRenderer {
 				MorphRef shown = state.morphProgress(partialTick) < 0.5F ? state.prev : state.next;
 				EntityRenderState plain = formState(dispatcher, player, shown, playerState, partialTick);
 				if (plain instanceof LivingEntityRenderState living) living.scale *= state.vanillaScale(partialTick);
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, shown, plain));
 				return plain;
 			}
 			EntityRenderState from = formState(dispatcher, player, state.prev, playerState, partialTick);
 			EntityRenderState to = formState(dispatcher, player, state.next, playerState, partialTick);
-			if (!(from instanceof LivingEntityRenderState f) || !(to instanceof LivingEntityRenderState t)) return to;
+			if (!(from instanceof LivingEntityRenderState f) || !(to instanceof LivingEntityRenderState t)) {
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, to));
+				return to;
+			}
 			MorphTransitionRenderState out = new MorphTransitionRenderState();
 			out.entityType = playerState.entityType;
 			out.x = playerState.x;
@@ -105,10 +114,37 @@ public final class MorphWorldRenderer {
 			out.toRenderer = dispatcher.getRenderer(t);
 			out.transition = state.transitionSine(partialTick);
 			out.skinAlpha = state.skinAlpha(partialTick);
+			// In first person the animation plays on the body First-person Model draws, heads left out, and the body
+			// slides from the old form's placement to the new one's as the boxes move.
+			if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.prev, f), firstPersonBody(dispatcher, state.next, t), out.transition);
 			return out;
 		} finally {
 			extracting = false;
 		}
+	}
+
+	/**
+	 * The local player's morph, about to be drawn as their own body in first person by First-person Model: a mob
+	 * gets its head hidden at draw time, and this returns where to put the body so the camera sits at its head (used
+	 * from the next frame on). Null keeps that mod's own player-shaped placement: player forms, and mobs whose head is
+	 * on top of the body.
+	 */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static @Nullable Vec3 firstPersonBody(EntityRenderDispatcher dispatcher, @Nullable MorphRef form, EntityRenderState formed) {
+		if (form == null || form.isSelf() || form.isPlayer()) return null;
+		if (formed instanceof LivingEntityRenderState living) {
+			((FirstPersonMorph.Mark) living).morph$setFirstPersonBody(true);
+			return FirstPersonMorph.headOffset(dispatcher.getRenderer(living), living);
+		}
+		if (formed instanceof EnderDragonRenderState) {
+			((FirstPersonMorph.Mark) formed).morph$setFirstPersonBody(true);
+			return FirstPersonMorph.dragonOffset;
+		}
+		return null;
+	}
+
+	private static boolean noFace(EntityRenderState state) {
+		return ((FirstPersonMorph.Mark) state).morph$firstPersonBody();
 	}
 
 	/** Render state for one form of {@code player}. The player's own form is their regular state. */
@@ -160,13 +196,13 @@ public final class MorphWorldRenderer {
 			PoseStack poseStack, SubmitNodeCollector collector) {
 		if (s.transition <= 0F) {
 			dispatcher.submit(s.from, camera, x, y, z, poseStack, collector);
-			submitSkin(ModelCapture.capture(s.fromRenderer, s.from), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
+			submitSkin(ModelCapture.capture(s.fromRenderer, s.from, noFace(s.from)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
 		} else if (s.transition >= 1F) {
 			dispatcher.submit(s.to, camera, x, y, z, poseStack, collector);
-			submitSkin(ModelCapture.capture(s.toRenderer, s.to), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
+			submitSkin(ModelCapture.capture(s.toRenderer, s.to, noFace(s.to)), x, y, z, poseStack, collector, s.lightCoords, s.skinAlpha, true);
 		} else {
-			List<ModelCapture.Box> from = ModelCapture.capture(s.fromRenderer, s.from);
-			List<ModelCapture.Box> to = ModelCapture.capture(s.toRenderer, s.to);
+			List<ModelCapture.Box> from = ModelCapture.capture(s.fromRenderer, s.from, noFace(s.from));
+			List<ModelCapture.Box> to = ModelCapture.capture(s.toRenderer, s.to, noFace(s.to));
 			List<ModelCapture.Box> mid = ModelCapture.interpolate(from, to, s.from.boundingBoxHeight / 2F, s.to.boundingBoxHeight / 2F, s.transition);
 			submitSkin(mid, x, y, z, poseStack, collector, s.lightCoords, 1F, false);
 		}

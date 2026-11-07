@@ -48,6 +48,7 @@ public final class MorphClient implements ClientModInitializer {
 			return;
 		}
 		ClientConfig.load();
+		dev.morphreborn.client.compat.FirstPersonCompat.init();
 		Keys.init();
 		ClientNet.init();
 		PictureInPictureRendererRegistry.register(context -> new MorphGuiEntities.Renderer());

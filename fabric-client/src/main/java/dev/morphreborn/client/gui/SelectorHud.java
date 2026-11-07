@@ -512,7 +512,7 @@ public final class SelectorHud {
 		List<Runnable> overlays = new ArrayList<>();
 		Component title = Component.translatable("key.morphreborn.favourite");
 		if (biomassButton) {
-			drawBiomassButton(g, overlays, cx, cy, (float) (radialDist * BIOMASS_BUTTON), textScale);
+			drawBiomassButton(g, overlays, cx, cy, textScale * radialProg);
 		} else {
 			overlays.add(() -> {
 				g.pose().pushMatrix();
@@ -538,6 +538,7 @@ public final class SelectorHud {
 			if (name == null) name = typeName(variant.ref.entityType());
 			name = name.withStyle(isCurrent(variant.ref) ? ChatFormatting.GOLD : i == selectedIndex ? ChatFormatting.YELLOW : ChatFormatting.WHITE);
 			MutableComponent label = name;
+			Component cost = wheelPrice(variant.ref);
 			float labelScale = 0.5F * radialProg * textScale;
 			float ly = (float) (radialDist * 0.1F + font.lineHeight / 1.75F * textScale);
 			overlays.add(() -> {
@@ -545,6 +546,7 @@ public final class SelectorHud {
 				g.pose().translate(ex, ey + ly);
 				g.pose().scale(labelScale, labelScale);
 				g.text(font, label, -font.width(label) / 2, 0, 0xFFFFFFFF, true);
+				if (cost != null) g.text(font, cost, -font.width(cost) / 2, font.lineHeight, 0xFFFFFFFF, true);
 				g.pose().popMatrix();
 			});
 		}
@@ -553,40 +555,63 @@ public final class SelectorHud {
 		overlays.forEach(Runnable::run);
 	}
 
-	/** Size of the wheel's centre Biomass button, as a share of the wheel's radius (the dead zone is 0.55). */
-	private static final float BIOMASS_BUTTON = 0.24F; // a compact button well inside the dead zone (0.55)
+	/** The Biomass button's text size, as a share of the wheel's text size. */
+	private static final float BIOMASS_TEXT = 0.5F;
+
+	private Component biomassLabel() {
+		return Component.translatable("morphreborn.wheel.biomass");
+	}
+
+	private Component biomassAmount() {
+		return ClientNet.biomassUnlocked() ? Component.literal(ClientNet.biomass() + " / " + ClientNet.biomassCapacity())
+				: Component.translatable("morphreborn.upgrades.locked_short");
+	}
+
+	/** Half the width and half the height of the Biomass button: just big enough for its two lines of text. */
+	private float[] biomassButtonHalf(float textScale) {
+		Font font = mc.font;
+		float scale = textScale * BIOMASS_TEXT;
+		float textWidth = Math.max(font.width(biomassLabel()), font.width(biomassAmount())) * scale;
+		float pad = 3F * textScale;
+		return new float[] {textWidth / 2F + pad, font.lineHeight * scale + pad};
+	}
 
 	/** Mouse over the centre Biomass button. */
 	private boolean isMouseOnBiomassButton() {
 		double diameter = Math.min(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()) * ClientConfig.INSTANCE.radialScale;
-		return mouseDistanceFromCenter() <= diameter / 2D * BIOMASS_BUTTON;
+		float[] half = biomassButtonHalf((float) (diameter / 2D) / 96.375F);
+		double scale = mc.getWindow().getGuiScale();
+		double mx = mc.mouseHandler.xpos() / scale - mc.getWindow().getGuiScaledWidth() / 2D;
+		double my = mc.mouseHandler.ypos() / scale - mc.getWindow().getGuiScaledHeight() / 2D;
+		return Math.abs(mx) <= half[0] && Math.abs(my) <= half[1];
 	}
 
 	/**
 	 * Survival Mode's Biomass button in the middle of the wheel: the morph's static under a red tint, with the biomass
-	 * amount. Clicking it (or letting go of the key over it) opens the upgrade tree.
+	 * amount, sized to its text. Clicking it (or letting go of the key over it) opens the upgrade tree.
 	 */
-	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float half, float textScale) {
-		if (half < 4) return;
+	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float textScale) {
+		float[] half = biomassButtonHalf(textScale);
+		if (half[0] < 4 || half[1] < 3) return;
 		boolean hover = isMouseOnBiomassButton();
-		int x0 = Math.round(cx - half);
-		int y0 = Math.round(cy - half);
-		int size = Math.round(half * 2);
+		int x0 = Math.round(cx - half[0]);
+		int y0 = Math.round(cy - half[1]);
+		int w = Math.round(half[0] * 2);
+		int h = Math.round(half[1] * 2);
 		int frame = mc.player == null ? 0 : mc.player.tickCount / 2;
-		g.fill(x0 - 1, y0 - 1, x0 + size + 1, y0 + size + 1, hover ? 0xFFFF5252 : 0xFF000000);
-		for (int sx = 0; sx < size; sx += 16) {
-			for (int sy = 0; sy < size; sy += 16) {
+		g.fill(x0 - 1, y0 - 1, x0 + w + 1, y0 + h + 1, hover ? 0xFFFF5252 : 0xFF000000);
+		for (int sx = 0; sx < w; sx += 16) {
+			for (int sy = 0; sy < h; sy += 16) {
 				int seed = (frame * 13 + sx * 7 + sy * 31) & 0xFFFF;
 				g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, dev.morphreborn.client.render.MorphWorldRenderer.MORPH_SKIN, x0 + sx, y0 + sy,
-						seed % 48, (seed / 48) % 48, Math.min(16, size - sx), Math.min(16, size - sy), 64, 64);
+						seed % 48, (seed / 48) % 48, Math.min(16, w - sx), Math.min(16, h - sy), 64, 64);
 			}
 		}
-		g.fill(x0, y0, x0 + size, y0 + size, hover ? 0x709E1B1B : 0x509E1B1B);
+		g.fill(x0, y0, x0 + w, y0 + h, hover ? 0x709E1B1B : 0x509E1B1B);
 		Font font = mc.font;
-		Component label = Component.translatable("morphreborn.wheel.biomass");
-		Component amount = ClientNet.biomassUnlocked() ? Component.literal(ClientNet.biomass() + " / " + ClientNet.biomassCapacity())
-				: Component.translatable("morphreborn.upgrades.locked_short");
-		float scale = textScale * 0.6F;
+		Component label = biomassLabel();
+		Component amount = biomassAmount();
+		float scale = textScale * BIOMASS_TEXT;
 		overlays.add(() -> {
 			g.pose().pushMatrix();
 			g.pose().translate(cx, cy);
@@ -636,7 +661,16 @@ public final class SelectorHud {
 		int cost = ClientNet.morphCost(ref.variantId());
 		if (cost <= 0 || isCurrent(ref)) return Component.empty();
 		boolean affordable = cost <= ClientNet.biomass();
-		return Component.literal("  " + cost + " biomass").withStyle(affordable ? ChatFormatting.RED : ChatFormatting.DARK_GRAY);
+		return Component.literal(String.format(java.util.Locale.ROOT, "  %,d biomass", cost)).withStyle(affordable ? ChatFormatting.RED : ChatFormatting.DARK_GRAY);
+	}
+
+	/** Survival: the price line under a favourite in the wheel, coloured like the selector's; null when free or current. */
+	private @Nullable Component wheelPrice(MorphRef ref) {
+		int cost = ClientNet.morphCost(ref.variantId());
+		if (cost <= 0 || isCurrent(ref)) return null;
+		boolean affordable = cost <= ClientNet.biomass();
+		// Light grey, not the selector's dark grey: the wheel's ring behind the text is dark.
+		return Component.literal(String.format(java.util.Locale.ROOT, "%,d biomass", cost)).withStyle(affordable ? ChatFormatting.RED : ChatFormatting.GRAY);
 	}
 
 	/** Italic custom name (name-tagged mobs, other players' forms), or null. */
