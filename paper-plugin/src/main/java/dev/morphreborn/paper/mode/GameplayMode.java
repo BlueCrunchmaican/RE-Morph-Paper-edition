@@ -57,6 +57,21 @@ public interface GameplayMode {
 
 	/** Take the price of a morph into {@code form}; false when the player can't afford it (nothing is taken). */
 	default boolean payForMorph(Player player, MorphRef form) {
+		return payBiomass(player, morphCost(player, form));
+	}
+
+	/** Why the player can't combine two morphs (Survival: the Multimorph upgrade isn't bought), or null if they can. */
+	default @Nullable String cannotCombine(Player player) {
+		return null;
+	}
+
+	/** The extra on a multimorph's price of {@code cost} (Survival: a share of it), 0 when combining is free. */
+	default int multimorphExtra(Player player, int cost) {
+		return 0;
+	}
+
+	/** Take {@code cost} biomass (a multimorph's prices together); false when the player can't afford it (nothing is taken). */
+	default boolean payBiomass(Player player, int cost) {
 		return true;
 	}
 

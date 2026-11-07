@@ -10,9 +10,33 @@ import org.spongepowered.asm.mixin.Unique;
  * base state, so it also covers the ender dragon, whose state isn't a living one.
  */
 @Mixin(EntityRenderState.class)
-public abstract class EntityRenderStateMixin implements FirstPersonMorph.Mark {
+public abstract class EntityRenderStateMixin implements FirstPersonMorph.Mark, dev.morphreborn.client.render.HybridMorph.Mark {
 	@Unique
 	private boolean morph$firstPersonBody;
+	@Unique
+	private @org.jspecify.annotations.Nullable EntityRenderState morph$borrowed;
+	@Unique
+	private boolean morph$hideHead;
+
+	@Override
+	public @org.jspecify.annotations.Nullable EntityRenderState morph$borrowed() {
+		return this.morph$borrowed;
+	}
+
+	@Override
+	public void morph$setBorrowed(@org.jspecify.annotations.Nullable EntityRenderState borrowed) {
+		this.morph$borrowed = borrowed;
+	}
+
+	@Override
+	public boolean morph$hideHead() {
+		return this.morph$hideHead;
+	}
+
+	@Override
+	public void morph$setHideHead(boolean hide) {
+		this.morph$hideHead = hide;
+	}
 
 	@Override
 	public boolean morph$firstPersonBody() {

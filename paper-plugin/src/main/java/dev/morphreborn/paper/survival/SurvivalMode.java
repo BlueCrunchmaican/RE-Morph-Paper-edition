@@ -199,8 +199,7 @@ public final class SurvivalMode implements GameplayMode {
 	}
 
 	@Override
-	public boolean payForMorph(Player player, MorphRef form) {
-		int cost = morphCost(player, form);
+	public boolean payBiomass(Player player, int cost) {
 		if (cost <= 0) return true;
 		SurvivalData d = data(player);
 		if (d.biomass + 1e-9 < cost) return false;
@@ -228,6 +227,24 @@ public final class SurvivalMode implements GameplayMode {
 			}
 		}
 		plugin.channel().sendCosts(player, costs);
+	}
+
+	@Override
+	public @Nullable String cannotCombine(Player player) {
+		if (!active()) return null;
+		if (level(player, SurvivalConfig.MULTIMORPH) < 1) return "Combining morphs needs the Multimorph upgrade: /morph upgrades";
+		return null;
+	}
+
+	@Override
+	public int multimorphExtra(Player player, int cost) {
+		if (!active() || !config.morphCostEnabled || cost <= 0) return 0;
+		return (int) Math.ceil(cost * config.multimorphExtraPercent / 100.0 - 1e-9);
+	}
+
+	/** The percent a multimorph adds to its price, for the client's price panel. */
+	public int multimorphExtraPercent() {
+		return active() && config.morphCostEnabled ? config.multimorphExtraPercent : 0;
 	}
 
 	@Override

@@ -24,6 +24,9 @@ permissions:
   morphreborn.ability:
     description: Use morph abilities and traits.
     default: true
+  morphreborn.multimorph:
+    description: Combine two morphs (multimorph), when multimorph.enabled is on.
+    default: true
   morphreborn.admin:
     description: Grant, revoke, reset and force morphs; switch the gameplay mode; reload the plugin.
     default: op

@@ -45,7 +45,7 @@ for d in ('server', 'client', 'resourcepack', 'default-configs', 'source'):
 
 shutil.copy2(SERVER_JAR, OUT / 'server')
 shutil.copy2(CLIENT_JAR, OUT / 'client')
-zip_dir(ROOT / 'resourcepack', OUT / 'resourcepack/RE-Morph-sounds.zip')
+zip_dir(ROOT / 'resourcepack', OUT / 'resourcepack/RE-Morph-pack.zip')
 for name in ('config.yml', 'abilities.yml', 'variants.yml', 'survival.yml'):
     shutil.copy2(ROOT / 'paper-plugin/src/main/resources' / name, OUT / 'default-configs')
 shutil.copy2(ROOT / 'docs/GUIDE.md', OUT / 'README.md')

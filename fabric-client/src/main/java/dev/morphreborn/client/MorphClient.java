@@ -63,19 +63,59 @@ public final class MorphClient implements ClientModInitializer {
 		LevelRenderEvents.COLLECT_SUBMITS.register(MorphWorldRenderer::collectSubmits);
 		ClientTickEvents.END_CLIENT_TICK.register(MorphClient::tick);
 		// Client-side command, so it works on any server: opens the settings screen.
-		ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> dispatcher.register(ClientCommands.literal("morphclient").executes(c -> {
-			openSettings = true;
-			return 1;
-		})));
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> {
+			var command = ClientCommands.literal("morphclient").executes(c -> {
+				openSettings = true;
+				return 1;
+			});
+			// Any two creatures combined, as a multimorph draws them, to see how a combination looks.
+			com.mojang.brigadier.suggestion.SuggestionProvider<net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource> creatures = (ctx, builder) ->
+					net.minecraft.commands.SharedSuggestionProvider.suggest(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.keySet().stream()
+							.filter(id -> id.getNamespace().equals("minecraft")).map(net.minecraft.resources.Identifier::getPath), builder);
+			command.then(ClientCommands.literal("preview").executes(c -> preview("zombie", "bat"))
+					.then(ClientCommands.argument("main", com.mojang.brigadier.arguments.StringArgumentType.word()).suggests(creatures)
+							.executes(c -> preview(com.mojang.brigadier.arguments.StringArgumentType.getString(c, "main"), null))
+							.then(ClientCommands.argument("borrowed", com.mojang.brigadier.arguments.StringArgumentType.word()).suggests(creatures)
+									.executes(c -> preview(com.mojang.brigadier.arguments.StringArgumentType.getString(c, "main"),
+											com.mojang.brigadier.arguments.StringArgumentType.getString(c, "borrowed"))))));
+			// Development only: write every mob's head model for tools/gen_head_pack.py (dev/HeadDump).
+			if (net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment()) {
+				command.then(ClientCommands.literal("dumpheads").executes(c -> {
+					c.getSource().sendFeedback(net.minecraft.network.chat.Component.literal(dev.morphreborn.client.dev.HeadDump.run(Minecraft.getInstance())));
+					return 1;
+				}));
+			}
+			dispatcher.register(command);
+		});
 	}
 
 	/** Screen asked for by /morphclient: opened on the next tick, after the chat screen that ran the command closes. */
 	private static boolean openSettings;
+	/** /morphclient preview: the two creatures, opened on the next tick like the settings. */
+	private static String @org.jspecify.annotations.Nullable [] openPreview;
+
+	private static int preview(String main, @org.jspecify.annotations.Nullable String borrowed) {
+		openPreview = new String[] {main, borrowed};
+		return 1;
+	}
+
+	/** Development: MORPHREBORN_DUMPHEADS=1 writes the head dump once the first world has loaded (dev/HeadDump). */
+	private static boolean dumpHeads = net.fabricmc.loader.api.FabricLoader.getInstance().isDevelopmentEnvironment()
+			&& System.getenv("MORPHREBORN_DUMPHEADS") != null;
 
 	private static void tick(Minecraft mc) {
+		if (dumpHeads && mc.level != null && mc.player != null && mc.player.tickCount > 40) {
+			dumpHeads = false;
+			LOGGER.info("Head dump: {}", dev.morphreborn.client.dev.HeadDump.run(mc));
+		}
 		if (openSettings) {
 			openSettings = false;
 			mc.gui.setScreen(new MorphSettingsScreen(null));
+		}
+		if (openPreview != null) {
+			String[] pair = openPreview;
+			openPreview = null;
+			mc.gui.setScreen(new dev.morphreborn.client.gui.MultimorphPreviewScreen(pair[0], pair[1]));
 		}
 		while (Keys.DOLL.consumeClick()) {
 			ClientConfig.INSTANCE.doll = !ClientConfig.INSTANCE.doll;
@@ -117,6 +157,8 @@ public final class MorphClient implements ClientModInitializer {
 			if (!ClientConfig.INSTANCE.transitionAnimation) dev.morphreborn.client.render.VanillaStyleEffects.transitionTick(player, state);
 			syncForm(e.getKey(), state.prev, player);
 			syncForm(e.getKey(), state.next, player);
+			syncForm(e.getKey(), state.borrowed, player);
+			syncForm(e.getKey(), state.prevBorrowed, player);
 		}
 		MorphWorldRenderer.tickEffects();
 		dev.morphreborn.client.morph.MorphAnimations.tick();

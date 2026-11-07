@@ -65,6 +65,10 @@ public final class SelectorHud {
 
 	private boolean keyEnterDown, keyEscDown, keyDeleteDown, keyUpDown, keyDownDown, keyLeftDown, keyRightDown;
 	private boolean favouriteWasDown;
+	/** Multimorph: the main body Shift-picked in the selector or the wheel; the next pick is the form it borrows from. */
+	private Collection.@Nullable Variant pendingMain;
+	/** The wheel stays open after its key was let go with Shift held, for the second pick. */
+	private boolean radialSticky;
 	private int seenRevision = -1;
 
 	private static Identifier tex(String path) {
@@ -193,11 +197,16 @@ public final class SelectorHud {
 				else closeRadial();
 			}
 			if (showSelector) {
-				if (!keyDeleteDown && delete) deleteSelector();
+				if (!keyDeleteDown && delete) {
+					if (pendingMain != null) closeSelector(); // picking a multimorph: Backspace closes, it never deletes
+					else deleteSelector();
+				}
 				if (!keyUpDown && up) shiftIndexSelector(false, false);
 				if (!keyDownDown && down) shiftIndexSelector(true, false);
 				if (!keyLeftDown && left) shiftIndexSelector(false, true);
 				if (!keyRightDown && right) shiftIndexSelector(true, true);
+			} else if (!keyDeleteDown && delete) {
+				closeRadial();
 			}
 		}
 		keyEnterDown = enter;
@@ -267,6 +276,46 @@ public final class SelectorHud {
 		return current == null ? ref.isSelf() : current.variantId().equals(ref.variantId());
 	}
 
+	/** The form the player's body borrows from now, or null. */
+	private @Nullable MorphRef borrowedNow() {
+		if (mc.player == null) return null;
+		MorphState st = MorphClient.STATES.get(mc.player.getUUID());
+		return st == null ? null : st.borrowed;
+	}
+
+	/** Why {@code main} can't borrow from {@code other}, or null if it can. */
+	private static @Nullable Component cannotBorrow(MorphRef main, MorphRef other) {
+		if (!MultimorphPreview.combinable(other)) return Component.translatable("morphreborn.multimorph.cant_combine", typeName(other.entityType()));
+		if (main.entityType().equals(other.entityType())) return Component.translatable("morphreborn.multimorph.same_type");
+		return null;
+	}
+
+	/** Shift held on a pick: start a multimorph with {@code ref} as its main body. False if this pick isn't one. */
+	private boolean startMultimorph(Collection.Variant variant) {
+		if (!Keys.shiftDown() || !ClientNet.multimorphAllowed()) return false;
+		if (MultimorphPreview.combinable(variant.ref)) pendingMain = variant;
+		else ClientNet.message(Component.translatable("morphreborn.multimorph.cant_combine", typeName(variant.ref.entityType())).withStyle(ChatFormatting.GRAY));
+		return true;
+	}
+
+	/** The second pick of a multimorph. False (and why, on screen) if {@code ref} can't be borrowed. */
+	private boolean finishMultimorph(MorphRef ref) {
+		Collection.Variant main = pendingMain;
+		if (main == null) return false;
+		Component why = cannotBorrow(main.ref, ref);
+		if (why != null) {
+			ClientNet.message(why.copy().withStyle(ChatFormatting.GRAY));
+			return false;
+		}
+		ClientNet.select(main.ref.variantId(), ref.variantId());
+		return true;
+	}
+
+	/** An ordinary pick. Picking the body you are already in drops what it borrows. */
+	private void pick(MorphRef ref) {
+		if (!isCurrent(ref) || borrowedNow() != null) ClientNet.select(ref.variantId());
+	}
+
 	public void setIndicesToCurrentMorph() {
 		indexVert = indexHori = 0;
 		MorphRef current = currentMorph();
@@ -287,9 +336,25 @@ public final class SelectorHud {
 		indexChangeTime = 0;
 	}
 
+	/**
+	 * Enter or a click. With Shift held on a creature, it becomes a multimorph's main body (its tile turns red, with
+	 * tendrils) and the selector stays open: picking another creature makes it the borrowed form, picking the main body
+	 * again makes you just that creature, and right click, Esc or Backspace closes the selector.
+	 */
 	private void confirmSelector() {
 		Collection.Variant variant = selectedVariant();
-		if (variant != null && !isCurrent(variant.ref)) ClientNet.select(variant.ref.variantId());
+		if (variant == null) {
+			closeSelector();
+			return;
+		}
+		if (pendingMain != null && !variant.ref.isSelf()) {
+			if (variant.ref.variantId().equals(pendingMain.ref.variantId())) pick(variant.ref); // the same one again: just that creature
+			else if (!finishMultimorph(variant.ref)) return;
+			closeSelector();
+			return;
+		}
+		if (pendingMain == null && startMultimorph(variant)) return;
+		pick(variant.ref);
 		closeSelector();
 	}
 
@@ -300,6 +365,7 @@ public final class SelectorHud {
 
 	private void closeSelector() {
 		showSelector = false;
+		pendingMain = null;
 		List<Collection.Row> rows = data().rows();
 		if (!rows.isEmpty() && indexVert < rows.size()) indexHori = rows.get(indexVert).variants.size() - 1; // slide the row back in
 		indexChangeTime = 0;
@@ -316,16 +382,38 @@ public final class SelectorHud {
 			if (click) ClientNet.openUpgrades();
 			return;
 		}
-		if (isMouseOutsideRadialDeadZone() && radialFavourites != null && !radialFavourites.isEmpty()) {
-			Collection.Variant variant = radialFavourites.get(selectedRadialIndex(radialFavourites.size()));
-			if (!isCurrent(variant.ref)) ClientNet.select(variant.ref.variantId());
+		Collection.Variant variant = isMouseOutsideRadialDeadZone() && radialFavourites != null && !radialFavourites.isEmpty()
+				? radialFavourites.get(selectedRadialIndex(radialFavourites.size())) : null;
+		if (pendingMain != null) {
+			if (variant != null && variant.ref.variantId().equals(pendingMain.ref.variantId())) {
+				pick(variant.ref); // the same one again: just that creature
+				closeRadial();
+				return;
+			}
+			if (variant != null) {
+				if (finishMultimorph(variant.ref) || (!click && !radialSticky)) closeRadial();
+				return;
+			}
+			// the middle: no multimorph after all
+			pendingMain = null;
+			if (!click || radialSticky) closeRadial();
+			return;
 		}
+		// Shift on a favourite: a multimorph's main body; let go of the key with Shift held and the wheel stays open
+		if (variant != null && startMultimorph(variant)) {
+			if (pendingMain != null && !click) radialSticky = true;
+			else if (pendingMain == null && !click) closeRadial();
+			return;
+		}
+		if (variant != null) pick(variant.ref);
 		closeRadial();
 	}
 
 	private void closeRadial() {
 		showRadial = false;
 		radialFavourites = null;
+		pendingMain = null;
+		radialSticky = false;
 		if (mc.gui.screen() == null) mc.mouseHandler.grabMouse();
 	}
 
@@ -424,6 +512,16 @@ public final class SelectorHud {
 		// entities (one off-screen pass), then stars and names above them
 		List<MorphGuiEntities.Entry> entities = new ArrayList<>();
 		List<Runnable> overlays = new ArrayList<>();
+		if (pendingMain != null) {
+			int[] at = positionOf(pendingMain);
+			if (at != null) {
+				double rx = at[0] == indexVert ? posX + (at[1] - indexHoriProg) * size : posX;
+				double ry = at[0] == indexVert ? top : stackTop + at[0] * size;
+				tile(g, TEX_SELECTED, rx, ry, size, pulseRed(partialTick)); // the whole tile, tinted red
+				tendrilFrame(g, rx, ry, size, (mc.player == null ? 0 : mc.player.tickCount) + partialTick);
+			}
+			multimorphPanel(g, entities, overlays, screenW - PANEL_W - 8, top, selectedVariant(), partialTick);
+		}
 		int first = Math.max(0, indexVert - ((int) Math.ceil(top / size) + 1));
 		int last = Math.min(rows.size(), indexVert + ((int) Math.ceil((screenH - top) / size) + 1));
 		float pixelScale = (float) (size / 50D);
@@ -457,6 +555,8 @@ public final class SelectorHud {
 						Collection.Variant selected = row.variants.get(Math.min(indexHori, row.variants.size() - 1));
 						MutableComponent text = typeName(row.entityType).withStyle(isCurrent(selected.ref) ? ChatFormatting.GOLD : ChatFormatting.YELLOW)
 								.append(price(selected.ref));
+						MorphRef lent = borrowedNow();
+						if (lent != null && isCurrent(selected.ref)) text.append(Component.literal(" + ").append(typeName(lent.entityType())).withStyle(ChatFormatting.GOLD));
 						MutableComponent customName = showTime >= SHOW_SELECTOR_TIME ? customName(selected.ref) : null;
 						double textX = Math.min(posX + size + 5 + colOffset, screenW - font.width(text) - 2);
 						double nameY = top + size - font.lineHeight - 5 + rowOffset;
@@ -515,6 +615,9 @@ public final class SelectorHud {
 		int selectedIndex = outside && !favourites.isEmpty() ? selectedRadialIndex(favourites.size()) : -1; // the Survival wheel can be empty
 		List<MorphGuiEntities.Entry> entities = new ArrayList<>();
 		List<Runnable> overlays = new ArrayList<>();
+		if (pendingMain != null) {
+			multimorphPanel(g, entities, overlays, screenW - PANEL_W - 8, (screenH - PANEL_H) / 2, selectedIndex >= 0 ? favourites.get(selectedIndex) : null, partialTick);
+		}
 		Component title = Component.translatable("key.morphreborn.favourite");
 		if (biomassButton) {
 			drawBiomassButton(g, overlays, cx, cy, textScale * radialProg, partialTick);
@@ -533,6 +636,9 @@ public final class SelectorHud {
 			float ex = (float) (cx - Math.cos(angle) * radialDist * 0.775F);
 			float ey = (float) (cy - Math.sin(angle) * radialDist * 0.775F);
 			LivingEntity living = MorphClient.ENTITIES.forGui(variant.ref);
+			if (pendingMain != null && variant.ref.variantId().equals(pendingMain.ref.variantId())) {
+				ring(g, ex, ey, (float) (radialDist * 0.17D), (float) (radialDist * 0.2D), partialTick);
+			}
 			if (living != null) {
 				float entSize = Math.max(living.getBbWidth(), living.getBbHeight()) / 1.95F;
 				float entScale = 0.4F * (1F / Math.max(1F, entSize)) * radialProg * textScale;
@@ -626,29 +732,104 @@ public final class SelectorHud {
 		});
 	}
 
-	@SuppressWarnings({"unchecked", "rawtypes"})
 	private void addEntity(List<MorphGuiEntities.Entry> out, LivingEntity living, float x, float y, float pixelsPerBlock, float partialTick) {
 		if (pixelsPerBlock <= 0.01F) return;
-		EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(living);
-		EntityRenderState state = renderer.createRenderState(living, 1F);
-		state.shadowPieces.clear();
-		state.outlineColor = 0;
-		state.nameTag = null;
-		state.scoreText = null;
-		state.lightCoords = 15728880;
-		state.ageInTicks = mc.player.tickCount + partialTick;
-		if (state instanceof LivingEntityRenderState l) {
-			l.bodyRot = 180F + PREVIEW_YAW * 20F;
-			l.yRot = PREVIEW_YAW * 20F;
-			l.xRot = 0F;
-			l.boundingBoxWidth /= l.scale;
-			l.boundingBoxHeight /= l.scale;
-			l.scale = 1F;
-			l.hasRedOverlay = false;
-			l.deathTime = 0;
-			l.walkAnimationSpeed = 0;
+		out.add(new MorphGuiEntities.Entry(MultimorphPreview.guiState(living, 180F + PREVIEW_YAW * 20F, PREVIEW_YAW * 20F, partialTick), x, y, pixelsPerBlock));
+	}
+
+	// ------------------------------------------------------------------ multimorph picking
+
+	private static final int PANEL_W = 152;
+	private static final int PANEL_H = 166;
+
+	/** Where {@code variant} sits in the selector: {row, column}, or null. */
+	private int @Nullable [] positionOf(Collection.Variant variant) {
+		List<Collection.Row> rows = data().rows();
+		for (int i = 0; i < rows.size(); i++) {
+			List<Collection.Variant> variants = rows.get(i).variants;
+			for (int j = 0; j < variants.size(); j++) {
+				if (variants.get(j).ref.variantId().equals(variant.ref.variantId())) return new int[] {i, j};
+			}
 		}
-		out.add(new MorphGuiEntities.Entry(state, x, y, pixelsPerBlock));
+		return null;
+	}
+
+	/** Biomass red, pulsing: marks a multimorph's chosen main body. */
+	private int pulseRed(float partialTick) {
+		float pulse = 0.65F + 0.35F * Mth.sin(((mc.player == null ? 0 : mc.player.tickCount) + partialTick) * 0.25F);
+		return ((int) (pulse * 255F) << 24) | 0xE53935;
+	}
+
+	/**
+	 * Black and red tendrils of goo reaching out of a tile's four edges, swaying and breathing in and out, like the
+	 * biomass bar's and the Biomass button's: they mark a multimorph's chosen main body.
+	 */
+	private void tendrilFrame(GuiGraphicsExtractor g, double x, double y, double size, float time) {
+		int perSide = 4;
+		for (int side = 0; side < 4; side++) {
+			for (int k = 0; k < perSide; k++) {
+				int i = side * perSide + k;
+				double along = (k + 0.5 + 0.3 * Math.sin(time * 0.02 + i * 1.3)) / perSide;
+				// where it grows from, and outwards
+				double bx, by, nx, ny;
+				switch (side) {
+					case 0 -> { bx = x + along * size; by = y; nx = 0; ny = -1; }
+					case 1 -> { bx = x + size; by = y + along * size; nx = 1; ny = 0; }
+					case 2 -> { bx = x + (1 - along) * size; by = y + size; nx = 0; ny = 1; }
+					default -> { bx = x; by = y + (1 - along) * size; nx = -1; ny = 0; }
+				}
+				double length = size * (0.11 + 0.07 * Math.sin(time * 0.055 + i * 2.3));
+				boolean red = i % 2 == 0;
+				for (double s = 0; s <= length; s += 0.8) {
+					double t = s / length;
+					double wobble = Math.sin(time * 0.16 + s * 0.5 + i * 1.7) * 2.2 * t;
+					float px = (float) (bx + nx * s - ny * wobble);
+					float py = (float) (by + ny * s + nx * wobble);
+					float dot = (float) (2.6 - 1.8 * t);
+					int alpha = t < 0.7 ? 0xFF : (int) (0xFF * (1 - (t - 0.7) / 0.3));
+					int color = (alpha << 24) | (red ? lerpColor(0x7A1018, 0xE53935, t) : lerpColor(0x050505, 0x2A1214, t));
+					g.pose().pushMatrix();
+					g.pose().translate(px - dot / 2, py - dot / 2);
+					g.pose().scale(dot, dot);
+					g.fill(0, 0, 1, 1, color);
+					g.pose().popMatrix();
+				}
+			}
+		}
+	}
+
+	private static int lerpColor(int from, int to, double t) {
+		int r = (int) (((from >> 16) & 0xFF) + (((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * t);
+		int gr = (int) (((from >> 8) & 0xFF) + (((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * t);
+		int b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
+		return (r << 16) | (gr << 8) | b;
+	}
+
+	/** The wheel has no tiles: a pulsing red ring around the chosen main body there. */
+	private void ring(GuiGraphicsExtractor g, float cx, float cy, float inner, float outer, float partialTick) {
+		g.guiRenderState.addGuiElement(new RingRenderState(cx, cy, inner, outer, 48, pulseRed(partialTick)));
+	}
+
+	/** The preview while a multimorph is being picked: the main body with {@code candidate} (the morph under the cursor) on it. */
+	private void multimorphPanel(GuiGraphicsExtractor g, List<MorphGuiEntities.Entry> entities, List<Runnable> overlays, int x, int y,
+			Collection.@Nullable Variant candidate, float partialTick) {
+		Collection.Variant pending = pendingMain;
+		if (pending == null) return;
+		MorphRef main = pending.ref;
+		MorphRef lent = candidate != null && !candidate.ref.variantId().equals(main.variantId()) && cannotBorrow(main, candidate.ref) == null ? candidate.ref : null;
+		List<Component> lines = new ArrayList<>();
+		lines.add(lent == null ? Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), "?").withStyle(ChatFormatting.YELLOW)
+				: Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), typeName(lent.entityType())).withStyle(ChatFormatting.YELLOW));
+		int cost = (isCurrent(main) ? 0 : Math.max(0, ClientNet.morphCost(main.variantId()))) + (lent == null ? 0 : Math.max(0, ClientNet.morphCost(lent.variantId())));
+		if (lent != null) cost = ClientNet.multimorphCost(cost);
+		if (cost > 0) {
+			lines.add(Component.literal(String.format(java.util.Locale.ROOT, "%,d biomass", cost))
+					.withStyle(cost <= ClientNet.biomass() ? ChatFormatting.RED : ChatFormatting.DARK_GRAY));
+		}
+		lines.add(Component.translatable(lent == null ? "morphreborn.multimorph.pick_second" : "morphreborn.multimorph.pick_to_combine").withStyle(ChatFormatting.GRAY));
+		lines.add(Component.translatable("morphreborn.multimorph.again", typeName(main.entityType())).withStyle(ChatFormatting.GRAY));
+		lines.add(Component.translatable("morphreborn.multimorph.close").withStyle(ChatFormatting.DARK_GRAY));
+		MultimorphPreview.panel(g, entities, overlays, x, y, PANEL_W, PANEL_H, main, lent, Component.translatable("morphreborn.multimorph.title"), lines, partialTick);
 	}
 
 	private static MutableComponent typeName(String entityType) {
@@ -737,6 +918,8 @@ public final class SelectorHud {
 	}
 
 	public void reset() {
+		pendingMain = null;
+		radialSticky = false;
 		showSelector = showRadial = false;
 		showTime = radialTime = 0;
 		radialFavourites = null;

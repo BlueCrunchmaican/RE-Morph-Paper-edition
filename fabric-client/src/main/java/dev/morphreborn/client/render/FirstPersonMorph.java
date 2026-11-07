@@ -253,8 +253,10 @@ public final class FirstPersonMorph {
 
 	/** Called right after a submitted model is posed: hides the head of a first-person morph body. */
 	public static void beforeDraw(Model<?> model, Object state) {
-		if (!(state instanceof Mark mark) || !mark.morph$firstPersonBody()) return;
-		if (state instanceof EnderDragonRenderState dragon) dragonOffset = measureDragon(model, dragon);
+		if (!(state instanceof Mark mark)) return;
+		boolean hybridHead = state instanceof HybridMorph.Mark hybrid && hybrid.morph$hideHead();
+		if (!mark.morph$firstPersonBody() && !hybridHead) return;
+		if (mark.morph$firstPersonBody() && state instanceof EnderDragonRenderState dragon) dragonOffset = measureDragon(model, dragon);
 		Deque<Map.Entry<String, ModelPart>> queue = new ArrayDeque<>(((ModelPartAccessor) (Object) model.root()).morph$children().entrySet());
 		while (!queue.isEmpty()) {
 			Map.Entry<String, ModelPart> entry = queue.poll();

@@ -31,4 +31,11 @@ public abstract class EntityRenderDispatcherMixin {
 			ci.cancel();
 		}
 	}
+
+	/** Multimorph: the borrowed form's parts, on the main body that was just submitted. */
+	@Inject(method = "submit", at = @At("RETURN"))
+	private <S extends EntityRenderState> void morph$submitHybrid(S renderState, CameraRenderState camera, double x, double y, double z, PoseStack poseStack,
+			SubmitNodeCollector submitNodeCollector, CallbackInfo ci) {
+		dev.morphreborn.client.render.HybridMorph.submit((EntityRenderDispatcher) (Object) this, renderState, x, y, z, poseStack, submitNodeCollector);
+	}
 }

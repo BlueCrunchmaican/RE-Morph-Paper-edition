@@ -76,7 +76,10 @@ public final class ClientChannel implements PluginMessageListener {
 			}
 			if (!isModded(player)) return; // no handshake, no requests
 			switch (id) {
-				case Wire.C_SELECT -> plugin.morphs().requestMorph(player, in.string(64));
+				case Wire.C_SELECT -> {
+					String main = in.string(64);
+					plugin.morphs().requestMorph(player, main, in.hasMore() ? in.string(64) : null);
+				}
 				case Wire.C_FAVOURITE -> plugin.morphs().setFavourite(player, in.string(64), in.bool());
 				case Wire.C_DELETE -> plugin.morphs().deleteVariant(player, in.string(64));
 				case Wire.C_ABILITY -> plugin.abilities().trigger(player, player.isSneaking());
@@ -134,7 +137,8 @@ public final class ClientChannel implements PluginMessageListener {
 				.bool(plugin.abilities().anyActive())
 				.string(plugin.settings().nameTagMode.name())
 				.string(plugin.mode().id())
-				.string(plugin.getPluginMeta().getVersion()); // since 6.6.0; older clients stop reading before it
+				.string(plugin.getPluginMeta().getVersion()) // since 6.6.0; older clients stop reading before it
+				.bool(plugin.settings().multimorphEnabled); // since 6.7.0
 	}
 
 	/** Send the server settings again (the gameplay mode changed). The client takes a repeated hello as an update. */
@@ -173,6 +177,7 @@ public final class ClientChannel implements PluginMessageListener {
 		if (!isModded(player)) return;
 		Wire.Out out = new Wire.Out(Wire.S_COSTS).varInt(costs.size());
 		for (Map.Entry<String, Integer> e : costs.entrySet()) out.string(e.getKey()).varInt(e.getValue());
+		out.varInt(plugin.survival().multimorphExtraPercent()); // since 6.7.0: a multimorph's extra, for the price panel
 		send(player, out);
 	}
 
@@ -185,7 +190,8 @@ public final class ClientChannel implements PluginMessageListener {
 				.optionalRef(state.next)
 				.varInt(state.time)
 				.varInt(state.duration)
-				.string(state.overlay));
+				.string(state.overlay)
+				.optionalRef(plugin.borrowedHeads().borrowed(subject))); // multimorph; last, so older clients never read it
 	}
 
 	/** Push a state change to every modded player who can be in render range (same world) and to the subject. */
