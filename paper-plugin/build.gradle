@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'dev.morphreborn'
-version = '6.1.7'
+version = '6.1.8'
 
 repositories {
 	mavenCentral()

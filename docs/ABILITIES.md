@@ -28,7 +28,7 @@ step height), see `attributes` in `config.yml`.
 | copper golem | No fall damage; Water breathing | Sort a copper chest |
 | cow | Can be milked | - |
 | creaking | Can't move while watched; strength, resistance | - |
-| creeper | Swells before exploding | Explode (with fuse) |
+| creeper | Swells before exploding | Explode (with fuse); sneak + key: fakeout |
 | dolphin | Fast swimmer; speed; Dries out after 240s out of water; Holds breath 240s; Aura: dolphins grace | Dash |
 | donkey | Charged jump (hold sneak, then jump) | - |
 | drowned | Water breathing; Fast swimmer; Burns in daylight; Undead (Healing hurts, Harming heals); immune: poison, regeneration; Makes flee: villager, wandering trader | Throw trident |
@@ -81,7 +81,7 @@ step height), see `attributes` in `config.yml`.
 | squid | Water breathing; Suffocates on land; Fast swimmer | Ink cloud |
 | stray | Water breathing; Burns in daylight; Powder-snow proof; Undead (Healing hurts, Harming heals); hit: slowness; immune: poison, regeneration | Shoot arrow |
 | strider | Fire immune; Hurt by water; Floats on lava; Stands on lava (client mod) | - |
-| sulfur cube | No fall damage; jump boost; Only explodes with an explosive block inside | Explode (with fuse) |
+| sulfur cube | No fall damage; jump boost; Only explodes with an explosive block inside | Explode (with fuse); sneak + key: fakeout |
 | tadpole | Water breathing; Suffocates on land | - |
 | trader llama | - | Spit |
 | tropical fish | Water breathing; Suffocates on land; Fast swimmer; night vision | - |

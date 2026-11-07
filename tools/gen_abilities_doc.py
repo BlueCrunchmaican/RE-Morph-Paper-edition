@@ -29,7 +29,7 @@ PASSIVE_NAMES = {
     'teleport-out-of-water': 'Teleports out of water', 'hurt-by-snowballs': 'Hurt by snowballs',
 }
 ACTIVE_NAMES = {
-    'explode': 'Explode (with fuse)', 'teleport': 'Teleport', 'large-fireball': 'Fireball', 'small-fireball': 'Small fireball',
+    'explode': 'Explode (with fuse); sneak + key: fakeout', 'teleport': 'Teleport', 'large-fireball': 'Fireball', 'small-fireball': 'Small fireball',
     'wither-skull': 'Wither skull', 'dragon-fireball': 'Dragon fireball', 'snowball': 'Snowball', 'llama-spit': 'Spit',
     'evoker-fangs': 'Evoker fangs', 'sonic-boom': 'Sonic boom', 'shulker-bullet': 'Shulker bullet', 'wind-charge': 'Wind charge',
     'arrow': 'Shoot arrow', 'trident': 'Throw trident', 'ram': 'Ram', 'splash-potion': 'Throw potion', 'toss': 'Toss',

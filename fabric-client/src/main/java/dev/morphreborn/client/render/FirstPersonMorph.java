@@ -41,6 +41,8 @@ public final class FirstPersonMorph {
 	private static final Map<String, Boolean> HAS_HEAD = new java.util.HashMap<>();
 	/** Parts hidden for the draw in progress, restored right after it. */
 	private static final List<ModelPart> HIDDEN = new ArrayList<>();
+	/** Further than this from the model's origin (pixels) a part has been moved out of sight, not posed. */
+	private static final float MOVED_AWAY = 1000F;
 	/** The dragon's placement, measured each time its body is drawn in first person (used for the next frame). */
 	public static volatile @Nullable Vec3 dragonOffset;
 
@@ -133,10 +135,12 @@ public final class FirstPersonMorph {
 	/**
 	 * A part that is hidden right now is measured where it rests. First-person Model hides a humanoid model's head in
 	 * first person by moving it 5000 units away, which read as a head far out behind the body: zombies, husks,
-	 * skeletons and endermen were pushed forward past the camera instead of keeping that mod's own placement.
+	 * skeletons and endermen were pushed forward past the camera instead of keeping that mod's own placement. The
+	 * enderman's model shows its head again straight after (EndermanModel.setupAnim), still 5000 units away, so a
+	 * part that far out counts as hidden too.
 	 */
 	private static void restingTranslateAndRotate(ModelPart part, PoseStack poseStack) {
-		if (part.visible) {
+		if (part.visible && Math.abs(part.x) < MOVED_AWAY && Math.abs(part.y) < MOVED_AWAY && Math.abs(part.z) < MOVED_AWAY) {
 			part.translateAndRotate(poseStack);
 			return;
 		}
