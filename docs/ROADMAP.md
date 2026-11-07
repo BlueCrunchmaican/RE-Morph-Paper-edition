@@ -65,7 +65,7 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
-## Next release: 7.1.0, vanilla conversions
+## Released: 7.1.0, vanilla conversions
 
 The user's request: whatever turns a mob into another in vanilla turns a morph of it too, per body (the GUI and the
 saved morph don't change, the model does), the way lightning already charged a creeper. Multimorphs are left out.
@@ -87,6 +87,8 @@ saved morph don't change, the model does), the way lightning already charged a c
       piglins and hoglins no longer kept immune on modded clients); the action bar tells the player.
 - [x] `conversions` in config.yml: on/off overall and per kind, the cure's length, the transformation's length.
 - [x] First-person Model: a multimorph's borrowed parts show on your body in its view (the borrowed head never does).
+- [x] Released: tag `v7.1.0`, GitHub release `RE:Morph 7.1.0`, Modrinth `7.1.0+paper` / `7.1.0+fabric` (First-person Model an
+      optional dependency of the Fabric file, as before).
 
 ## Released: 7.0.0, Multimorph (combining morphs)
 
