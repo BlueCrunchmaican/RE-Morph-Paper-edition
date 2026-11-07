@@ -13,7 +13,7 @@
 # old file stays next to it (named like survival-old-6.1.6.yml). One exception: when a release changes what the
 # upgrade levels mean (6.6.0 did), the whole upgrades section is replaced with the new one; copy back your changes from
 # the old file.
-config-version: 6.7.0
+config-version: 7.0.0
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither

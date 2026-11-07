@@ -38,7 +38,7 @@ public final class ClientNet {
 	private static int serverTransitionTicks = 100;
 	private static boolean deleteAllowed = true;
 	private static boolean selectorAllowed = true;
-	/** The server lets players combine morphs (multimorph.enabled); servers before 6.7.0 don't say, and can't. */
+	/** The server lets players combine morphs (multimorph.enabled); servers before 7.0.0 don't say, and can't. */
 	private static boolean multimorphAllowed;
 	private static boolean abilitiesAvailable;
 	/** Server's appearance.name-tags: MORPH, PLAYER or HIDDEN. */
@@ -277,7 +277,7 @@ public final class ClientNet {
 		nameTagMode = in.hasMore() ? in.string() : "MORPH";
 		gameplayMode = in.hasMore() ? in.string() : "classic";
 		serverVersion = in.hasMore() ? in.string() : ""; // since 6.6.0
-		multimorphAllowed = in.hasMore() && in.bool(); // since 6.7.0
+		multimorphAllowed = in.hasMore() && in.bool(); // since 7.0.0
 		active = accepted && protocol == Wire.PROTOCOL_VERSION;
 		if (!active) {
 			MorphClient.LOGGER.warn("RE:Morph server speaks protocol {} (this mod: {}); {}", protocol, Wire.PROTOCOL_VERSION, message);

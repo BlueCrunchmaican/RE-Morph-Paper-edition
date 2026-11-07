@@ -65,7 +65,7 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
-## Next release: 6.7.0, Multimorph (combining morphs)
+## Released: 7.0.0, Multimorph (combining morphs)
 
 Two forms at once: the first one picked is the main body, the second is borrowed and lends it parts and powers. Designed
 for any number of forms, shipped with two (three only if it turns out simple: the data, traits and cost don't care
@@ -119,10 +119,17 @@ Decided:
       transformation of its own (half the server's, at least half a second).
 - [x] Heads sit where the main head meets its neck (the bottom of each head, at the back, lined up), not pivot to
       pivot: a wolf's head sank into an iron golem's chest (the user saw it). Same for players without the mod.
-- [ ] Looks, still to try: more main bodies across size groups (see TESTING.md, 6.7.0).
+- [x] Looks across size groups (TESTING.md, 7.0.0): a zombie with every borrowed form, then cows, pigs, horses, camels,
+      llamas, ravagers, sniffers, spiders, slimes, bats, ghasts, iron golems, phantoms, the dragon and a baby. Fixed on
+      the way: wings on a lying body go on its flanks (on its back they hid in it), on a standing one at the shoulder
+      blades; a neck point inside the torso (camel, llama) moves out of it; a borrowed head on a dragon is scaled to the
+      dragon's; a borrowed head is posed at rest and turned once by the body's look (it turned twice as far); a baby
+      borrows a baby; the dragon body is framed and turned properly in previews.
+- [x] Fullscreen: while a pair is being picked in the favourites wheel, the wheel slides left to clear the panel.
 - [x] Protocol: the borrowed form rides at the end of the morph-state packet, which older clients stop reading
-      before, so they keep working; with saved data and settings only added, multimorph can be a MINOR release
-      (6.7.0) rather than 7.0.0.
+      before, so they keep working; with saved data and settings only added, multimorph could have been a MINOR
+      release (6.7.0). It shipped as 7.0.0, the user's call for the headline feature; the resource pack's file was
+      renamed (RE-Morph-sounds.zip to RE-Morph-pack.zip), which admins who serve it have to swap (VERSIONING.md).
 - [x] Survival: the Multimorph upgrade, a one-time unlock under Morph Ability (1,200 biomass, needs Morph Capacity 4).
       A combination costs each form that is new to the body (both for a new pair, the borrowed one when the body
       stays) plus 25% (`morph-cost.multimorph-extra`); the client's price panel includes it. A saved combination is
@@ -165,6 +172,7 @@ Open:
       the mod see the right variant.
 - [ ] Players without the mod: no borrowed head on an ender dragon body (no neck data for it).
 - [x] The Survival node: a one-time unlock of its own (above).
+- [x] Pushed: tag `v7.0.0`. Still to publish: the GitHub release and the Modrinth versions.
 
 ## Priority 1: existing functionality
 

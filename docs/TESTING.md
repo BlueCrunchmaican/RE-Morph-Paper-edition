@@ -244,6 +244,50 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.0.0, Multimorph (2026-11-07)
+
+Tried with two modded test clients and a vanilla one on the test server; combinations mostly through
+`/morphclient preview` (built for this), the rest in the world.
+
+**Combinations (client mod).** A zombie body against every borrowed form (about 90), then other bodies across the size
+groups: cow, pig, chicken, horse, camel, camel husk, llama, ravager, sniffer, spider, slime, bat, cod, ghast, iron
+golem, phantom and the ender dragon, and a baby cow in the world. Found and fixed:
+
+| Seen | Fix |
+|---|---|
+| Blaze rods reached past the feet into the ground | Rods spread over the body's whole height |
+| Chicken wings at a zombie's hips | Wings on a standing body join at the shoulder blades (92% up the torso) |
+| Guardian, elder guardian, goat, ghast, happy ghast and squid heads floated above the neck (spikes, beard, tentacle tips counted as the bottom) | The neck point comes from the head's big blocks only |
+| Pufferfish lent fins too small to see | It lends its whole body |
+| Chicken and bat wings vanished into a cow's or pig's back | Wings on a lying body go on its flanks, high up |
+| Camel or llama + panda: the head sank into the chest (the user saw it; their head parts hold the long neck) | A neck point inside the torso moves out to its top or front |
+| A dragon body was a speck in the preview and couldn't be turned | Framed by its model; a GUI dragon faces like any body (selector tiles too) |
+| A borrowed head on a dragon was a speck on the end of the neck | Scaled up to the dragon's head |
+| A borrowed head turned and nodded twice as far as the body's (in the world too) | Posed at rest, turned once by the body's look |
+| A baby body borrowed an adult's head | It borrows the creature's baby |
+
+Looked right without changes: horse + cow / phantom, spider + phantom / wolf, slime + cow / phantom, ghast + wolf,
+ravager + phantom / fox, sniffer + bat / polar bear, camel + chicken, iron golem + wolf, cow + phantom (wings at the
+withers), the dragon with a cow's or a trader's head. Players without the mod: camel + panda (the head covers the
+camel's), baby cow + wolf, iron golem + wolf, zombie + creeper skull.
+
+**Fullscreen (the most likely way it's played).** The Shift-pick in the selector: red tile with tendrils, the panel on
+the right, Creeper + Iron Golem at 75 biomass ((7 + 53) + 25%). The favourites wheel: the panel covered the right of the
+wheel (the user's concern), so while a pair is being picked the wheel now slides left to clear it, and picking follows
+it. The preview screen.
+
+**Paper doll head modes** (the user: not solid). Follows You, Turns Only, Looks Up/Down Only and Straight checked with
+the head turned 40 degrees and looking up, with a plain and a borrowed head (the borrowed one kept looking up in the
+level modes until the double-turn fix above). Looks at You turned the head the wrong way (at a 90-degree turn the doll
+showed the back of its head): fixed; its up/down was right.
+
+**Selector order** (the user): variants were in the order they were collected (slimes tiny, big, medium). Now adults
+come before babies and bigger before smaller (slimes, magma cubes, sulfur cubes), then the order collected.
+
+**Other parts not tried before:** a goat's head comes back up after a ram (half a second); a creeper morph struck by
+lightning (a summoned bolt) is charged and both kinds of player see the aura, but only out of creative (a creative
+player isn't struck, as in vanilla); a rabbit's hop happened but the legs weren't caught on screen.
+
 ## 6.6.1 (2026-11-07)
 
 - [x] A Survival player with Biomass Capacity 100 (a 100-pixel bar): 6.6.0 crashed the moment the bar showed
@@ -339,14 +383,14 @@ do when standing still; it lines up after a step.
 - [ ] First-person Model's body view across more mobs, and the wheel's prices at a normal window size.
 
 **New in 6.3.0**
-- [ ] The paper doll's head modes, tilt, and the vignette at different screen sizes.
+- [x] The paper doll's head modes and tilt (7.0.0, above). Still to try: the vignette at different screen sizes.
 - [ ] Morph prices over a real Survival run: are 0.01 per kg and the minimum of 1 fair?
 - [ ] Trading with a villager morph from a Bedrock player, and the restock the next day.
 
 **New in 5.2.0**
 - [ ] A Survival run from the start: getting Wither + Regeneration in a real fortress, the first upgrades.
 - [ ] The upgrade menu from Bedrock (Geyser) and without the mod; the upgrade tree screen at different screen sizes.
-- [ ] A creeper morph caught in a real thunderstorm.
+- [ ] A creeper morph caught in a real thunderstorm (a summoned bolt charges it, 7.0.0).
 
 **New in 5.1.0**
 - [ ] Jump forward repeatedly as a chicken, with and without the mod: it should feel like a normal jump.
@@ -357,7 +401,7 @@ do when standing still; it lines up after a step.
 **Re-check on a normal client**
 - [ ] The fixes above, especially the strider (now a solid lava surface) and the turtle's land pace.
 - [ ] A melee hit as an iron golem, ravager, hoglin, zoglin, warden or creaking plays its attack (both kinds of player).
-- [ ] A goat's head comes back up after a ram.
+- [x] A goat's head comes back up after a ram (7.0.0).
 
 **Needs two players**
 - [ ] **Milking:** milk a cow or goat morph; get stew from a mooshroom.
@@ -372,7 +416,8 @@ do when standing still; it lines up after a step.
 **Server settings and setup**
 - [ ] **Ghast and blaze fireballs** follow the `fire` and `explosion-block-damage` settings.
 - [ ] **Persistence:** log out and back in as a morph (the player should come back morphed); restart the server (collections
-      and favourites kept); die as a morph (the morph is kept, per the `death` settings).
+      and favourites kept); die as a morph (the morph is kept, per the `death` settings). The first two were done
+      many times during 7.0.0 testing, with a multimorph too; dying as a morph is still to try.
 - [ ] **Snow golem** melts in a hot biome (the test yard has a desert patch).
 - [ ] **Mobs ignoring or hunting morphed players,** by morph. Checked earlier in the project, not re-checked since.
 - [ ] **The optional sound resource pack,** for players without the mod.

@@ -91,8 +91,21 @@ public final class HybridMorph {
 		if (lent == null) return;
 		if (borrowed instanceof PhantomRenderState phantom) phantom.flapTime *= PHANTOM_FLAP_SPEED; // extracted afresh every frame
 		if (borrowed instanceof EnderDragonRenderState dragon) dragon.flapTime *= DRAGON_FLAP_SPEED;
+		// a baby body borrows a baby's head and parts (the borrowed creature's baby model, where it has one)
+		if (main instanceof LivingEntityRenderState m && m.isBaby && borrowed instanceof LivingEntityRenderState b && !b.isBaby) {
+			b.isBaby = true;
+			b.ageScale = m.ageScale;
+		}
+		// its head at rest: the body's look turns the borrowed head (place), once. Posed with the player's look of its
+		// own as well, it turned and nodded twice as far, and the paper doll's level head modes left it looking up.
+		if (borrowed instanceof LivingEntityRenderState b) {
+			b.yRot = 0F;
+			b.xRot = 0F;
+		}
 		((Mark) main).morph$setBorrowed(borrowed);
-		((Mark) main).morph$setHideHead(!PARTS_ONLY.computeIfAbsent(lent, HybridMorph::hasDefiningParts));
+		// a pufferfish is its puffed body, not its fins (too small to see): it lends itself whole
+		boolean partsOnly = borrowed.entityType != net.minecraft.world.entity.EntityTypes.PUFFERFISH && PARTS_ONLY.computeIfAbsent(lent, HybridMorph::hasDefiningParts);
+		((Mark) main).morph$setHideHead(!partsOnly);
 	}
 
 	/**
@@ -215,15 +228,30 @@ public final class HybridMorph {
 		if (headSwap) {
 			List<Cube> cubes = new ArrayList<>();
 			Matrix4f own = headCubes(lent.root(), lent.base(), cubes);
-			if (neck != null && own != null) {
-				// borrowed head frame -> main head frame, both rigid so the head keeps its own size, with the place each
-				// head meets its neck (the bottom of the head, at the back) on the main one's: pivots sit in different
-				// places (a wolf's mid-head, a golem's below its chin), and lining them up sank heads into bodies
+			if (neck != null && own != null && !cubes.isEmpty()) {
+				// The borrowed head as it sits on its own body (an armadillo's head hangs off a sloping body; mapping its
+				// part's frame onto the main head's stood it on end), moved so the place it meets its neck (the bottom of
+				// the head, at the back) is on the main head's, and turned and nodded as the main head is. Each body's own
+				// frame (its facing, model axes, no size) is where these are measured, so the head keeps its real size.
 				boolean wholeBody = headPath(lent.root()) == null;
-				Vector3f ownNeck = wholeBody ? new Vector3f() : neckPoint(cubes, own, true);
-				Vector3f mainNeck = mainHead.isEmpty() ? new Vector3f() : neckPoint(mainHead, neck, !wholeBody);
-				Matrix4f place = new Matrix4f(neck).translate(mainNeck).translate(-ownNeck.x, -ownNeck.y, -ownNeck.z).mul(own.invert(new Matrix4f()));
-				Matrix3f turn = place.get3x3(new Matrix3f());
+				Matrix4f bodyB = rigid(lent.base().last().pose());
+				Matrix4f bodyM = rigid(main.base().last().pose());
+				Vector3f ownNeck = neckPoint(cubes, bodyB, !wholeBody);
+				Vector3f mainNeck = mainHead.isEmpty() ? topOf(main) : outOfTorso(neckPoint(mainHead, bodyM, !wholeBody), main, bodyM);
+				Matrix4f look = new Matrix4f();
+				if (state instanceof LivingEntityRenderState living) {
+					look.rotationY((float) Math.toRadians(living.yRot)).rotateX((float) Math.toRadians(living.xRot));
+				}
+				// on a dragon, a head is scaled to the dragon's (as a borrowed dragon's parts are to the body): at its own
+				// size a cow's head was a speck on the end of the neck
+				float grow = 1F;
+				if (state instanceof EnderDragonRenderState && !mainHead.isEmpty()) {
+					float ownSize = headSize(cubes, bodyB);
+					if (ownSize > 0.01F) grow = Math.max(1F, headSize(mainHead, bodyM) / ownSize);
+				}
+				Matrix4f place = new Matrix4f(bodyM).translate(mainNeck).mul(look).scale(grow).translate(-ownNeck.x, -ownNeck.y, -ownNeck.z)
+						.mul(bodyB.invert(new Matrix4f()));
+				Matrix3f turn = place.get3x3(new Matrix3f()).scale(1F / grow);
 				for (Cube c : cubes) placed.add(new Cube(new Matrix4f(place).mul(c.pose()), new Matrix3f(turn).mul(c.normal()), c.cube()));
 			}
 		}
@@ -233,7 +261,8 @@ public final class HybridMorph {
 			if (ownTorso != null) {
 				// the dragon's parts are scaled to the body they go on (the user's choice); everyone else's keep their size
 				float scale = borrowed instanceof EnderDragonRenderState ? Graft.fit(ownTorso, mainTorso) : 1F;
-				findAppendages(lent.root(), copy(lent.base()), new Graft(ownTorso, mainTorso, lent.unturn(), main.unturn(), scale), placed);
+				Graft graft = new Graft(ownTorso, mainTorso, lent.unturn(), main.unturn(), scale, everything(lent), everything(main));
+				findAppendages(lent.root(), copy(lent.base()), graft, placed);
 			}
 		}
 		return placed.isEmpty() ? null : new Placed(placed, lent.type());
@@ -320,15 +349,26 @@ public final class HybridMorph {
 		return rigid(frame.last().pose());
 	}
 
-	/**
-	 * Where a head meets its neck, in its own frame (model axes: +y down, -z forward): the middle of the bottom of its
-	 * cubes, at the back ({@code back}) or halfway.
-	 */
-	private static Vector3f neckPoint(List<Cube> cubes, Matrix4f frame, boolean back) {
-		Matrix4f inverse = new Matrix4f(frame).invert();
+	/** A body's whole box {lo, hi} in its own frame. */
+	private static float[][] everything(Body body) {
 		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
 		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
-		for (Cube c : cubes) {
+		bounds(body.root(), local(body.base(), body.unturn()), lo, hi);
+		return lo[0] > hi[0] ? new float[][] {{0, 0, 0}, {0, 0, 0}} : new float[][] {lo, hi};
+	}
+
+	private static float volume(ModelPart.Cube cube) {
+		return (cube.maxX - cube.minX) * (cube.maxY - cube.minY) * (cube.maxZ - cube.minZ);
+	}
+
+	/** The middle of the top of a body without a head part (a slime), in its frame: where a borrowed head sits on it. */
+	private static Vector3f topOf(Body body) {
+		List<Cube> all = new ArrayList<>();
+		collect(body.root(), copy(body.base()), all);
+		Matrix4f inverse = rigid(body.base().last().pose()).invert();
+		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		for (Cube c : all) {
 			Matrix4f toLocal = new Matrix4f(inverse).mul(c.pose());
 			for (ModelPart.Polygon polygon : c.cube().polygons) {
 				for (ModelPart.Vertex v : polygon.vertices()) {
@@ -339,7 +379,65 @@ public final class HybridMorph {
 			}
 		}
 		if (lo[0] > hi[0]) return new Vector3f();
+		return new Vector3f((lo[0] + hi[0]) / 2F, lo[1], (lo[2] + hi[2]) / 2F); // model axes: up is -y
+	}
+
+	/**
+	 * Where a head meets its neck, in its own frame (model axes: +y down, -z forward): the middle of the bottom of its
+	 * cubes, at the back ({@code back}) or halfway.
+	 */
+	private static Vector3f neckPoint(List<Cube> cubes, Matrix4f frame, boolean back) {
+		float[][] box = coreBox(cubes, frame);
+		if (box == null) return new Vector3f();
+		float[] lo = box[0], hi = box[1];
 		return new Vector3f((lo[0] + hi[0]) / 2F, hi[1], back ? hi[2] : (lo[2] + hi[2]) / 2F);
+	}
+
+	/**
+	 * A neck point ({@code bodyM}'s frame, model axes: +y down, -z forward) moved out of the body's torso, up or forward,
+	 * whichever is nearer: a camel's and a llama's head parts hold their long necks, whose bottom is deep in the chest,
+	 * and a panda's head set there sank into the camel (the user saw it).
+	 */
+	private static Vector3f outOfTorso(Vector3f neck, Body main, Matrix4f bodyM) {
+		PoseStack inBody = new PoseStack();
+		inBody.last().pose().set(bodyM).invert().mul(main.base().last().pose());
+		float[][] torso = torso(main.root(), inBody);
+		if (torso == null) return neck;
+		float[] lo = torso[0], hi = torso[1];
+		float inside = 0.01F;
+		if (neck.x <= lo[0] + inside || neck.x >= hi[0] - inside || neck.y <= lo[1] + inside || neck.y >= hi[1] - inside
+				|| neck.z <= lo[2] + inside || neck.z >= hi[2] - inside) return neck;
+		float up = neck.y - lo[1], forward = neck.z - lo[2];
+		return up <= forward ? new Vector3f(neck.x, lo[1], neck.z) : new Vector3f(neck.x, neck.y, lo[2]);
+	}
+
+	/** A head's size: the cube root of its core box's volume. */
+	private static float headSize(List<Cube> cubes, Matrix4f frame) {
+		float[][] box = coreBox(cubes, frame);
+		return box == null ? 0F : (float) Math.cbrt((box[1][0] - box[0][0]) * (box[1][1] - box[0][1]) * (box[1][2] - box[0][2]));
+	}
+
+	/** The box {lo, hi} of a head's big blocks in {@code frame}, or null for none. */
+	private static float @Nullable [][] coreBox(List<Cube> cubes, Matrix4f frame) {
+		Matrix4f inverse = new Matrix4f(frame).invert();
+		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		// only the head's big blocks: a guardian's spikes, a goat's beard and a ghast's tentacles hang below the head
+		// and would leave it floating over the neck
+		float biggest = 0;
+		for (Cube c : cubes) biggest = Math.max(biggest, volume(c.cube()));
+		for (Cube c : cubes) {
+			if (volume(c.cube()) < biggest * 0.25F) continue;
+			Matrix4f toLocal = new Matrix4f(inverse).mul(c.pose());
+			for (ModelPart.Polygon polygon : c.cube().polygons) {
+				for (ModelPart.Vertex v : polygon.vertices()) {
+					Vector3f p = toLocal.transformPosition(new Vector3f(v.x() / 16F, v.y() / 16F, v.z() / 16F));
+					lo[0] = Math.min(lo[0], p.x); lo[1] = Math.min(lo[1], p.y); lo[2] = Math.min(lo[2], p.z);
+					hi[0] = Math.max(hi[0], p.x); hi[1] = Math.max(hi[1], p.y); hi[2] = Math.max(hi[2], p.z);
+				}
+			}
+		}
+		return lo[0] > hi[0] ? null : new float[][] {lo, hi};
 	}
 
 	private static boolean headName(String name) {
@@ -403,7 +501,7 @@ public final class HybridMorph {
 	 * ({@code ownUnturn}, {@code mainUnturn}), at {@code scale} (1 but for the dragon). A standing torso is at least as
 	 * tall as it is long.
 	 */
-	private record Graft(float[][] own, float[][] main, Matrix4f ownUnturn, Matrix4f mainUnturn, float scale) {
+	private record Graft(float[][] own, float[][] main, Matrix4f ownUnturn, Matrix4f mainUnturn, float scale, float[][] ownAll, float[][] mainAll) {
 		/** Blocks wings and tails stand clear of the body. */
 		private static final float CLEAR = 0.04F;
 
@@ -454,12 +552,25 @@ public final class HybridMorph {
 				}
 				at.setComponent(axis, t);
 			}
-			if (name.contains("wing")) {
-				// on the back, near the middle (shoulder blades), or on top of a lying body
-				float w = main[1][0] - main[0][0];
-				at.x = Math.clamp(at.x, main[0][0] + 0.2F * w, main[1][0] - 0.2F * w);
-				if (mainStands) at.z = Math.max(at.z, main[1][2] + CLEAR);
-				else at.y = Math.max(at.y, main[1][1] + CLEAR);
+			if (name.equals("rods") || name.matches("part\\d+")) {
+				// a blaze's or breeze's rods: from head to feet as on their own body, over the main body's whole height
+				// (measured from the torso they reached past the feet into the ground)
+				float ownHeight = ownAll[1][1] - ownAll[0][1];
+				float share = ownHeight < 0.01F ? 0.5F : Math.clamp((joint.y - ownAll[0][1]) / ownHeight, 0F, 1F);
+				at.y = mainAll[0][1] + share * (mainAll[1][1] - mainAll[0][1]);
+			} else if (name.contains("wing")) {
+				float w = main[1][0] - main[0][0], h = main[1][1] - main[0][1];
+				if (mainStands) {
+					// on the back, near the middle, at the shoulder blades
+					at.x = Math.clamp(at.x, main[0][0] + 0.2F * w, main[1][0] - 0.2F * w);
+					at.z = Math.max(at.z, main[1][2] + CLEAR);
+					at.y = Math.max(at.y, main[0][1] + 0.92F * h);
+				} else {
+					// on the flanks, high up, the side the joint is on (on top, a chicken's or bat's wings hid in the back)
+					boolean left = at.x < (main[0][0] + main[1][0]) / 2F;
+					at.x = left ? Math.min(at.x, main[0][0] - CLEAR) : Math.max(at.x, main[1][0] + CLEAR);
+					at.y = Math.max(at.y, main[0][1] + 0.67F * h);
+				}
 			} else if (name.contains("tail")) {
 				at.z = Math.max(at.z, main[1][2] + CLEAR); // behind: the back of a standing body, the rear of a lying one
 			}

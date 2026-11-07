@@ -169,6 +169,7 @@ public final class SelectorHud {
 				radialFavourites = canUseSelector() ? data().favourites() : List.of();
 				showRadial = true;
 				radialTime = 0;
+				radialCenterX = mc.getWindow().getGuiScaledWidth() / 2F;
 				mc.mouseHandler.releaseMouse();
 			}
 		} else if (showRadial) {
@@ -606,7 +607,8 @@ public final class SelectorHud {
 		float deadzoneScale = 0.55F;
 		double distFromDeadzone = mouseDistanceFromCenter() - radius * deadzoneScale;
 		float bonusScale = Mth.clamp((float) (distFromDeadzone / (radius * (1F - deadzoneScale) * 0.5F)), 0F, 1F);
-		float cx = screenW / 2F;
+		radialCenterX += (radialTargetX() - radialCenterX) * 0.3F; // slides aside for the multimorph panel, and back
+		float cx = radialCenterX;
 		float cy = screenH / 2F;
 		int slices = 100;
 		g.guiRenderState.addGuiElement(new RingRenderState(cx, cy, (float) (radialDist * deadzoneScale), (float) radialDist, slices, 150 << 24));
@@ -693,7 +695,7 @@ public final class SelectorHud {
 		double scale = mc.getWindow().getGuiScale();
 		double mx = mc.mouseHandler.xpos() / scale;
 		double my = mc.mouseHandler.ypos() / scale;
-		return BiomassOrb.contains(mc.getWindow().getGuiScaledWidth() / 2D, mc.getWindow().getGuiScaledHeight() / 2D, r / BiomassOrb.RADIUS, mx, my);
+		return BiomassOrb.contains(radialCenterX, mc.getWindow().getGuiScaledHeight() / 2D, r / BiomassOrb.RADIUS, mx, my);
 	}
 
 	/**
@@ -892,11 +894,27 @@ public final class SelectorHud {
 
 	// ------------------------------------------------------------------ radial mouse maths (iChunUtil MouseHelper)
 
+	/** Where the wheel's centre is drawn (GUI x), eased toward {@link #radialTargetX}; the mouse maths use it too. */
+	private float radialCenterX = -1F;
+
+	/**
+	 * The middle of the screen; while a multimorph pair is being picked, moved left just enough that the panel on the
+	 * right doesn't cover the wheel (in fullscreen, at the usual GUI scale, it hid the right of the wheel; the user's
+	 * most likely case).
+	 */
+	private float radialTargetX() {
+		float w = mc.getWindow().getGuiScaledWidth();
+		if (pendingMain == null) return w / 2F;
+		float radius = Math.min(w, mc.getWindow().getGuiScaledHeight()) * (float) ClientConfig.INSTANCE.radialScale / 2F;
+		float clear = w - PANEL_W - 16 - radius; // the furthest right the centre can be with the wheel clear of the panel
+		return Math.max(radius + 4F, Math.min(w / 2F, clear));
+	}
+
 	private double mouseDistanceFromCenter() {
 		double scale = mc.getWindow().getGuiScale();
 		double mx = mc.mouseHandler.xpos() / scale;
 		double my = mc.mouseHandler.ypos() / scale;
-		double dx = mx - mc.getWindow().getGuiScaledWidth() / 2D;
+		double dx = mx - radialCenterX;
 		double dy = my - mc.getWindow().getGuiScaledHeight() / 2D;
 		return Math.sqrt(dx * dx + dy * dy);
 	}
@@ -909,7 +927,7 @@ public final class SelectorHud {
 	/** Index of the slice under the mouse; slice 0 is at the top and indices run clockwise, matching the layout. */
 	private int selectedRadialIndex(int count) {
 		double scale = mc.getWindow().getGuiScale();
-		double dx = mc.mouseHandler.xpos() / scale - mc.getWindow().getGuiScaledWidth() / 2D;
+		double dx = mc.mouseHandler.xpos() / scale - radialCenterX;
 		double dy = mc.mouseHandler.ypos() / scale - mc.getWindow().getGuiScaledHeight() / 2D;
 		double angle = Math.atan2(dx, -dy);
 		if (angle < 0) angle += Math.PI * 2;

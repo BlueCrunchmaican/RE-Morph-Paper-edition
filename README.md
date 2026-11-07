@@ -28,6 +28,10 @@ Nobody is kicked for not having the mod.
 - **Abilities and traits for 89 of the 90 mobs in 26.3:** flight, swimming, fire immunity, creeper explosions
   (charged by lightning, too), enderman teleporting and block carrying, witch potions, bat perching, rabbit hops,
   skeleton and baby zombie jockeys, trading with villager players, spiders climbing cobwebs, and more. Full table: [docs/ABILITIES.md](docs/ABILITIES.md).
+- **Multimorph (7.0.0):** be two morphs at once. A main body borrows a second creature's head, or its wings, tail,
+  fins or rods, and gets both creatures' traits and abilities: a zombie with bat wings, a cow with a wolf's head, a
+  ghast with a creeper's blast. Shift-pick in the selector or wheel (a preview panel shows the result), or
+  `/morph combine`. In Survival it's an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
   head, pose and auto-hide settings), an advancement-style upgrade
