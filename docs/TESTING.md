@@ -244,13 +244,15 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
-## Unreleased: 6.6.0 (2026-11-06)
+## 6.6.0 (2026-11-07)
 
-Built with tests passing (the plugin's SemVer comparison has its own tests); not tried in game yet.
+Built with 29 plugin tests passing (SemVer, curves, the upgrade tree, the level conversion, the speed wording), then
+tried in game in a test client and on the test server; what was tried is ticked below.
 
-- [ ] Vignette Size slider: 0 hides the haze, 16 spreads it wide and stays smooth; an old config with Wide shows 6.
-- [ ] Show in Menus on: the doll on top of the inventory, a chest, chat, the pause menu, and another mod's settings
-      screen; off: hidden in all of them.
+- [x] Vignette Size: a wide haze (32 screen pixels) stays smooth. Old settings convert to screen pixels once.
+- [x] Show in Menus on: the doll on top of the inventory.
+- [ ] Show in Menus on a chest, chat, the pause menu and another mod's settings screen; off: hidden in all of them.
+- [x] The doll keeps its size at GUI scales 2 and 3.
 - [ ] Update notices: a client older than the server gets the old-client message once per join; an admin gets the
       "newer release" line when GitHub has one; the client's own notice doesn't repeat what the server said; the
       [Modrinth] and [GitHub] links open the right pages.

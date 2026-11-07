@@ -6,9 +6,9 @@ whenever one of those changes.
 Current version: **6.5.0** (2026-11-06). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
-## Next release: 6.6.0
+## 6.6.0 (released 2026-11-07)
 
-Collected into one release instead of many small ones. Test builds are `6.6.0-beta.N`.
+Collected into one release instead of many small ones. Test builds were `6.6.0-beta.N`.
 
 - [x] Paper doll: a Vignette Size slider (0 = off) instead of Off / Soft / Wide; old settings carry over. Bigger sizes
       get more rings so the haze stays smooth.
@@ -47,13 +47,15 @@ Collected into one release instead of many small ones. Test builds are `6.6.0-be
       many, so they no longer cover the view; other players, and third person, show them as before.
 - [x] [MOB-MASSES.md](MOB-MASSES.md): every mob's weight, the Absorbable Mass level it needs, its biomass and morph
       cost.
-- [ ] Try the above in game: the vignette slider, the doll over an inventory and another mod's screen, the update
-      notices with an older client and an older server, the new tree and chest menu, each ability unlock, the wheel
-      centre, a 6.5.0 Survival world updating.
-- [ ] Before release: check the Modrinth project is approved and public, since every update notice links to it
-      (https://modrinth.com/plugin/re-morph). Then point the README's and guide's download links there too.
-- [ ] At release: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
-- [ ] More from the next round of testing.
+- [x] Tried in game: the wheel centre, the tree, ability unlocks (night vision, fire immunity), the speed wording, the
+      goo bar at GUI scales 2, 3 and 5, the doll's size and vignette, the doll over the inventory, an old survival.yml
+      updating (see [TESTING.md](TESTING.md)).
+- [ ] Still to try in game: the update notices with an older client and an older server; the chest menu; the
+      remaining ability unlocks; Show in Menus over another mod's screen.
+- [ ] The Modrinth project was still under review at release (https://modrinth.com/plugin/re-morph); until it is
+      approved, the update notices' [Modrinth] link only opens for project members. Once it is public, point the
+      README's and guide's download links there too.
+- [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
 ## Priority 1: existing functionality
 
