@@ -115,6 +115,12 @@ public final class ClientChannel implements PluginMessageListener {
 		fullSync(player);
 		sendTraits(player, plugin.abilities().clientTraits(player));
 		plugin.survival().sync(player);
+		String server = plugin.getPluginMeta().getVersion();
+		String message = plugin.settings().oldClientMessage;
+		if (!wasModded && !message.isEmpty() && !modVersion.equals("?") && dev.morphreborn.paper.SemVer.compare(modVersion, server) < 0) {
+			player.sendMessage(MiniMessage.miniMessage().deserialize(message.replace("{client}", dev.morphreborn.paper.SemVer.clean(modVersion))
+					.replace("{server}", dev.morphreborn.paper.SemVer.clean(server))));
+		}
 	}
 
 	private Wire.Out hello(boolean accepted) {
@@ -127,7 +133,8 @@ public final class ClientChannel implements PluginMessageListener {
 				.bool(plugin.settings().selectorEnabled)
 				.bool(plugin.abilities().anyActive())
 				.string(plugin.settings().nameTagMode.name())
-				.string(plugin.mode().id());
+				.string(plugin.mode().id())
+				.string(plugin.getPluginMeta().getVersion()); // since 6.6.0; older clients stop reading before it
 	}
 
 	/** Send the server settings again (the gameplay mode changed). The client takes a repeated hello as an update. */

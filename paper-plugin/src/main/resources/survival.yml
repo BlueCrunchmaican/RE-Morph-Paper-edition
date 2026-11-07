@@ -10,8 +10,10 @@
 
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
-# old file stays next to it (named like survival-old-6.1.2.yml).
-config-version: 6.1.6
+# old file stays next to it (named like survival-old-6.1.6.yml). One exception: when a release changes what the
+# upgrade levels mean (6.6.0 did), the whole upgrades section is replaced with the new one; copy back your changes from
+# the old file.
+config-version: 6.6.0
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
@@ -54,16 +56,32 @@ morph-cost:
 #   requires                           - other upgrades and the level each needs, e.g. { biomass_capacity: 2 }
 #   start-level                        - what every player starts with (0 = not bought)
 #   max-level
-#   value, cost                        - by level, with iChun's formulas: {base, increment, multiplier, equation}
+#   value, cost                        - by level: a list with one number per level, starting at level 1
+#                                        ([3, 8, 16]; levels past the end keep the last number), or iChun's
+#                                        formulas: {base, increment, multiplier, equation}
 #        equation 1: base + increment x multiplier x level
 #        equation 2: base + increment x (level - 1) ^ multiplier
 #        equation 3: base + increment x multiplier ^ (level - 1)
 #        equation 4: base + increment x log10(level x multiplier)
 #        equation 5: base + increment x sqrt((level - 1) x multiplier)
-#      "cost" is the price of buying that level.
-#   format                             - how the value reads, {value} replaced
+#      "cost" is the price of buying that level (levels players start with are never paid for). A value of -1 is
+#      "no limit" for reach and absorbable mass.
+#   format                             - how the value reads, {value} replaced. For a percentage of the normal
+#                                        length (130 = 30% longer): {seconds} is a transformation's length in
+#                                        seconds (config.yml morphs.transition-ticks at that percentage), {factor}
+#                                        the multiplier, like x1.3.
+#   traits                             - beneficial morph traits that stay off until this is bought: abilities.yml
+#                                        passive names (fire-immunity, climb...), and its constant effects as
+#                                        effect:<name> (effect:night_vision). Traits no upgrade lists are always on,
+#                                        and so are the drawbacks (sunburn, Healing hurting the undead...).
+#                                        Creatures that can't live out of water (fish, squid, axolotls, nautiluses)
+#                                        always breathe underwater.
 # The upgrade ids are what the plugin understands; remove one and what it unlocks stays locked (or unlimited, for
-# capacities). Changes apply on /morph reload.
+# capacities). Upgrades with traits can be renamed, added or removed freely. Changes apply on /morph reload.
+#
+# The tree has three parts. Biomass: how much you can store and absorb. Morph Ability (on its own): the ability to
+# morph at all; then how many morphs you can keep, how fast you transform, and your morphs' abilities. Abilities: one
+# unlock per kind of trait, each opened by Morph Abilities.
 upgrades:
   biomass_capacity:
     name: Biomass Capacity
@@ -95,31 +113,33 @@ upgrades:
     parent: biomass_capacity
     start-level: 1
     max-level: 6
-    value: { base: 0, increment: 4, multiplier: 1, equation: 1 }       # 4, 8 ... 24 blocks
-    cost: { base: 0, increment: 40, multiplier: 1.8, equation: 3 }     # level 2: 72 ... level 6: 756
+    value: [3, 8, 16, 32, 64, 150]                                     # blocks
+    cost: [0, 60, 150, 350, 800, 1600]
     format: "{value} blocks"
   biomass_max_mass_absorbable:
     name: Absorbable Mass
-    description: The heaviest creature you can absorb. Big creatures (golems, ghasts, the dragon) need upgrades first.
+    description: The heaviest creature you can absorb. Horses, golems, ghasts and the ender dragon need upgrades first.
     icon: minecraft:anvil
-    effect-icon: minecraft:strength
+    effect-icon: minecraft:health_boost
     parent: biomass_capacity
     start-level: 1
-    max-level: 10
-    value: { base: 0, increment: 1200, multiplier: 2.5, equation: 3 }  # 1,200 kg, 3,000 kg ... 4,577,637 kg
-    cost: { base: 0, increment: 60, multiplier: 2, equation: 3 }       # level 2: 120 ... level 10: 30,720
+    max-level: 5
+    # 1,200 kg: cows, pigs, zombies, players. 3,000: spiders, llamas, pandas, wardens. 10,000: horses, iron golems,
+    # sniffers, ravagers, big slimes. 160,000: ghasts and giants. Then no limit: the ender dragon.
+    value: [1200, 3000, 10000, 160000, -1]
+    cost: [0, 150, 500, 1500, 5000]
     format: "{value} kg"
   morph_ability:
     name: Morph Ability
     description: Lets you morph. Kills start adding morphs to your collection, and morphs you already had open up.
     icon: minecraft:ender_eye
     effect-icon: minecraft:nausea
-    parent: biomass_capacity
+    parent: root
     requires: { biomass_capacity: 2 }
     start-level: 0
     max-level: 1
-    value: { base: 1, increment: 0, multiplier: 0, equation: 1 }
-    cost: { base: 150, increment: 0, multiplier: 0, equation: 1 }
+    value: [1]
+    cost: [150]
   morph_capacity:
     name: Morph Capacity
     description: How many kinds of creature your collection can hold.
@@ -144,34 +164,145 @@ upgrades:
     format: "{value} per creature"
   morph_efficiency:
     name: Morph Efficiency
-    description: Transformations take less time.
+    description: How long a transformation takes. It starts slow and gets faster with every level.
     icon: minecraft:clock
     effect-icon: minecraft:haste
     parent: morph_ability
-    start-level: 0
-    max-level: 5
-    value: { base: 0, increment: 10, multiplier: 1, equation: 1 }      # 10% ... 50% faster
-    cost: { base: 0, increment: 80, multiplier: 1.6, equation: 3 }     # level 1: 80 ... level 5: 524
-    format: "{value}% faster"
+    start-level: 1
+    max-level: 6
+    # Percent of config.yml's transition length (5 seconds by default): 6.5, 5.8, 5, 4.5, 4, then 3.5 seconds.
+    value: [130, 115, 100, 90, 80, 70]
+    cost: { base: 0, increment: 50, multiplier: 1.6, equation: 3 }     # level 2: 80 ... level 6: 524
+    format: "{seconds} seconds per transformation"
   morph_abilities:
     name: Morph Abilities
-    description: Unlocks your morphs' abilities (the ability key, an enderman's block carrying). Each further level shortens cooldowns.
+    description: Unlocks your morphs' abilities (the ability key, an enderman's block carrying) and the Abilities section. Cooldowns start long and get shorter with every level.
     icon: minecraft:blaze_powder
-    effect-icon: minecraft:jump_boost
+    effect-icon: minecraft:conduit_power
     parent: morph_ability
     start-level: 0
     max-level: 6
-    value: { base: -10, increment: 10, multiplier: 1, equation: 1 }    # level 1: unlocked; then 10% ... 50% shorter cooldowns
+    # Percent of each ability's cooldown in abilities.yml: x1.3 at level 1, then x1.15, x1, x0.9, x0.8 and x0.7.
+    value: [130, 115, 100, 90, 80, 70]
     cost: { base: 0, increment: 100, multiplier: 1.7, equation: 3 }    # level 1: 100 ... level 6: 1,420
-    format: "{value}% shorter cooldowns"
+    format: "ability cooldowns {factor}"
+  # Abilities: one-time unlocks for the good things a morph's body does by itself.
+  ability_night_vision:
+    name: Night Vision
+    description: Morphs that see in the dark (bats, cats, foxes, fish...) do.
+    icon: minecraft:golden_carrot
+    effect-icon: minecraft:night_vision
+    parent: morph_abilities
+    max-level: 1
+    cost: [100]
+    traits: [effect:night_vision]
+  ability_water_breathing:
+    name: Water Breathing
+    description: Morphs that breathe underwater (guardians, turtles, frogs, drowned, every undead mob...) do. Fish, squid and axolotls always can.
+    icon: minecraft:turtle_helmet
+    effect-icon: minecraft:water_breathing
+    parent: morph_abilities
+    max-level: 1
+    cost: [150]
+    traits: [water-breathing]
+  ability_swift_swimming:
+    name: Swift Swimming
+    description: Fast swimmers' morphs (dolphins, fish, squid, guardians, polar bears...) swim like a dolphin.
+    icon: minecraft:heart_of_the_sea
+    effect-icon: minecraft:dolphins_grace
+    parent: morph_abilities
+    max-level: 1
+    cost: [150]
+    traits: [swim-boost]
+  ability_fire_immunity:
+    name: Fire Immunity
+    description: Fireproof creatures' morphs (blazes, striders, magma cubes, wither skeletons...) don't burn.
+    icon: minecraft:magma_cream
+    effect-icon: minecraft:fire_resistance
+    parent: morph_abilities
+    max-level: 1
+    cost: [400]
+    traits: [fire-immunity]
+  ability_soft_landing:
+    name: Soft Landing
+    description: Morphs that never take fall damage (cats, golems, slimes, goats...) don't, and chickens flutter down.
+    icon: minecraft:phantom_membrane
+    effect-icon: minecraft:slow_falling
+    parent: morph_abilities
+    max-level: 1
+    cost: [200]
+    traits: [fall-immunity, slow-fall]
   morph_flight:
     name: Morph Flight
     description: Flying creatures' morphs can fly. Until then they only glide down slowly.
     icon: minecraft:feather
     effect-icon: minecraft:levitation
-    parent: morph_ability
+    parent: morph_abilities
     requires: { biomass_capacity: 3 }
     start-level: 0
     max-level: 1
-    value: { base: 1, increment: 0, multiplier: 0, equation: 1 }
-    cost: { base: 300, increment: 0, multiplier: 0, equation: 1 }
+    value: [1]
+    cost: [300]
+  ability_climbing:
+    name: Climbing
+    description: Spider morphs climb walls and move through cobwebs at full speed.
+    icon: minecraft:cobweb
+    effect-icon: minecraft:weaving
+    parent: morph_abilities
+    max-level: 1
+    cost: [250]
+    traits: [climb, web-walk]
+  ability_leaping:
+    name: Leaping
+    description: Jumpers' morphs jump higher (rabbits, slimes, frogs, goats...), and sneak-jumping makes the long leaps of frogs, goats, cats and horses.
+    icon: minecraft:rabbit_foot
+    effect-icon: minecraft:jump_boost
+    parent: morph_abilities
+    max-level: 1
+    cost: [150]
+    traits: [leap, effect:jump_boost]
+  ability_mob_strength:
+    name: Mob Strength
+    description: Strong and fast creatures' morphs get their strength, speed and toughness (horses, golems, wardens, brutes...).
+    icon: minecraft:iron_sword
+    effect-icon: minecraft:strength
+    parent: morph_abilities
+    max-level: 1
+    cost: [400]
+    traits: [effect:speed, effect:strength, effect:resistance, effect:hero_of_the_village]
+  ability_sure_footing:
+    name: Sure Footing
+    description: Foxes walk through berry bushes, rabbits and foxes over powder snow, striders stand on lava, and cold creatures don't freeze.
+    icon: minecraft:leather_boots
+    effect-icon: minecraft:speed
+    parent: morph_abilities
+    max-level: 1
+    cost: [150]
+    traits: [berry-walk, berry-bush-immunity, powder-snow-walk, lava-stand, lava-walk, freeze-immunity]
+  ability_defences:
+    name: Defences
+    description: Breezes bat projectiles back, endermen teleport out of their way, witches shrug off magic, and pufferfish sting back.
+    icon: minecraft:shield
+    effect-icon: minecraft:resistance
+    parent: morph_abilities
+    max-level: 1
+    cost: [400]
+    traits: [deflect-projectiles, teleport-from-projectiles, magic-resistance, retaliate-effects]
+  ability_attack_effects:
+    name: Attack Effects
+    description: Your hits carry the creature's effect (cave spiders poison, wither skeletons wither...), and auras reach nearby players.
+    icon: minecraft:spider_eye
+    effect-icon: minecraft:poison
+    parent: morph_abilities
+    max-level: 1
+    cost: [300]
+    traits: [attack-effects, auras]
+  ability_camouflage:
+    name: Camouflage
+    description: Mobs see your morph for what it looks like, so hostile mobs leave other monsters alone, and cats scare creepers. Until then they see through it.
+    icon: minecraft:carved_pumpkin
+    effect-icon: minecraft:invisibility
+    parent: morph_abilities
+    max-level: 1
+    cost: [500]
+    traits: [hostile-camouflage, intimidate, fear]

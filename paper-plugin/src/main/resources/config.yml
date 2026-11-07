@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 6.1.6
+config-version: 6.6.0
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
@@ -152,5 +152,13 @@ client:
   outdated-message: "<yellow>Your RE:Morph client mod is outdated; update it to use the morph selector."
   # Broadcast "<player> unlocked <morph>" style messages to the unlocking player in chat (Fabric players get a toast).
   unlock-chat-message: true
+  # Told to players whose client mod is older than this plugin when they join (it still works, it just misses the
+  # newest features). {client} and {server} are the two versions. "" turns it off.
+  old-client-message: "<yellow>Your RE:Morph client mod is {client}; this server runs {server}. Get the newest client mod for everything the server offers: <click:open_url:'https://modrinth.com/plugin/re-morph'><hover:show_text:'https://modrinth.com/plugin/re-morph'><aqua>[Modrinth]</aqua></hover></click> <click:open_url:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><hover:show_text:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><aqua>[GitHub]</aqua></hover></click>"
+
+# Ask GitHub at startup and every 12 hours whether a newer RE:Morph release is out. If one is, the console says so and
+# players with morphreborn.admin are told when they join. Only the public "latest release" page is requested.
+update-check:
+  enabled: true
 
 debug: false

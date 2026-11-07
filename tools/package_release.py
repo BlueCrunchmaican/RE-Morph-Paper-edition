@@ -4,13 +4,23 @@ Usage: py -3 -I tools/package_release.py
 Build both jars first (gradlew build in paper-plugin and fabric-client). Third-party plugins (Lib's Disguises,
 PacketEvents) are not bundled, see NOTICE.md; the guide links to their downloads.
 """
+import re
 import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION = '6.1.8'
+def _build_version():
+    """The version in the build files (docs/VERSIONING.md); the plugin's and the client's must match."""
+    plugin = re.search(r"^version = '([^']+)'", (ROOT / 'paper-plugin/build.gradle').read_text(encoding='utf-8'), re.M).group(1)
+    client = re.search(r"^mod_version=(\S+)", (ROOT / 'fabric-client/gradle.properties').read_text(encoding='utf-8'), re.M).group(1)
+    if client.split('+')[0] != plugin:
+        raise SystemExit(f'version mismatch: paper-plugin {plugin}, fabric-client {client}')
+    return plugin
+
+
+VERSION = _build_version()
 OUT = ROOT / 'release' / f'RE-Morph-{VERSION}'
 
 SERVER_JAR = ROOT / 'paper-plugin/build/libs' / f'RE-Morph-paper-{VERSION}.jar'

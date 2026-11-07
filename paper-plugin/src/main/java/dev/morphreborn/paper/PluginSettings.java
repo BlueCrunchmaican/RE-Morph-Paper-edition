@@ -93,6 +93,10 @@ public final class PluginSettings {
 	public final Map<String, Double> healthOverrides;
 
 	public final String outdatedMessage;
+	/** Told to players whose client mod is older than this plugin (same protocol); "" for none. {client}, {server}. */
+	public final String oldClientMessage;
+	/** Ask GitHub for the latest release (UpdateChecker). */
+	public final boolean updateCheck;
 	public final boolean unlockChatMessage;
 	public final boolean debug;
 	/** "classic" or "survival" (config.yml gameplay-mode). Applied at startup, on /morph reload and by /morph mode. */
@@ -169,6 +173,8 @@ public final class PluginSettings {
 
 		outdatedMessage = c.getString("client.outdated-message", "<yellow>Your RE:Morph client mod is outdated.");
 		unlockChatMessage = c.getBoolean("client.unlock-chat-message", true);
+		oldClientMessage = c.getString("client.old-client-message", "");
+		updateCheck = c.getBoolean("update-check.enabled", true);
 		debug = c.getBoolean("debug", false);
 		String chosenMode = c.getString("gameplay-mode", "classic").trim().toLowerCase(java.util.Locale.ROOT);
 		gameplayMode = chosenMode.equals("survival") || chosenMode.equals("default") ? "survival" : "classic";

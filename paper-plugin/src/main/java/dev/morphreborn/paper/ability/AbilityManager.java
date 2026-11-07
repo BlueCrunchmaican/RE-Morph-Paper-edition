@@ -368,12 +368,44 @@ public final class AbilityManager {
 		String type = form.entityType();
 		grantFlight(player, type);
 		plugin.channel().sendTraits(player, traitBits(player, type));
-		Set<PotionEffectType> applied = new HashSet<>();
+		applyEffects(player, type);
+	}
+
+	/**
+	 * The form's constant effects that the player may have (Survival: bought their unlock), added once; ones they may
+	 * no longer have (an admin lowered their upgrades) are taken away.
+	 */
+	private void applyEffects(Player player, String type) {
+		Set<PotionEffectType> applied = appliedEffects.computeIfAbsent(player.getUniqueId(), k -> new HashSet<>());
 		for (TimedEffect e : constantEffects.getOrDefault(type, List.of())) {
-			player.addPotionEffect(new PotionEffect(e.type(), PotionEffect.INFINITE_DURATION, e.amplifier(), true, false, true));
-			applied.add(e.type());
+			boolean allowed = allowed(player, "effect:" + e.type().getKey().getKey());
+			if (allowed && applied.add(e.type())) {
+				player.addPotionEffect(new PotionEffect(e.type(), PotionEffect.INFINITE_DURATION, e.amplifier(), true, false, true));
+			} else if (!allowed && applied.remove(e.type())) {
+				PotionEffect current = player.getPotionEffect(e.type());
+				if (current != null && current.isInfinite() && current.isAmbient()) player.removePotionEffect(e.type());
+			}
 		}
-		if (!applied.isEmpty()) appliedEffects.put(player.getUniqueId(), applied);
+		if (applied.isEmpty()) appliedEffects.remove(player.getUniqueId());
+	}
+
+	/** The gameplay mode lets the player use this beneficial trait (Survival: its unlock is bought; Classic: always). */
+	private boolean allowed(Player player, String trait) {
+		return plugin.mode().hasTrait(player, trait);
+	}
+
+	/** The form has this beneficial trait and the player may use it. */
+	private boolean has(Player player, String type, Set<String> set, String trait) {
+		return set.contains(type) && allowed(player, trait);
+	}
+
+	/**
+	 * Water breathing: a bought trait, except for creatures that can't live out of water (fish, which suffocate on
+	 * land, and the ones that dry out): without it they'd have nowhere to breathe.
+	 */
+	private boolean breathesWater(Player player, String type) {
+		if (!waterBreathing.contains(type)) return false;
+		return waterOnlyBreathing.contains(type) || dryOutTicks.containsKey(type) || allowed(player, "water-breathing");
 	}
 
 	/** Survival and adventure players morphed into a flyer may fly (creative and spectator fly anyway). */
@@ -428,22 +460,23 @@ public final class AbilityManager {
 		return flight.contains(type) && !plugin.mode().mayFly(player);
 	}
 
-	/** Re-apply flight and movement traits after a Survival upgrade changed what the current form may do. */
+	/** Re-apply flight, movement traits and effects after a Survival upgrade changed what the current form may do. */
 	public void refreshMovement(Player player) {
 		String type = type(player);
 		if (type == null || !enabled || !player.hasPermission("morphreborn.ability")) return;
 		grantFlight(player, type);
 		plugin.channel().sendTraits(player, traitBits(player, type));
+		applyEffects(player, type);
 	}
 
 	private int traitBits(Player player, String type) {
 		int bits = 0;
-		if (climb.contains(type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_CLIMB;
-		if (webWalk.contains(type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_WEB;
-		if (powderSnowWalk.contains(type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_POWDER_SNOW;
-		if (lavaStand.contains(type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_LAVA;
-		if (berryWalk.contains(type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_BERRY;
-		if (slowFall.contains(type) || glides(player, type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_SLOW_FALL;
+		if (has(player, type, climb, "climb")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_CLIMB;
+		if (has(player, type, webWalk, "web-walk")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_WEB;
+		if (has(player, type, powderSnowWalk, "powder-snow-walk")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_POWDER_SNOW;
+		if (has(player, type, lavaStand, "lava-stand")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_LAVA;
+		if (has(player, type, berryWalk, "berry-walk")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_BERRY;
+		if (has(player, type, slowFall, "slow-fall") || glides(player, type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_SLOW_FALL;
 		return bits;
 	}
 
@@ -525,10 +558,10 @@ public final class AbilityManager {
 		for (Player player : plugin.getServer().getOnlinePlayers()) {
 			String type = type(player);
 			if (type == null) continue;
-			if (slowFall.contains(type) || glides(player, type)) tickSlowFall(player);
-			if (climb.contains(type)) tickClimb(player);
+			if (has(player, type, slowFall, "slow-fall") || glides(player, type)) tickSlowFall(player);
+			if (has(player, type, climb, "climb")) tickClimb(player);
 			// Webs work like scaffolding for spider morphs (client mod): climbing and sliding down them never builds a fall.
-			if (webWalk.contains(type) && inCobweb(player)) player.setFallDistance(0);
+			if (has(player, type, webWalk, "web-walk") && inCobweb(player)) player.setFallDistance(0);
 			if (tick % 2 == 0 && freezeWhenWatched.contains(type)) tickWatched(player);
 			Integer dryLimit = dryOutTicks.get(type);
 			if (dryLimit != null) tickDryOut(player, type, dryLimit);
@@ -539,10 +572,10 @@ public final class AbilityManager {
 				teleportRandomly(player);
 			}
 			if (tick % 40 == 0 && isWitch(player, type) && plugin.mode().cannotUseAbility(player) == null) showWitchPotion(player);
-			if (swimBoost.contains(type) && player.isInWater() && tick % 20 == 0) {
+			if (has(player, type, swimBoost, "swim-boost") && player.isInWater() && tick % 20 == 0) {
 				player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, 40, 0, true, false, false));
 			}
-			if (waterBreathing.contains(type) && player.isInWater()) player.setRemainingAir(player.getMaximumAir());
+			if (breathesWater(player, type) && player.isInWater()) player.setRemainingAir(player.getMaximumAir());
 			if (tick % 20 == 0 && sunburn.contains(type)) tickSunburn(player);
 			if (tick % 10 == 0 && waterDamage.contains(type) && player.isInWaterOrRainOrBubbleColumn()) player.damage(1.0);
 			if (sink.contains(type) && player.isInWater() && !player.isOnGround()) {
@@ -558,20 +591,20 @@ public final class AbilityManager {
 				}
 				player.setRemainingAir(air);
 			}
-			if (tick % 10 == 0 && fear.containsKey(type)) tickFear(player, fear.get(type));
+			if (tick % 10 == 0 && fear.containsKey(type) && allowed(player, "fear")) tickFear(player, fear.get(type));
 			if (tick % 4 == 0 && snowTrail.contains(type)) tickSnowTrail(player);
 			if (tick % 20 == 0 && targetingEnabled) tickTargeting(player, type);
 			if (tick % 20 == 0 && heatSensitive.contains(type) && player.getLocation().getBlock().getTemperature() > 1.0) player.damage(1.0);
 			Double land = landSpeed.get(type);
 			if (land != null) tickLandSpeed(player, land);
 			// Modded striders stand on the lava themselves (LivingEntityMixin); pushing them up too made them bob.
-			if (lavaWalk.contains(type) && player.isInLava() && !(lavaStand.contains(type) && plugin.channel().isModded(player))) {
+			if (has(player, type, lavaWalk, "lava-walk") && player.isInLava() && !(has(player, type, lavaStand, "lava-stand") && plugin.channel().isModded(player))) {
 				Vector v = player.getVelocity();
 				player.setVelocity(v.setY(Math.max(v.getY(), 0.12)));
 				player.setFallDistance(0);
 			}
 			Aura aura = auras.get(type);
-			if (aura != null && tick % aura.everyTicks() == 0 && (!aura.inWater() || player.isInWater())) {
+			if (aura != null && tick % aura.everyTicks() == 0 && allowed(player, "auras") && (!aura.inWater() || player.isInWater())) {
 				for (Player other : player.getWorld().getPlayers()) {
 					if (other == player || other.getGameMode() == GameMode.CREATIVE || other.getGameMode() == GameMode.SPECTATOR) continue;
 					if (aura.targetsInWater() && !other.isInWater()) continue;
@@ -962,9 +995,9 @@ public final class AbilityManager {
 		String type = type(player);
 		if (!enabled || type == null) return false;
 		return switch (block) {
-			case COBWEB -> webWalk.contains(type);
-			case SWEET_BERRY_BUSH -> berryWalk.contains(type);
-			case POWDER_SNOW -> powderSnowWalk.contains(type);
+			case COBWEB -> has(player, type, webWalk, "web-walk");
+			case SWEET_BERRY_BUSH -> has(player, type, berryWalk, "berry-walk");
+			case POWDER_SNOW -> has(player, type, powderSnowWalk, "powder-snow-walk");
 			default -> false;
 		};
 	}
@@ -977,7 +1010,7 @@ public final class AbilityManager {
 	/** Share of magic damage the morph shrugs off (witches take 85% less). */
 	public double magicResistance(Player player) {
 		String type = type(player);
-		return !enabled || type == null ? 0 : magicResistance.getOrDefault(type, 0.0);
+		return !enabled || type == null || !allowed(player, "magic-resistance") ? 0 : magicResistance.getOrDefault(type, 0.0);
 	}
 
 	public boolean beginInverting(Player player) {
@@ -1012,6 +1045,7 @@ public final class AbilityManager {
 	public boolean leap(Player player) {
 		String type = type(player);
 		if (!enabled || type == null || !player.isSneaking() || player.isFlying() || !player.hasPermission("morphreborn.ability")) return false;
+		if (!allowed(player, "leap")) return false;
 		Leap leap = leaps.get(type);
 		if (leap == null || tick < leapReady.getOrDefault(player.getUniqueId(), 0L)) return false;
 		leapReady.put(player.getUniqueId(), tick + leap.cooldownTicks());
@@ -1040,10 +1074,11 @@ public final class AbilityManager {
 		String type = type(player);
 		if (type == null || !enabled) return false;
 		return switch (cause) {
-			case FALL -> fallImmunity.contains(type) || flight.contains(type) || slowFall.contains(type);
-			case FIRE, FIRE_TICK, LAVA, HOT_FLOOR, CAMPFIRE -> fireImmunity.contains(type);
-			case DROWNING -> waterBreathing.contains(type);
-			case FREEZE -> freezeImmunity.contains(type);
+			// Flyers never take fall damage: with Flight they fly, and without it they glide down.
+			case FALL -> has(player, type, fallImmunity, "fall-immunity") || flight.contains(type) || has(player, type, slowFall, "slow-fall");
+			case FIRE, FIRE_TICK, LAVA, HOT_FLOOR, CAMPFIRE -> has(player, type, fireImmunity, "fire-immunity");
+			case DROWNING -> breathesWater(player, type);
+			case FREEZE -> has(player, type, freezeImmunity, "freeze-immunity");
 			default -> false;
 		};
 	}
@@ -1055,11 +1090,11 @@ public final class AbilityManager {
 	public boolean dodgeProjectile(Player player, Entity projectile) {
 		String type = type(player);
 		if (type == null || !enabled) return false;
-		if (deflectProjectiles.contains(type)) {
+		if (has(player, type, deflectProjectiles, "deflect-projectiles")) {
 			projectile.setVelocity(projectile.getVelocity().multiply(-0.5));
 			return true;
 		}
-		if (teleportFromProjectiles.contains(type)) return teleportRandomly(player);
+		if (has(player, type, teleportFromProjectiles, "teleport-from-projectiles")) return teleportRandomly(player);
 		return false;
 	}
 
@@ -1095,12 +1130,12 @@ public final class AbilityManager {
 	/** Sweet berry bushes don't hurt foxes and bees. */
 	public boolean ignoresBerryBush(Player player) {
 		String type = type(player);
-		return enabled && type != null && berryImmune.contains(type);
+		return enabled && type != null && has(player, type, berryImmune, "berry-bush-immunity");
 	}
 
 	public boolean extinguish(Player player) {
 		String type = type(player);
-		return type != null && fireImmunity.contains(type);
+		return type != null && has(player, type, fireImmunity, "fire-immunity");
 	}
 
 	public boolean blocksEffect(Player player, PotionEffectType effect) {
@@ -1113,6 +1148,7 @@ public final class AbilityManager {
 		provoked.computeIfAbsent(attacker.getUniqueId(), k -> new HashSet<>()).add(victim.getUniqueId());
 		if (!enabled || type == null) return;
 		if (attackEffectsUnarmedOnly && !attacker.getInventory().getItemInMainHand().isEmpty()) return;
+		if (!allowed(attacker, "attack-effects")) return;
 		for (TimedEffect e : attackEffects.getOrDefault(type, List.of())) victim.addPotionEffect(new PotionEffect(e.type(), e.ticks(), e.amplifier()));
 	}
 
@@ -1123,7 +1159,7 @@ public final class AbilityManager {
 
 	public void onMeleeHurt(Player victim, LivingEntity attacker) {
 		String type = type(victim);
-		if (!enabled || type == null) return;
+		if (!enabled || type == null || !allowed(victim, "retaliate-effects")) return;
 		for (TimedEffect e : retaliateEffects.getOrDefault(type, List.of())) attacker.addPotionEffect(new PotionEffect(e.type(), e.ticks(), e.amplifier()));
 	}
 
@@ -1132,9 +1168,12 @@ public final class AbilityManager {
 		String type = type(player);
 		if (!enabled || type == null) return false;
 		String mobType = mob.getType().getKey().toString();
-		if (intimidate.getOrDefault(type, Set.of()).contains(mobType)) return true;
+		if (intimidate.getOrDefault(type, Set.of()).contains(mobType) && allowed(player, "intimidate")) return true;
 		Long deadUntil = playingDead.get(player.getUniqueId());
 		if (deadUntil != null && tick < deadUntil) return true;
+		// Mobs seeing a morph as the creature it looks like (targeting below, or the simpler hostile-camouflage) is a
+		// bought trait in Survival; until then they see through the disguise and treat you as a player.
+		if (!allowed(player, "hostile-camouflage")) return false;
 		if (targetingEnabled) {
 			MorphRef form = plugin.morphs().activeForm(player);
 			if (form == null || form.isPlayer()) return false;
@@ -1607,7 +1646,7 @@ public final class AbilityManager {
 					if (!web.getType().isAir()) return false;
 					web.setType(org.bukkit.Material.COBWEB);
 					p.getWorld().playSound(web.getLocation(), Sound.ENTITY_SPIDER_AMBIENT, 1F, 1.4F);
-					int seconds = config.getInt("duration", 30);
+					int seconds = config.getInt("duration", 0);
 					if (seconds > 0) {
 						plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
 							if (web.getType() == org.bukkit.Material.COBWEB) web.setType(org.bukkit.Material.AIR);

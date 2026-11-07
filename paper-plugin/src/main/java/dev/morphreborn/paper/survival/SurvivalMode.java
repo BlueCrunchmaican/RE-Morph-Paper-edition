@@ -62,7 +62,41 @@ public final class SurvivalMode implements GameplayMode {
 	// ------------------------------------------------------------------ progress
 
 	public SurvivalData data(Player player) {
-		return plugin.store().get(player.getUniqueId()).survival();
+		SurvivalData d = plugin.store().get(player.getUniqueId()).survival();
+		if (d.layout < SurvivalData.LAYOUT) {
+			if (convertLayout(d.upgrades)) plugin.getLogger().info("Converted " + player.getName() + "'s Survival upgrades to the 6.6.0 levels.");
+			d.layout = SurvivalData.LAYOUT;
+			plugin.store().markDirty(player.getUniqueId());
+		}
+		return d;
+	}
+
+	/**
+	 * 6.6.0 changed what some upgrade levels mean. Each level bought before is moved to the first new level that is at
+	 * least as good, so nobody loses anything (the new levels are bigger steps, so some players gain a little).
+	 * Returns whether anything changed.
+	 */
+	static boolean convertLayout(Map<String, Integer> upgrades) {
+		boolean changed = false;
+		for (var e : upgrades.entrySet()) {
+			int old = e.getValue();
+			int now = switch (e.getKey()) {
+				// 4, 8, 12 ... 24 blocks -> 3, 8, 16, 32, 64, 150
+				case SurvivalConfig.BIOMASS_REACH -> old <= 0 ? old : old <= 2 ? 2 : old <= 4 ? 3 : 4;
+				// 1,200 x 2.5^(level - 1) kg -> 1,200, 3,000, 10,000, 160,000, no limit
+				case SurvivalConfig.BIOMASS_MAX_MASS -> old <= 0 ? old : old <= 2 ? old : old <= 3 ? 3 : old <= 6 ? 4 : 5;
+				// 0-50% faster (level 0 = Classic) -> 130, 115, 100, 90, 80, 70% of Classic's time (level 1 is the start)
+				case SurvivalConfig.MORPH_EFFICIENCY -> old <= 0 ? 3 : Math.min(old + 3, 6);
+				// level 1 unlocked at Classic's cooldowns, then 10% shorter each -> 130, 115, 100, 90, 80, 70%
+				case SurvivalConfig.MORPH_ABILITIES -> old <= 0 ? 0 : Math.min(old + 2, 6);
+				default -> old;
+			};
+			if (now != old) {
+				e.setValue(now);
+				changed = true;
+			}
+		}
+		return changed;
 	}
 
 	private void changed(Player player) {
@@ -100,14 +134,14 @@ public final class SurvivalMode implements GameplayMode {
 	public void onKill(Player killer, LivingEntity victim, @Nullable MorphRef appearance) {
 		if (!isUnlocked(killer)) return; // before "A Mutation Complication", kills give nothing
 		double reach = value(killer, SurvivalConfig.BIOMASS_REACH);
-		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && distance(killer, victim) > reach) {
+		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && reach >= 0 && distance(killer, victim) > reach) {
 			killer.sendActionBar(Component.text("Too far away to absorb (your reach is " + number(reach) + " blocks).", NamedTextColor.GRAY));
 			return;
 		}
 		double mass = massOf(victim);
 		if (mass <= 0) return;
 		double maxMass = value(killer, SurvivalConfig.BIOMASS_MAX_MASS);
-		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_MAX_MASS) && mass > maxMass) {
+		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_MAX_MASS) && maxMass >= 0 && mass > maxMass) {
 			killer.sendActionBar(Component.text("Too big to absorb: " + number(mass) + " kg (you can absorb up to " + number(maxMass) + " kg).",
 					NamedTextColor.GRAY));
 			return;
@@ -211,19 +245,40 @@ public final class SurvivalMode implements GameplayMode {
 		return null;
 	}
 
+	/** Morph Abilities' value: cooldowns as a share of Classic's (130% at level 1 down to 70% at level 6). */
 	@Override
 	public double cooldownFactor(Player player) {
-		return Math.clamp(1 - value(player, SurvivalConfig.MORPH_ABILITIES) / 100.0, 0.05, 1.0);
+		return percentOfClassic(player, SurvivalConfig.MORPH_ABILITIES, 0.05);
 	}
 
+	/** Morph Efficiency's value: transformation time as a share of Classic's (130% at the start down to 70%). */
 	@Override
 	public double transitionFactor(Player player) {
-		return Math.clamp(1 - value(player, SurvivalConfig.MORPH_EFFICIENCY) / 100.0, 0.1, 1.0);
+		return percentOfClassic(player, SurvivalConfig.MORPH_EFFICIENCY, 0.1);
+	}
+
+	/** An upgrade whose value is "% of Classic"; level 0 counts as level 1, and a missing upgrade as Classic. */
+	private double percentOfClassic(Player player, String id, double min) {
+		Upgrade u = config.upgrades.get(id);
+		if (u == null) return 1.0;
+		double percent = u.value().at(Math.max(1, level(player, id)));
+		return percent <= 0 ? 1.0 : Math.clamp(percent / 100.0, min, 5.0);
 	}
 
 	@Override
 	public boolean mayFly(Player player) {
 		return !config.upgrades.containsKey(SurvivalConfig.MORPH_FLIGHT) || level(player, SurvivalConfig.MORPH_FLIGHT) >= 1;
+	}
+
+	/** A beneficial trait is on once any upgrade that lists it is bought; traits no upgrade lists are always on. */
+	@Override
+	public boolean hasTrait(Player player, String trait) {
+		java.util.List<String> unlocks = config.traitUnlocks.get(trait);
+		if (unlocks == null) return true;
+		for (String id : unlocks) {
+			if (level(player, id) >= 1) return true;
+		}
+		return false;
 	}
 
 	@Override
@@ -349,7 +404,10 @@ public final class SurvivalMode implements GameplayMode {
 	/** Some upgrades change what the player's current form can do right away. */
 	private void afterUpgrade(Player player, String id) {
 		if (!active()) return;
-		if (id.equals(SurvivalConfig.MORPH_FLIGHT) || id.equals(SurvivalConfig.MORPH_ABILITIES)) plugin.abilities().refreshMovement(player);
+		Upgrade u = config.upgrades.get(id);
+		if (id.equals(SurvivalConfig.MORPH_FLIGHT) || id.equals(SurvivalConfig.MORPH_ABILITIES) || (u != null && !u.traits().isEmpty())) {
+			plugin.abilities().refreshMovement(player);
+		}
 	}
 
 	/** Start over: locked biomass, no biomass, start levels. The morph collection is untouched. */
@@ -402,8 +460,29 @@ public final class SurvivalMode implements GameplayMode {
 		plugin.channel().sendSurvival(player, isUnlocked(player), (int) Math.floor(data(player).biomass), (int) Math.floor(capacity(player)), canMorph(player));
 	}
 
+	/**
+	 * The upgrade's format with {value} filled in; a negative value means "no limit". For a value that is a percentage
+	 * of the normal length (130 = 30% longer), {seconds} is a transformation's length in seconds at that percentage
+	 * (config.yml's transition length) and {factor} the multiplier ("×1.3").
+	 */
 	public String formatValue(Upgrade u, double value) {
-		return u.format().replace("{value}", number(value));
+		if (value < 0) return "no limit";
+		String text = u.format().replace("{value}", number(value));
+		if (text.contains("{seconds}")) text = text.replace("{seconds}", transformSeconds(plugin.settings().transitionTicks, value));
+		return text.replace("{factor}", factor(value));
+	}
+
+	/** A transformation's length at this percentage of the normal one, in seconds (never under a second, as MorphManager). */
+	static String transformSeconds(int transitionTicks, double percent) {
+		return number(Math.max(20, Math.round(transitionTicks * percent / 100.0)) / 20.0);
+	}
+
+	private static final DecimalFormat FACTOR = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
+
+	static String factor(double percent) {
+		synchronized (FACTOR) {
+			return "×" + FACTOR.format(percent / 100.0);
+		}
 	}
 
 	private static final DecimalFormat NUMBER = new DecimalFormat("#,##0.#", DecimalFormatSymbols.getInstance(Locale.ROOT));

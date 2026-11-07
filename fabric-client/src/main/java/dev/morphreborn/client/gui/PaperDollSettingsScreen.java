@@ -29,6 +29,7 @@ public final class PaperDollSettingsScreen extends OptionsSubScreen {
 	@Override
 	protected void addOptions() {
 		if (this.list == null) return;
+		ClientConfig.dollToScreenPixels(); // the sliders below are in screen pixels
 		ClientConfig c = ClientConfig.INSTANCE;
 
 		header("doll");
@@ -37,9 +38,9 @@ public final class PaperDollSettingsScreen extends OptionsSubScreen {
 
 		header("placement");
 		this.list.addSmall(choice("dollCorner", c.dollCorner, List.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT"), v -> c.dollCorner = v),
-				new IntSlider("dollSize", c.dollSize, 20, 200, String::valueOf, v -> c.dollSize = v));
-		this.list.addSmall(new IntSlider("dollX", c.dollX, 0, 400, String::valueOf, v -> c.dollX = v),
-				new IntSlider("dollY", c.dollY, 0, 300, String::valueOf, v -> c.dollY = v));
+				new IntSlider("dollSize", c.dollSize, 40, 800, v -> v + " px", v -> c.dollSize = v));
+		this.list.addSmall(new IntSlider("dollX", c.dollX, 0, 1600, v -> v + " px", v -> c.dollX = v),
+				new IntSlider("dollY", c.dollY, 0, 1200, v -> v + " px", v -> c.dollY = v));
 
 		header("look");
 		this.list.addSmall(new IntSlider("dollAngle", c.dollAngle, -180, 180, v -> v + "°", v -> c.dollAngle = v),
@@ -48,7 +49,8 @@ public final class PaperDollSettingsScreen extends OptionsSubScreen {
 				choice("dollScale", c.dollScale, List.of("TRUE_SIZE", "FILL"), v -> c.dollScale = v));
 		this.list.addSmall(choice("dollLight", c.dollLight, List.of("BRIGHT", "WORLD"), v -> c.dollLight = v),
 				new IntSlider("dollOpacity", c.dollOpacity, 10, 100, v -> v + "%", v -> c.dollOpacity = v));
-		this.list.addSmall(choice("dollOutline", c.dollOutline, List.of("OFF", "THIN", "THICK"), v -> c.dollOutline = v),
+		this.list.addSmall(new IntSlider("dollVignette", c.dollVignette, 0, ClientConfig.VIGNETTE_MAX,
+				v -> v == 0 ? Component.translatable("morphreborn.settings.dollVignette.off").getString() : v + " px", v -> c.dollVignette = v),
 				new IntSlider("dollOutlineStrength", c.dollOutlineStrength, 10, 100, v -> v + "%", v -> c.dollOutlineStrength = v));
 
 		header("pose");

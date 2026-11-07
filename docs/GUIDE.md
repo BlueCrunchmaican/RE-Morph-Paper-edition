@@ -19,6 +19,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 | `resourcepack/RE-Morph-sounds.zip` | Optional server resource pack with the original morph sound, for players without the mod |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
+| `MOB-MASSES.md` | Survival Mode: every mob's mass, biomass and morph cost |
 | `SURVIVAL-MODE.md` | How Survival Mode works: the unlock, biomass, the upgrade tree and its numbers |
 | `TESTING.md` | What has been tested, and a checklist for live testing |
 | `source/` | Full source code (required by the LGPL licence) |
@@ -131,7 +132,7 @@ so on) unlock separately. Killing a player unlocks their form; killing a morphed
 | `Delete` | Remove a morph from your collection |
 | Hold `` ` `` | Favourites wheel: point at a favourite and let go |
 | `R` | Use the morph's ability |
-| Biomass Menu (unbound at first) | Survival Mode: the upgrade tree. Also the Biomass button in the middle of the favourites wheel, or `/morph upgrades` |
+| Biomass Menu (unbound at first) | Survival Mode: the upgrade tree. Also a click on the Biomass button in the middle of the favourites wheel, or `/morph upgrades` |
 
 Keys can be changed in **Options → Controls → Key Binds**, under RE:Morph (mouse side buttons work too). "Return to player form" has no key by
 default. You can also pick your own player form in the selector.
@@ -144,6 +145,7 @@ default. You can also pick your own player form in the selector.
 | Biomass Gain | Survival Mode: what a kill that only gives biomass looks like. Same choices; **Red Tendrils** by default, so it can't be mistaken for a new morph. |
 | Transforming | **Morph**: the body turns black and melts into the new shape. **Plain**: the old body shrinks into dark smoke and the new one grows back, as players without the mod see it. |
 | Unlock toasts, Name tags, Mouse in selector, Invert scroll | On / off |
+| Update Check | On (default): once per game start the mod asks GitHub whether a newer RE:Morph is out and says so in chat when you join a RE:Morph server (6.6.0) |
 | Biomass Bar | Survival Mode: **When It Changes** (default), **Always** or **Off** |
 | Paper Doll... | Opens the paper doll's own settings (below) |
 
@@ -161,16 +163,17 @@ background. Every morph follows the same settings as your own body. Settings (RE
 | Doll | Paper Doll | On (default) / off. The **Show/Hide Paper Doll** key (Controls, unbound at first) flips it. |
 | | Show | **Always** (default), **While Morphed**, or **While Active** (only while one of the "Show When" things below is happening) |
 | | Stays After | How long a While Active doll lingers, 0–5 s (default 1 s) |
-| Placement | Corner, Size | Top left (default) or any corner; 20–200 GUI pixels (default 50) |
+| Placement | Corner, Size | Top left (default) or any corner; 40–800 screen pixels (default 100). The doll keeps its size whatever the GUI scale (6.6.0; older settings are converted once at the GUI scale in use) |
 | | Side Distance, Edge Distance | How far in from the corner (default 8 pixels) |
 | Look | Turn, Tilt | Which way it faces, -180° to 180° (default 25°); how far you look down on it, -60° to 60° (default 10°) |
 | | Sizing | **True Size** (default): a player fills the box, smaller morphs are drawn smaller, only bigger ones are shrunk. **Fill the Box**: every morph is scaled to fill it |
 | | Lighting, Opacity | **Bright** (default) or **Like the World**; 10–100% |
-| | Vignette, Vignette Darkness | **Soft** (default), **Wide** or **Off**; 10–100% (default 70%) |
+| | Vignette Size, Vignette Darkness | How far the haze reaches out, 0–32 screen pixels (0 = off, default 6); how dark it is next to the doll, 10–100% (default 70%) |
 | Pose | Head | **Follows You** (default; turns and looks as you do), **Turns Only**, **Looks Up/Down Only**, **Straight**, or **Looks at You** (faces out of the screen) |
 | | Level Head: Elytra, Level Head: Riptide | Keep the head level while gliding or spinning with a trident (both on) |
 | | Vehicles | Show what you ride, with its passengers (default on) |
-| Hide | In Menus, Hide in Third Person, Hide with F3 | When it steps aside (defaults: hidden in menus, in third person and with F3) |
+| Hide | Show in Menus | Off (default). On: the doll stays while a menu is open, drawn on top of it: your inventory, chests, chat, the pause menu, other mods' screens |
+| | Hide in Third Person, Hide with F3 | When it steps aside (both on by default) |
 | | Hide for Music Toast | Steps aside while the "now playing" music toast is up (default on) |
 | While Active, Show When... | Walking, Crouching, Sprinting, Jumping and Falling, Elytra Gliding, Swimming, Flying, Climbing, Riding, Blocking, Using an Item, Swinging, Taking Damage, On Fire, In Powder Snow, Sleeping, Transforming, Using an Ability | Each on or off (all on except Walking) |
 
@@ -205,12 +208,15 @@ If the server plays Survival Mode, morphing has to be earned:
    creature's **biomass**, shown in the action bar (and the biomass bar with the mod). Big creatures need upgrades
    before you can absorb them, and kills too far away don't count.
 3. Spend biomass on upgrades:
-   - **With the client mod:** hold the favourites key (`` ` ``) and click the **Biomass** button in the middle of the
-     wheel (or let go of the key over it), or type `/morph upgrades`, or press the Biomass Menu key if you bound one. The upgrade tree is laid out like
-     the advancement screen, each upgrade shown with a status effect icon. Drag or scroll to move around, hover for
-     details, click to buy. Upgrades you can afford right now glow red. In Survival the wheel opens even before you
-     can morph, showing just the Biomass button.
-   - **Without the mod (and Bedrock):** `/morph upgrades` opens a chest menu; click an item to buy.
+   - **With the client mod:** hold the favourites key (`` ` ``) and click the round **Biomass** button in the middle
+     of the wheel, or type `/morph upgrades`, or press the Biomass Menu key if you bound one. (Letting go of the key
+     with the mouse in the middle just closes the wheel.) The upgrade tree is in the advancement screen's style, each
+     upgrade shown with a status effect icon, in three sections: Biomass, the Morph Ability on its own with the Morph
+     section beside it, and the Abilities below. Drag or scroll to move around, hover for details, click to buy.
+     Upgrades you can afford right now glow red. In Survival the wheel opens even before you can morph, showing just
+     the Biomass button.
+   - **Without the mod (and Bedrock):** `/morph upgrades` opens a chest menu with the same sections; click an item
+     to buy.
    - Anyone: `/morph upgrade <name>` buys directly, `/morph biomass` lists your progress.
 4. Buy the **Morph Ability** to start morphing. Morphs you already had open up, and new kills unlock morphs while
    your collection has room (Morph Capacity, Variant Capacity).
@@ -219,11 +225,15 @@ If the server plays Survival Mode, morphing has to be earned:
    mod, the selector shows each price after the name and the favourites wheel under it, red when you can afford it
    and grey when you can't. Without
    it, `/morph use` tells you the price if you're short. The admin can turn this off or change it (`/morph cost`).
-6. **Morph Abilities** unlocks the ability key, **Morph Flight** lets flying morphs fly (until then they glide), and
-   **Morph Efficiency** makes transformations faster.
+6. Transformations start at 6.5 seconds and **Morph Efficiency** brings them down to 3.5. Ability cooldowns start
+   at ×1.3 and **Morph Abilities** brings them down to ×0.7. **Morph Abilities** also unlocks the ability key and the **Abilities**
+   section: each kind of good trait (night vision, water breathing, fire immunity, flight, climbing, camouflage...) is
+   bought there once. A morph's drawbacks, like burning in daylight, are always on.
 
-With the mod, a biomass bar sits in the bottom left: a blood-red fill under the morph's black static, tendrils of it
-swaying along the top, and each gain floating up (`+21`). It shows for a few seconds after a change by default;
+With the mod, a biomass bar sits in the bottom left: a living lump of biomass rather than a box. Its edges ripple,
+drops of goo gather underneath and fall, the fill is blood red under the morph's black static, black and red tendrils
+sway along the top, and each gain floats up (`+21`) while the whole bar surges. When storage is full, its label reads FULL in
+yellow. At large GUI scales it is drawn one scale step smaller, so it stays a small corner readout. It shows for a few seconds after a change by default;
 Biomass Bar in `/morphclient` makes it always or never show. A kill that only gives biomass is pulled in by dark red
 tendrils, and one that unlocks a new morph by the original black ones (Biomass Gain and New Morph in `/morphclient`).
 Players without the mod see red trails for biomass and dark ones for a new morph.
@@ -357,6 +367,12 @@ something off. `enabled: false` turns off all abilities. Leave `config-version` 
 file is out of date (see Updating).
 
 **`variants.yml`:** which mob data counts as a different look (for example, sheep colour does and sheep health doesn't).
+
+**Update checks** (6.6.0): the plugin asks GitHub at startup and every 12 hours whether a newer RE:Morph release is out.
+If one is, the console says so and players with `morphreborn.admin` are told when they join (`update-check.enabled`
+in `config.yml`). Players whose client mod is older than the plugin are told when they join, with short [Modrinth] and
+[GitHub] links (`client.old-client-message`, `""` turns it off). The client mod has its own Update Check setting. Only
+GitHub's public "latest release" page is requested; nothing about the server or its players is sent.
 
 Player collections are saved in `plugins/RE-Morph/players/`, one file per player.
 

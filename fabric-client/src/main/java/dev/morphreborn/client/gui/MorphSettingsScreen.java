@@ -31,7 +31,7 @@ public final class MorphSettingsScreen extends OptionsSubScreen {
 		this.list.addSmall(animation("transition", c.transitionAnimation, v -> c.transitionAnimation = v),
 				toggle("unlockToasts", c.unlockToasts, v -> c.unlockToasts = v));
 		this.list.addSmall(toggle("nameTags", c.showNameTags, v -> c.showNameTags = v), toggle("mouse", c.selectorAllowMouseControl, v -> c.selectorAllowMouseControl = v));
-		this.list.addSmall(toggle("invertScroll", c.invertScroll, v -> c.invertScroll = v), null);
+		this.list.addSmall(toggle("invertScroll", c.invertScroll, v -> c.invertScroll = v), toggle("updateCheck", c.updateCheck, v -> c.updateCheck = v));
 		this.list.addSmall(CycleButton.<String>builder(v -> Component.translatable("morphreborn.settings.biomassBar." + v.toLowerCase(java.util.Locale.ROOT)), c.biomassBar)
 				.withValues("CHANGES", "ALWAYS", "OFF")
 				.withTooltip(v -> Tooltip.create(Component.translatable("morphreborn.settings.biomassBar.tooltip")))

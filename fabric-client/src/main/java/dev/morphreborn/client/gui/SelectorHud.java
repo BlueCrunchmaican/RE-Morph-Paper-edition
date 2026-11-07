@@ -168,7 +168,7 @@ public final class SelectorHud {
 				mc.mouseHandler.releaseMouse();
 			}
 		} else if (showRadial) {
-			confirmRadial();
+			confirmRadial(false);
 		}
 	}
 
@@ -185,7 +185,7 @@ public final class SelectorHud {
 		if (showSelector || showRadial) {
 			if (!keyEnterDown && enter && mc.gui.screen() == null) {
 				if (showSelector) confirmSelector();
-				else confirmRadial();
+				else confirmRadial(true); // Enter is a deliberate pick, like a click
 			}
 			if (mc.gui.screen() != null || (!keyEscDown && esc)) {
 				if (mc.gui.screen() instanceof PauseScreen) mc.gui.setScreen(null);
@@ -222,7 +222,7 @@ public final class SelectorHud {
 			return true;
 		}
 		if (showRadial) {
-			if (button == InputConstants.MOUSE_BUTTON_LEFT) confirmRadial();
+			if (button == InputConstants.MOUSE_BUTTON_LEFT) confirmRadial(true);
 			else closeRadial();
 			return true;
 		}
@@ -305,10 +305,15 @@ public final class SelectorHud {
 		indexChangeTime = 0;
 	}
 
-	private void confirmRadial() {
+	/**
+	 * Letting go of the favourite key (or a left click) picks the favourite under the mouse. In the middle nothing is
+	 * picked and the wheel just closes; only a click on the Biomass button there opens the upgrade tree, so letting go
+	 * with the mouse still in the middle never opens it by accident.
+	 */
+	private void confirmRadial(boolean click) {
 		if (survivalWheel() && isMouseOnBiomassButton()) {
 			closeRadial();
-			ClientNet.openUpgrades();
+			if (click) ClientNet.openUpgrades();
 			return;
 		}
 		if (isMouseOutsideRadialDeadZone() && radialFavourites != null && !radialFavourites.isEmpty()) {
@@ -512,7 +517,7 @@ public final class SelectorHud {
 		List<Runnable> overlays = new ArrayList<>();
 		Component title = Component.translatable("key.morphreborn.favourite");
 		if (biomassButton) {
-			drawBiomassButton(g, overlays, cx, cy, textScale * radialProg);
+			drawBiomassButton(g, overlays, cx, cy, textScale * radialProg, partialTick);
 		} else {
 			overlays.add(() -> {
 				g.pose().pushMatrix();
@@ -567,50 +572,40 @@ public final class SelectorHud {
 				: Component.translatable("morphreborn.upgrades.locked_short");
 	}
 
-	/** Half the width and half the height of the Biomass button: just big enough for its two lines of text. */
-	private float[] biomassButtonHalf(float textScale) {
+	/** The Biomass button's radius: just big enough for its two lines of text. */
+	private float biomassButtonRadius(float textScale) {
 		Font font = mc.font;
 		float scale = textScale * BIOMASS_TEXT;
 		float textWidth = Math.max(font.width(biomassLabel()), font.width(biomassAmount())) * scale;
-		float pad = 3F * textScale;
-		return new float[] {textWidth / 2F + pad, font.lineHeight * scale + pad};
+		return Math.max(textWidth / 2F, font.lineHeight * scale) + 4F * textScale;
 	}
 
-	/** Mouse over the centre Biomass button. */
+	/** Mouse over the centre Biomass button (the round part, not its tendrils). */
 	private boolean isMouseOnBiomassButton() {
 		double diameter = Math.min(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()) * ClientConfig.INSTANCE.radialScale;
-		float[] half = biomassButtonHalf((float) (diameter / 2D) / 96.375F);
+		float r = biomassButtonRadius((float) (diameter / 2D) / 96.375F);
 		double scale = mc.getWindow().getGuiScale();
-		double mx = mc.mouseHandler.xpos() / scale - mc.getWindow().getGuiScaledWidth() / 2D;
-		double my = mc.mouseHandler.ypos() / scale - mc.getWindow().getGuiScaledHeight() / 2D;
-		return Math.abs(mx) <= half[0] && Math.abs(my) <= half[1];
+		double mx = mc.mouseHandler.xpos() / scale;
+		double my = mc.mouseHandler.ypos() / scale;
+		return BiomassOrb.contains(mc.getWindow().getGuiScaledWidth() / 2D, mc.getWindow().getGuiScaledHeight() / 2D, r / BiomassOrb.RADIUS, mx, my);
 	}
 
 	/**
-	 * Survival Mode's Biomass button in the middle of the wheel: the morph's static under a red tint, with the biomass
-	 * amount, sized to its text. Clicking it (or letting go of the key over it) opens the upgrade tree.
+	 * Survival Mode's Biomass button in the middle of the wheel: a lump of biomass with tendrils reaching out, the
+	 * morph's static inside, and the biomass amount. Clicking it opens the upgrade tree; letting go of the key over it
+	 * only closes the wheel.
 	 */
-	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float textScale) {
-		float[] half = biomassButtonHalf(textScale);
-		if (half[0] < 4 || half[1] < 3) return;
+	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float textScale, float partialTick) {
+		float r = biomassButtonRadius(textScale);
+		if (r < 4) return;
 		boolean hover = isMouseOnBiomassButton();
-		int x0 = Math.round(cx - half[0]);
-		int y0 = Math.round(cy - half[1]);
-		int w = Math.round(half[0] * 2);
-		int h = Math.round(half[1] * 2);
-		int frame = mc.player == null ? 0 : mc.player.tickCount / 2;
-		g.fill(x0 - 1, y0 - 1, x0 + w + 1, y0 + h + 1, hover ? 0xFFFF5252 : 0xFF000000);
-		for (int sx = 0; sx < w; sx += 16) {
-			for (int sy = 0; sy < h; sy += 16) {
-				int seed = (frame * 13 + sx * 7 + sy * 31) & 0xFFFF;
-				g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, dev.morphreborn.client.render.MorphWorldRenderer.MORPH_SKIN, x0 + sx, y0 + sy,
-						seed % 48, (seed / 48) % 48, Math.min(16, w - sx), Math.min(16, h - sy), 64, 64);
-			}
-		}
-		g.fill(x0, y0, x0 + w, y0 + h, hover ? 0x709E1B1B : 0x509E1B1B);
+		float time = (mc.player == null ? 0 : mc.player.tickCount) + partialTick;
+		BiomassOrb.draw(g, cx, cy, r / BiomassOrb.RADIUS, time, hover ? 0xFFE53935 : 0xFF6D1010, hover ? 0x709E1B1B : 0x509E1B1B, hover ? 0.8F : 0F);
 		Font font = mc.font;
 		Component label = biomassLabel();
 		Component amount = biomassAmount();
+		Component click = Component.translatable("morphreborn.wheel.biomass_click");
+		boolean showClick = hover && ClientConfig.INSTANCE.selectorAllowMouseControl;
 		float scale = textScale * BIOMASS_TEXT;
 		overlays.add(() -> {
 			g.pose().pushMatrix();
@@ -619,6 +614,15 @@ public final class SelectorHud {
 			g.text(font, label, -font.width(label) / 2, -font.lineHeight, hover ? 0xFFFFFFFF : 0xFFFFCDD2, true);
 			g.text(font, amount, -font.width(amount) / 2, 1, 0xFFEF9A9A, true);
 			g.pose().popMatrix();
+			if (showClick) {
+				// under the orb and its tendrils, so the hint never sits on top of the text
+				float hintScale = scale * 0.8F;
+				g.pose().pushMatrix();
+				g.pose().translate(cx, cy + r * 1.85F);
+				g.pose().scale(hintScale, hintScale);
+				g.text(font, click, -font.width(click) / 2, 0, 0xFFFFEB3B, true);
+				g.pose().popMatrix();
+			}
 		});
 	}
 
