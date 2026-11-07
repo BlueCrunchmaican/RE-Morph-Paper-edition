@@ -178,8 +178,10 @@ public final class HybridMorph {
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static void submit(EntityRenderDispatcher dispatcher, EntityRenderState state, double x, double y, double z, PoseStack poseStack,
 			SubmitNodeCollector collector) {
-		if (((FirstPersonMorph.Mark) state).morph$firstPersonBody()) return; // not in the first-person view
-		Placed placed = place(dispatcher, state);
+		// First-person Model's body view: the borrowed parts are your body too (wings at your shoulders, a tail behind),
+		// but not a borrowed head, which would sit on the camera
+		boolean firstPerson = ((FirstPersonMorph.Mark) state).morph$firstPersonBody();
+		Placed placed = place(dispatcher, state, !firstPerson);
 		if (placed == null) return;
 		Vec3 offset = ((EntityRenderer) dispatcher.getRenderer(state)).getRenderOffset(state);
 		int light = state.lightCoords;
@@ -201,14 +203,14 @@ public final class HybridMorph {
 
 	/** The borrowed head and parts as boxes, for a transformation's capture (ModelCapture.captureHybrid). */
 	public static List<ModelCapture.Box> boxes(EntityRenderDispatcher dispatcher, EntityRenderState state) {
-		Placed placed = place(dispatcher, state);
+		Placed placed = place(dispatcher, state, true);
 		if (placed == null) return List.of();
 		List<ModelCapture.Box> out = new ArrayList<>(placed.cubes().size());
 		for (Cube c : placed.cubes()) out.add(ModelCapture.box(c.pose(), c.normal(), c.cube()));
 		return out;
 	}
 
-	private static @Nullable Placed place(EntityRenderDispatcher dispatcher, EntityRenderState state) {
+	private static @Nullable Placed place(EntityRenderDispatcher dispatcher, EntityRenderState state, boolean withHead) {
 		if (!(state instanceof Mark mark)) return null;
 		EntityRenderState borrowed = mark.morph$borrowed();
 		if (borrowed == null) return null;
@@ -225,7 +227,7 @@ public final class HybridMorph {
 		Body lent = body(dispatcher, borrowed);
 		if (lent == null) return null;
 		List<Cube> placed = new ArrayList<>();
-		if (headSwap) {
+		if (headSwap && withHead) {
 			List<Cube> cubes = new ArrayList<>();
 			Matrix4f own = headCubes(lent.root(), lent.base(), cubes);
 			if (neck != null && own != null && !cubes.isEmpty()) {

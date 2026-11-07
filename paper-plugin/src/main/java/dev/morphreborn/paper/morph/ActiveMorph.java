@@ -18,6 +18,17 @@ public final class ActiveMorph {
 	public boolean soundPlayed;
 	/** Live appearance on top of the variant (e.g. an enderman's carried block, a primed creeper), as SNBT; empty = none. */
 	public String overlay = "";
+	/**
+	 * This body's vanilla conversion (a villager zombified, a zombie drowned, a pig struck by lightning): the creature it
+	 * shows and plays as now, carrying the saved form's variant id, so the collection, the selector and what is saved
+	 * don't change. Never saved: a new form, a respawn or logging out ends it. Null = none.
+	 */
+	public @Nullable MorphRef converted;
+
+	/** What the body is now: its conversion, or the form itself. */
+	public @Nullable MorphRef look() {
+		return converted != null ? converted : next;
+	}
 
 	public boolean isMorphed() {
 		return next != null;
@@ -29,8 +40,8 @@ public final class ActiveMorph {
 
 	/** The form that counts for gameplay right now: whichever side of the transition is dominant. */
 	public @Nullable MorphRef activeForm() {
-		if (!isTransitioning()) return next;
-		return morphProgress() < 0.5F ? prev : next;
+		if (!isTransitioning()) return look();
+		return morphProgress() < 0.5F ? prev : look();
 	}
 
 	public float morphProgress() {

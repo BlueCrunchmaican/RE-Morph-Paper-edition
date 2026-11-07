@@ -32,6 +32,9 @@ Nobody is kicked for not having the mod.
   fins or rods, and gets both creatures' traits and abilities: a zombie with bat wings, a cow with a wolf's head, a
   ghast with a creeper's blast. Shift-pick in the selector or wheel (a preview panel shows the result), or
   `/morph combine`. In Survival it's an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
+- **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
+  becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
+  outside the Nether, lightning turns a pig into a zombified piglin. Only that body changes; your saved morph doesn't.
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
   head, pose and auto-hide settings), an advancement-style upgrade

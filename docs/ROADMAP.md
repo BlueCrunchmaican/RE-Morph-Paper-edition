@@ -65,6 +65,29 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## Next release: 7.1.0, vanilla conversions
+
+The user's request: whatever turns a mob into another in vanilla turns a morph of it too, per body (the GUI and the
+saved morph don't change, the model does), the way lightning already charged a creeper. Multimorphs are left out.
+
+- [x] Per body, not saved: `ActiveMorph.converted`, the creature the body is now, carrying the saved form's variant id,
+      so the collection, the selector's current form and what is saved stay as picked; the body, abilities, disguise
+      and what clients are sent follow it. A new form, a respawn or logging out ends it. A short transformation (40
+      ticks) plays into it, with the vanilla conversion sound instead of the morph sound. Older clients see it too.
+- [x] Villager killed by a zombie (lethal hit, by difficulty) -> zombie villager, at full health, job kept.
+- [x] Zombie villager cured (Weakness + golden apple, fed or eaten): shakes 3 minutes (`cure-seconds`) -> villager.
+- [x] Zombie / zombie villager 30 s under water -> 15 s shaking -> drowned; husk -> zombie.
+- [x] Skeleton 7 s in powder snow -> 15 s shaking -> stray.
+- [x] Piglin, piglin brute, hoglin outside the Nether: shaking for 15 s -> zombified piglin, zoglin (the user: on by
+      default, a toggle). Morphs had been immune to this since 5.1.0, when the shake looked like a bug.
+- [x] Lightning: pig -> zombified piglin, villager -> witch (not on Peaceful), mooshroom -> the other colour.
+- [x] Sulfur cube given a block by another player (the `sulfur_cube_archetype` item tags): holds it; TNT makes it
+      explosive, and its blast spends it.
+- [x] Shaking shows for both kinds of player (a `MorphShaking` look flag: Lib's Disguises' converting/shaking flags,
+      piglins and hoglins no longer kept immune on modded clients); the action bar tells the player.
+- [x] `conversions` in config.yml: on/off overall and per kind, the cure's length, the transformation's length.
+- [x] First-person Model: a multimorph's borrowed parts show on your body in its view (the borrowed head never does).
+
 ## Released: 7.0.0, Multimorph (combining morphs)
 
 Two forms at once: the first one picked is the main body, the second is borrowed and lends it parts and powers. Designed
@@ -172,7 +195,7 @@ Open:
       the mod see the right variant.
 - [ ] Players without the mod: no borrowed head on an ender dragon body (no neck data for it).
 - [x] The Survival node: a one-time unlock of its own (above).
-- [x] Pushed: tag `v7.0.0`. Still to publish: the GitHub release and the Modrinth versions.
+- [x] Released: tag `v7.0.0`, GitHub release `RE:Morph 7.0.0`, Modrinth `7.0.0+paper` / `7.0.0+fabric`.
 
 ## Priority 1: existing functionality
 

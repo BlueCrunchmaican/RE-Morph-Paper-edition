@@ -181,13 +181,24 @@ background. Every morph follows the same settings as your own body. Settings (RE
 
 It also steps aside while the selector or the favourites wheel is open.
 
+**7.0.0** adds multimorphs (two morphs at once, see Playing) and renames the resource pack to `RE-Morph-pack.zip`
+(it carries the heads multimorphs borrow; swap it in if you serve the pack). `config.yml` and `survival.yml` gain their
+multimorph settings and keep your values; `abilities.yml` is left alone. 6.6 clients keep working, without
+multimorphs.
+
+**7.1.0** adds vanilla conversions for morphs (see Conversions below): `config.yml` gains the `conversions` section,
+everything on, and keeps your values. In First-person Model's view a multimorph's borrowed parts now show on your
+body (never its borrowed head). Older clients still work and see conversions too.
+
 **First-person Model (optional compatible mod):** with [First-person Model](https://modrinth.com/mod/first-person-model)
 installed, your body in its first-person view is your morph. Its head is left out and the camera sits just in front of its body, so the view ahead stays clear
 and looking down shows its front legs and back (a spider sees its legs on both sides). Humanoid morphs such as zombies
 look like a player's body does. First-person Model's own toggle stays in charge: switch its view off and first person
 is plain again. Transformations play on your body. As a morph with no head to look out of (slimes, magma cubes,
 ghasts, squid), first person is plain. As the ender dragon the camera is at its head, so the rest of it stays behind
-you. RE:Morph doesn't need First-person Model: without it, first person is unchanged.
+you. A multimorph's borrowed parts are part of your body there (blaze rods around your legs, wings behind your
+shoulders); its borrowed head is left out like your own. RE:Morph doesn't need First-person Model: without it, first
+person is unchanged.
 
 ### Multimorph: two morphs at once
 
@@ -215,6 +226,29 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
   log in.
 - `/morphclient preview [main] [borrowed]` shows any two creatures combined, without owning or becoming them.
 - Players without the mod see the body with the borrowed head on it (see the resource pack above).
+
+### Conversions
+
+A morph changes the way its creature does in vanilla, for as long as you keep that body. The selector, your
+collection and your saved morph keep the form you picked; picking a form, respawning or logging out ends it.
+Multimorphs don't convert. Your action bar says when something is under way (vanilla shows it only as shaking).
+
+| Morph | What does it | Becomes |
+|---|---|---|
+| Villager | Killed by a zombie (never on Easy, half the time on Normal, always on Hard): you live on, at full health | Zombie villager, same job |
+| Zombie villager | Weakness, then a golden apple (fed by another player, or eaten): shakes for 3 minutes | Villager |
+| Zombie, zombie villager | 30 seconds under water, then 15 seconds shaking | Drowned |
+| Husk | The same | Zombie |
+| Skeleton | 7 seconds in powder snow, then 15 seconds shaking (in the sun a skeleton burns, and fire melts the snow) | Stray |
+| Piglin, piglin brute, hoglin | 15 seconds outside the Nether, shaking | Zombified piglin, zoglin |
+| Pig, villager | Lightning (not on Peaceful) | Zombified piglin, witch |
+| Mooshroom | Lightning | The other colour |
+| Creeper | Lightning | Charged (its next blast is twice as big; see Abilities) |
+| Sulfur cube | Another player right-clicks it with a block it can take | Holding the block; TNT makes it explosive, and the blast spends it |
+
+The new creature's traits and abilities apply (a zombie villager burns in daylight, a drowned breathes under water).
+A creative player isn't struck by lightning. Each kind can be switched off under `conversions` in `config.yml`, along
+with the cure's length.
 
 ### Without the client mod (plain Java and Bedrock)
 

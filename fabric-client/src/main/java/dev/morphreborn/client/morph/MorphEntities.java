@@ -126,7 +126,9 @@ public final class MorphEntities {
 		living.load(TagValueInput.create(problems, level.registryAccess(), tag));
 		if (!problems.isEmpty()) MorphClient.LOGGER.warn("Problems loading morph {} {}: {}", ref.entityType(), ref.snbt(), problems.getReport());
 		living.setNoGravity(true);
-		neverConvert(living);
+		// a vanilla conversion under way on the server (MorphShaking, from Conversions): a piglin or hoglin may shake;
+		// zombies, skeletons and zombie villagers shake from their own conversion timers in the same data
+		if (!tag.getBooleanOr("MorphShaking", false)) neverConvert(living);
 		return living;
 	}
 

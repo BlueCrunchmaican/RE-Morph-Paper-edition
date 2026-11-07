@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 7.0.0
+config-version: 7.1.0
 
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
 # survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
@@ -171,6 +171,34 @@ multimorph:
   #   pack - shown to everyone (when the server requires the pack)
   #   off  - never
   vanilla-heads: auto
+
+conversions:
+  # A morph changes the way its creature does in vanilla, for as long as you keep that body. The selector, your
+  # collection and your saved morph keep the form you picked; a new form, a respawn or logging out ends it. Multimorphs
+  # don't convert.
+  enabled: true
+  # A villager killed by a zombie becomes a zombie villager: never on Easy, half the time on Normal, always on Hard.
+  zombie-villager: true
+  # A zombie villager with Weakness, fed a golden apple (by another player, or eating one itself), shakes for a while and
+  # turns back into a villager.
+  curing: true
+  # A zombie (or zombie villager) under water for 30 seconds drowns into a drowned, 15 seconds later; a husk into a
+  # zombie.
+  drowning: true
+  # A skeleton stuck in powder snow for 7 seconds becomes a stray, 15 seconds later.
+  freezing: true
+  # Piglins, piglin brutes and hoglins outside the Nether shake for 15 seconds and zombify.
+  zombification: true
+  # Lightning turns a pig into a zombified piglin and a villager into a witch, and flips a mooshroom's colour. (It
+  # charges a creeper: abilities.yml, explode.)
+  lightning: true
+  # A sulfur cube takes a block when another player right-clicks it with one (only blocks sulfur cubes take); TNT
+  # makes it explosive, and exploding spends it.
+  sulfur-cube: true
+  # How long a cure takes (vanilla: 3 to 5 minutes).
+  cure-seconds: 180
+  # How long the change itself takes, in ticks: a short transformation.
+  transformation-ticks: 40
 
 # Ask GitHub at startup and every 12 hours whether a newer RE:Morph release is out. If one is, the console says so and
 # players with morphreborn.admin are told when they join. Only the public "latest release" page is requested.

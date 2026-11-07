@@ -244,6 +244,33 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.1.0, vanilla conversions (2026-11-07)
+
+Tried on the test server with two modded clients and a vanilla one; each conversion watched from all three.
+
+- [x] Lightning on a pig morph (a survival player): zombified piglin for everyone; the selector still shows Pig;
+      `/morph info` shows the form and "turned into (not saved)".
+- [x] Piglin in the Overworld: shakes (the user watched it: the vanilla shake), zombifies 15 s later.
+- [x] Villager (librarian) killed by a zombie on Hard: zombie villager, librarian kept, full health; it burns in
+      daylight like one.
+- [x] Cure: Weakness, then a golden apple fed by another player: shakes, villager 3 minutes later.
+- [x] Zombie under water: shaking after 30 s, drowned at 45 s.
+- [x] Skeleton in powder snow, at night: shaking after 7 s, stray at 22 s. (At noon the burning skeleton melted the
+      snow, as in vanilla.)
+- [x] Sulfur cube given TNT by another player: holds it; seen inside by others.
+- [x] First-person Model with multimorphs (the user asked for odd ones): the borrowed head never shows (a
+      transformation into zombie + cow, watched frame by frame); borrowed parts show on the body (blaze rods around
+      the legs; a zombie with the dragon's wings sees them out to the sides looking down; phantom wings stay behind
+      the camera); the dragon body with a cow's head keeps the camera at the dragon's head with a clear view; looking
+      ahead stays clear in all of them.
+- [x] The dragon's tail (the user asked if its tip was missing): the 26.3 model's tail is 12 equal segments ending
+      square, with no tip piece; the morph, the preview and a real dragon side by side end the same way.
+- [x] Multimorph parts morph with the transformation (asked by the user): zombie + bat into cow + phantom, frame by
+      frame: the bat wings go with the zombie's silhouette, the phantom wings grow in with the cow's.
+- [x] Milking a cow morph (another player with a bucket): milk. (Was on the untried list.)
+- [ ] Not tried: villager -> witch and mooshroom colour by lightning, husk -> zombie, the sulfur cube's blast spending
+      its block (each is the same code as one tried above).
+
 ## 7.0.0, Multimorph (2026-11-07)
 
 Tried with two modded test clients and a vanilla one on the test server; combinations mostly through
@@ -404,7 +431,7 @@ do when standing still; it lines up after a step.
 - [x] A goat's head comes back up after a ram (7.0.0).
 
 **Needs two players**
-- [ ] **Milking:** milk a cow or goat morph; get stew from a mooshroom.
+- [x] **Milking:** milk a cow morph (7.1.0). Still to try: a goat, stew from a mooshroom.
 - [ ] **Several players at once:** morphing together, and joining while others are already morphed.
 
 **What other players see**

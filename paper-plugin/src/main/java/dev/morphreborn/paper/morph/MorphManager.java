@@ -323,13 +323,14 @@ public final class MorphManager {
 	public void morphTo(Player player, MorphRef ref, boolean instant, @Nullable MorphRef borrowed) {
 		PluginSettings settings = plugin.settings();
 		ActiveMorph s = states.computeIfAbsent(player.getUniqueId(), k -> new ActiveMorph());
-		MorphRef from = s.next != null ? s.next : MorphRef.self(VariantCapture.skinOf(player));
+		MorphRef from = s.next != null ? s.look() : MorphRef.self(VariantCapture.skinOf(player));
 		if (from.isSelf() && ref.isSelf()) {
 			states.remove(player.getUniqueId());
 			return;
 		}
 		s.prev = from;
 		s.next = ref;
+		s.converted = null; // a new form is the creature itself again
 		s.time = 0;
 		s.duration = instant ? 0 : Math.max(20, (int) Math.round(settings.transitionTicks * plugin.mode().transitionFactor(player)));
 		s.swappedDisguise = false;
@@ -362,7 +363,7 @@ public final class MorphManager {
 		if (s.next == null || s.next.isSelf()) {
 			plugin.disguises().remove(player);
 		} else {
-			showDisguise(player, s.next, 1.0);
+			showDisguise(player, s.look(), 1.0);
 		}
 	}
 
@@ -381,7 +382,7 @@ public final class MorphManager {
 			return;
 		}
 		ActiveMorph s = states.get(player.getUniqueId());
-		if (s != null && ref.equals(s.next)) plugin.disguises().applyOverlay(player, s.overlay);
+		if (s != null && ref.equals(s.look())) plugin.disguises().applyOverlay(player, s.overlay);
 	}
 
 	/** Called once per server tick. */
@@ -435,7 +436,7 @@ public final class MorphManager {
 			} else {
 				if (!s.swappedDisguise) {
 					s.swappedDisguise = true;
-					showDisguise(player, s.next, VANILLA_MIN_DISGUISE_SCALE);
+					showDisguise(player, s.look(), VANILLA_MIN_DISGUISE_SCALE);
 					plugin.effects().swapBurst(player, width, height);
 				}
 				float grow = ActiveMorph.clamp((progress - 0.5F) / 0.375F);
@@ -443,7 +444,7 @@ public final class MorphManager {
 			}
 		} else if (!s.swappedDisguise && progress >= 0.5F) {
 			s.swappedDisguise = true;
-			showDisguise(player, s.next, 1.0);
+			showDisguise(player, s.look(), 1.0);
 		}
 
 		if (s.time >= s.duration) finish(player, s);
@@ -459,6 +460,7 @@ public final class MorphManager {
 			states.remove(player.getUniqueId());
 			syncBody(player);
 		} else {
+			form = s.look();
 			syncBody(player);
 			showDisguise(player, form, 1.0);
 		}
@@ -469,6 +471,40 @@ public final class MorphManager {
 		}
 		plugin.abilities().onFormChanged(player, form == null || form.isSelf() ? null : form);
 		plugin.channel().broadcastState(player, s);
+	}
+
+	// ------------------------------------------------------------------ vanilla conversions (per body, not saved)
+
+	/**
+	 * Turn this body into {@code into} the way vanilla turns a mob (a villager into a zombie villager, a zombie into a
+	 * drowned): a short transformation to it, keeping the form's variant id, so the selector still shows the form picked
+	 * and nothing saved changes (see {@link ActiveMorph#converted}). Turning back into the form itself (a cured zombie
+	 * villager that was picked as a villager) ends the conversion. False when this body can't convert now: not morphed,
+	 * transforming, or a multimorph (one creature at a time).
+	 */
+	public boolean convert(Player player, MorphRef into) {
+		ActiveMorph s = states.get(player.getUniqueId());
+		if (s == null || !s.isMorphed() || s.isTransitioning() || s.next == null || s.next.isSelf()) return false;
+		if (plugin.borrowedHeads().borrowed(player) != null) return false;
+		MorphRef from = s.look();
+		MorphRef to = new MorphRef(into.entityType(), s.next.variantId(), into.snbt(), into.skin());
+		if (from != null && from.sameAppearance(to)) return false;
+		s.prev = from;
+		s.converted = s.next.sameAppearance(to) ? null : to;
+		s.time = 0;
+		s.duration = Math.max(20, plugin.settings().conversionTicks);
+		s.swappedDisguise = false;
+		s.soundPlayed = true; // the conversion's own vanilla sound, not the morph sound
+		s.overlay = "";
+		plugin.abilities().onFormChanging(player);
+		plugin.channel().broadcastState(player, s);
+		return true;
+	}
+
+	/** The creature this body was turned into, or null. */
+	public @Nullable MorphRef converted(Player player) {
+		ActiveMorph s = states.get(player.getUniqueId());
+		return s == null ? null : s.converted;
 	}
 
 	// ------------------------------------------------------------------ live appearance overlay
@@ -747,6 +783,7 @@ public final class MorphManager {
 			if (s.isMorphed() && s.next != null) {
 				String carried = plugin.store().get(player.getUniqueId()).carriedBlock;
 				s.overlay = ENDERMAN.equals(s.next.entityType()) && carried != null ? carriedBlockOverlay(carried) : "";
+				s.converted = null; // and the creature it was picked as, whatever it was turned into
 			}
 			bodies.remove(player.getUniqueId()); // a respawned player has a fresh body: apply it again
 			syncBody(player);
