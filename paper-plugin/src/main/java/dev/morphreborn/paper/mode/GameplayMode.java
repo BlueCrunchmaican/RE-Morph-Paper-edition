@@ -35,6 +35,15 @@ public interface GameplayMode {
 	/** Whether a flying morph may fly. If not, it glides down slowly instead. */
 	boolean mayFly(Player player);
 
+	/**
+	 * Whether the player's form may use a beneficial trait: an abilities.yml passive name ({@code fire-immunity}) or
+	 * {@code effect:<name>} for one of its constant effects. Classic: always. Survival: once its unlock is bought.
+	 * Drawbacks (sunburn, Healing that hurts...) are never asked about; they're always on.
+	 */
+	default boolean hasTrait(Player player, String trait) {
+		return true;
+	}
+
 	/** How many mob types a collection may hold before kills stop adding new ones; -1 for no limit. */
 	int typeCapacity(Player player);
 

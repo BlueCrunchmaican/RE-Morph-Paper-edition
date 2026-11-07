@@ -7,7 +7,7 @@
 # The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
 # replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
 # changes you made.
-config-version: 6.1.8
+config-version: 6.6.0
 
 enabled: true
 
@@ -338,8 +338,8 @@ active:
     types: [spider, cave_spider]
     cooldown-seconds: 5
     range: 16
-    # seconds before the web disappears again (0 = permanent)
-    duration: 30
+    # Webs stay, like ones a real spider would leave. Set seconds here to have them disappear again (0 = they stay).
+    duration: 0
   # Camels dash on land; dolphins and nautiluses dash only through water.
   dash:
     types: [camel, camel_husk, dolphin, nautilus, zombie_nautilus]

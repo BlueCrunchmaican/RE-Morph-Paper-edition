@@ -22,15 +22,36 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The biomass upgrade menu: a chest anyone can use (with or without the client mod, Bedrock included). Top row: the
- * player's biomass; then the biomass upgrades; then the morph upgrades. Click an upgrade to buy its next level.
+ * The biomass upgrade menu: a chest anyone can use (with or without the client mod, Bedrock included), laid out like
+ * the client mod's tree. Top row: the player's biomass. Then the Biomass section, with the Morph Ability in its own
+ * frame beside it; the Morph section; and two rows of Abilities. Click an upgrade to buy its next level.
  */
 public final class SurvivalMenu implements InventoryHolder {
-	private static final int SIZE = 45;
+	private static final int SIZE = 54;
 	private static final int STATUS_SLOT = 4;
-	private static final int CLOSE_SLOT = 40;
-	private static final int[] BIOMASS_ROW = {10, 12, 14, 16, 11, 13, 15};
-	private static final int[] MORPH_ROW = {19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
+	private static final int CLOSE_SLOT = 49;
+	private static final int MORPH_ABILITY_SLOT = 16;
+	private static final int[] FRAME = {7, 15, 17, 25};
+	private static final int[] BIOMASS_ROW = {10, 11, 12, 13, 14};
+	private static final int[] MORPH_ROW = {19, 20, 21, 22, 23, 24};
+	private static final int[] ABILITY_ROWS = {28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+
+	/** Which part of the tree an upgrade is in, by its ancestry: under Morph Abilities, under Morph Ability, or neither. */
+	enum Section { BIOMASS, MORPH_ABILITY, MORPH, ABILITIES }
+
+	static Section section(Map<String, Upgrade> upgrades, Upgrade u) {
+		if (u.id().equals(SurvivalConfig.MORPH_ABILITY)) return Section.MORPH_ABILITY;
+		boolean underMorph = false;
+		String parent = u.parent();
+		for (int guard = 0; guard < 64 && !parent.equals("root"); guard++) {
+			if (parent.equals(SurvivalConfig.MORPH_ABILITIES)) return Section.ABILITIES;
+			if (parent.equals(SurvivalConfig.MORPH_ABILITY)) underMorph = true;
+			Upgrade p = upgrades.get(parent);
+			if (p == null) break;
+			parent = p.parent();
+		}
+		return underMorph ? Section.MORPH : Section.BIOMASS;
+	}
 
 	private final SurvivalMode survival;
 	private final Player player;
@@ -61,12 +82,22 @@ public final class SurvivalMenu implements InventoryHolder {
 		for (int i = 0; i < SIZE; i++) inventory.setItem(i, filler);
 		inventory.setItem(STATUS_SLOT, status());
 		inventory.setItem(CLOSE_SLOT, item(Material.BARRIER, Component.text("Close", NamedTextColor.RED), List.of(), false));
-		int b = 0, m = 0;
-		for (Upgrade u : survival.config().upgrades.values()) {
-			int slot;
-			if (u.id().startsWith("biomass_") && b < BIOMASS_ROW.length) slot = BIOMASS_ROW[b++];
-			else if (m < MORPH_ROW.length) slot = MORPH_ROW[m++];
-			else continue;
+		inventory.setItem(9, label(Material.RED_STAINED_GLASS_PANE, "Biomass", NamedTextColor.RED));
+		inventory.setItem(18, label(Material.PURPLE_STAINED_GLASS_PANE, "Morph", NamedTextColor.LIGHT_PURPLE));
+		inventory.setItem(27, label(Material.ORANGE_STAINED_GLASS_PANE, "Abilities", NamedTextColor.GOLD));
+		inventory.setItem(36, label(Material.ORANGE_STAINED_GLASS_PANE, "Abilities", NamedTextColor.GOLD));
+		ItemStack frame = item(Material.MAGENTA_STAINED_GLASS_PANE, Component.text(" "), List.of(), false);
+		for (int slot : FRAME) inventory.setItem(slot, frame);
+		Map<String, Upgrade> all = survival.config().upgrades;
+		int b = 0, m = 0, a = 0;
+		for (Upgrade u : all.values()) {
+			int slot = switch (section(all, u)) {
+				case MORPH_ABILITY -> MORPH_ABILITY_SLOT;
+				case BIOMASS -> b < BIOMASS_ROW.length ? BIOMASS_ROW[b++] : -1;
+				case MORPH -> m < MORPH_ROW.length ? MORPH_ROW[m++] : -1;
+				case ABILITIES -> a < ABILITY_ROWS.length ? ABILITY_ROWS[a++] : -1;
+			};
+			if (slot < 0 || slots.containsKey(slot)) continue;
 			slots.put(slot, u.id());
 			inventory.setItem(slot, upgradeItem(u));
 		}
@@ -127,6 +158,10 @@ public final class SurvivalMenu implements InventoryHolder {
 		else if (missing == null) lore.add(line("Click to buy", NamedTextColor.YELLOW));
 		TextColor nameColor = maxed ? NamedTextColor.GOLD : level > 0 ? NamedTextColor.GREEN : NamedTextColor.WHITE;
 		return item(u.icon(), Component.text(u.name(), nameColor), lore, level > 0);
+	}
+
+	private static ItemStack label(Material pane, String text, TextColor color) {
+		return item(pane, Component.text(text, color).decoration(TextDecoration.BOLD, true), List.of(), false);
 	}
 
 	private static Component line(String text, TextColor color) {

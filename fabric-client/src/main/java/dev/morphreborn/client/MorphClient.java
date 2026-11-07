@@ -21,6 +21,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
@@ -56,6 +57,9 @@ public final class MorphClient implements ClientModInitializer {
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "selector"), SelectorHud.INSTANCE::render);
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "biomass"), dev.morphreborn.client.gui.BiomassHud::render);
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "paper_doll"), dev.morphreborn.client.gui.PaperDoll::render);
+		// With a menu open the doll is drawn over the menu (Show in Menus); Fabric makes a screen's events anew each init.
+		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> ScreenEvents.afterExtract(screen).register(dev.morphreborn.client.gui.PaperDoll::renderOverScreen));
+		UpdateCheck.start();
 		LevelRenderEvents.COLLECT_SUBMITS.register(MorphWorldRenderer::collectSubmits);
 		ClientTickEvents.END_CLIENT_TICK.register(MorphClient::tick);
 		// Client-side command, so it works on any server: opens the settings screen.
@@ -121,6 +125,12 @@ public final class MorphClient implements ClientModInitializer {
 	private static void syncForm(UUID owner, MorphRef ref, Player player) {
 		if (ref == null || ref.isSelf()) return;
 		LivingEntity morph = ENTITIES.forWorld(owner, ref);
-		if (morph != null) MorphSync.tick(morph, player);
+		if (morph == null) return;
+		dev.morphreborn.client.morph.OwnParticles.begin(player);
+		try {
+			MorphSync.tick(morph, player);
+		} finally {
+			dev.morphreborn.client.morph.OwnParticles.end();
+		}
 	}
 }

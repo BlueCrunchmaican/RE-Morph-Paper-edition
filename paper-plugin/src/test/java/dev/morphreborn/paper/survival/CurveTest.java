@@ -50,6 +50,17 @@ class CurveTest {
 	}
 
 	@Test
+	void listsGiveOneNumberPerLevel() {
+		Curve reach = Curve.of(3, 8, 16, 32, 64, 150);
+		assertEquals(0, reach.at(0), EPS);
+		assertEquals(3, reach.at(1), EPS);
+		assertEquals(64, reach.at(5), EPS);
+		assertEquals(150, reach.at(6), EPS);
+		assertEquals(150, reach.at(9), EPS); // past the end keeps the last number
+		assertEquals(-1, Curve.of(1200, -1).at(2), EPS); // -1 is "no limit" for capacities
+	}
+
+	@Test
 	void zombieGivesTwentyOneBiomassAtTheStart() {
 		double zombieMass = 0.6 * 0.6 * 1.95 * 1000; // 702 kg
 		assertEquals(21.06, zombieMass * 0.3 * new Curve(5, 5, 1, 1).at(1) / 100, 1e-9);

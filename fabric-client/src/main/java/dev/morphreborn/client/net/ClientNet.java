@@ -110,6 +110,9 @@ public final class ClientNet {
 		}
 	}
 
+	/** The server plugin's version, sent since 6.6.0 ("" from older servers). */
+	public static String serverVersion = "";
+
 	public static boolean isActive() {
 		return active;
 	}
@@ -253,11 +256,13 @@ public final class ClientNet {
 		abilitiesAvailable = in.bool();
 		nameTagMode = in.hasMore() ? in.string() : "MORPH";
 		gameplayMode = in.hasMore() ? in.string() : "classic";
+		serverVersion = in.hasMore() ? in.string() : ""; // since 6.6.0
 		active = accepted && protocol == Wire.PROTOCOL_VERSION;
 		if (!active) {
 			MorphClient.LOGGER.warn("RE:Morph server speaks protocol {} (this mod: {}); {}", protocol, Wire.PROTOCOL_VERSION, message);
 		} else {
-			MorphClient.LOGGER.info("Connected to a RE:Morph server (protocol {}).", protocol);
+			MorphClient.LOGGER.info("Connected to a RE:Morph server (protocol {}{}).", protocol, serverVersion.isEmpty() ? "" : ", plugin " + serverVersion);
+			dev.morphreborn.client.UpdateCheck.onJoin(serverVersion);
 		}
 	}
 

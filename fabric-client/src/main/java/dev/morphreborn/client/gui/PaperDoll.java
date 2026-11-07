@@ -65,7 +65,21 @@ public final class PaperDoll {
 
 	private PaperDoll() {}
 
+	/** HUD element: the doll over the world. While a menu is open it's drawn over the menu instead ({@link #renderOverScreen}). */
 	public static void render(GuiGraphicsExtractor g, DeltaTracker deltaTracker) {
+		if (Minecraft.getInstance().gui.screen() != null) return;
+		draw(g, deltaTracker.getGameTimeDeltaPartialTick(false));
+	}
+
+	/**
+	 * After any menu has been drawn (inventories, chat, the pause menu, other mods' screens): with Show in Menus on,
+	 * the doll goes on top of it. Drawn as a HUD element it would sit under the menu's darkened, blurred background.
+	 */
+	public static void renderOverScreen(net.minecraft.client.gui.screens.Screen screen, GuiGraphicsExtractor g, int mouseX, int mouseY, float tickDelta) {
+		draw(g, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
+	}
+
+	private static void draw(GuiGraphicsExtractor g, float partialTick) {
 		Minecraft mc = Minecraft.getInstance();
 		LocalPlayer player = mc.player;
 		if (player == null || mc.level == null || !visible(mc, player)) {
@@ -73,7 +87,6 @@ public final class PaperDoll {
 			return;
 		}
 		ClientConfig c = ClientConfig.INSTANCE;
-		float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
 		EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
 
 		Entity root = c.dollVehicle && player.isPassenger() ? player.getRootVehicle() : player;
@@ -95,7 +108,10 @@ public final class PaperDoll {
 			radius = Math.max(radius, (float) Math.sqrt(offset.x * offset.x + offset.z * offset.z) + size[0] / 2F);
 		}
 
-		int box = c.dollSize;
+		// The doll's settings are screen pixels, so the GUI scale doesn't make it bigger or smaller; it has its own Size.
+		ClientConfig.dollToScreenPixels();
+		float guiScale = (float) Math.max(1.0, mc.getWindow().getGuiScale());
+		int box = Math.max(4, Math.round(c.dollSize / guiScale));
 		// One scale for every form, set by a player-sized body, so a rabbit looks small and a baby half its adult size.
 		// Only a scene bigger than that (a ghast, a boat with passengers) zooms out to fit.
 		float fit = c.dollScale.equals("FILL")
@@ -107,8 +123,10 @@ public final class PaperDoll {
 		int screenH = g.guiHeight();
 		boolean left = c.dollCorner.endsWith("LEFT");
 		boolean top = c.dollCorner.startsWith("TOP");
-		int x = left ? c.dollX : screenW - c.dollX - box;
-		int y = top ? c.dollY : screenH - c.dollY - box;
+		int dx = Math.round(c.dollX / guiScale);
+		int dy = Math.round(c.dollY / guiScale);
+		int x = left ? dx : screenW - dx - box;
+		int y = top ? dy : screenH - dy - box;
 		float centerX = x + box / 2F;
 		float feetY = y + box - smoothedFit * (-minY) - box * 0.06F;
 		float yaw = rootYaw(root, partialTick) - 180F - c.dollAngle;
@@ -116,11 +134,7 @@ public final class PaperDoll {
 		int pad = box / 2;
 		int x0 = Math.max(0, x - pad), y0 = Math.max(0, y - pad), x1 = Math.min(screenW, x + box + pad), y1 = Math.min(screenH, y + box + pad);
 		if (x1 <= x0 || y1 <= y0) return;
-		int outline = switch (c.dollOutline) { // vignette radius in GUI pixels
-			case "THIN" -> 3;
-			case "THICK" -> 6;
-			default -> 0;
-		};
+		float outline = c.dollVignette / guiScale; // vignette radius, from screen pixels to GUI pixels
 		g.guiRenderState.addPicturesInPictureState(new State(parts, centerX, feetY, smoothedFit, yaw, c.dollTilt, c.dollOpacity / 100F, outline,
 				c.dollOutlineStrength / 100F, x0, y0, x1, y1, null, new ScreenRectangle(x0, y0, x1 - x0, y1 - y0)));
 	}
@@ -279,7 +293,7 @@ public final class PaperDoll {
 	/** One entity of the scene and where it is relative to the root (the player, or the vehicle they ride). */
 	public record Part(EntityRenderState state, Vec3 offset) {}
 
-	public record State(List<Part> parts, float centerX, float feetY, float pixelsPerBlock, float yaw, float tilt, float opacity, int outline,
+	public record State(List<Part> parts, float centerX, float feetY, float pixelsPerBlock, float yaw, float tilt, float opacity, float outline,
 			float outlineStrength, int x0, int y0, int x1, int y1,
 			@Nullable ScreenRectangle scissorArea, @Nullable ScreenRectangle bounds) implements PictureInPictureRenderState {
 		@Override
@@ -322,8 +336,9 @@ public final class PaperDoll {
 
 		/** Directions the vignette is spread in. */
 		private static final int VIGNETTE_ANGLES = 12;
-		/** Rings of the vignette between the body's edge and its radius. */
+		/** Rings of the vignette between the body's edge and its radius: at least this many, one per pixel past it. */
 		private static final int VIGNETTE_RINGS = 6;
+		private static final int VIGNETTE_MAX_RINGS = 12;
 
 		/**
 		 * Vanilla's blit, plus the vignette and opacity. The vignette is a soft dark haze around the doll: its silhouette
@@ -334,15 +349,18 @@ public final class PaperDoll {
 		@Override
 		protected void blitTexture(State state, net.minecraft.client.renderer.state.gui.GuiRenderState guiRenderState) {
 			float opacity = Math.clamp(state.opacity(), 0F, 1F);
-			int radius = state.outline();
-			if (radius > 0) {
-				int samples = VIGNETTE_ANGLES * VIGNETTE_RINGS;
+			float radius = state.outline(); // GUI pixels
+			if (radius > 0F) {
+				// one ring per screen pixel, within limits, so a wide haze stays smooth at any GUI scale
+				int screenRadius = Math.round(radius * (float) Minecraft.getInstance().getWindow().getGuiScale());
+				int rings = Math.clamp(screenRadius, VIGNETTE_RINGS, VIGNETTE_MAX_RINGS);
+				int samples = VIGNETTE_ANGLES * rings;
 				// Next to the body about half the samples overlap; give each the share that adds up to the strength there.
 				float strength = Math.clamp(state.outlineStrength(), 0F, 0.98F) * opacity;
 				float each = 1F - (float) Math.pow(1F - strength, 1.0 / (samples * 0.5));
 				int black = Math.round(each * 255F) << 24;
-				for (int ring = 1; ring <= VIGNETTE_RINGS; ring++) {
-					float distance = radius * ring / (float) VIGNETTE_RINGS;
+				for (int ring = 1; ring <= rings; ring++) {
+					float distance = radius * ring / (float) rings;
 					for (int i = 0; i < VIGNETTE_ANGLES; i++) {
 						double angle = Math.PI * 2 * (i + (ring % 2) * 0.5) / VIGNETTE_ANGLES;
 						blit(state, guiRenderState, (float) (Math.cos(angle) * distance), (float) (Math.sin(angle) * distance), black);

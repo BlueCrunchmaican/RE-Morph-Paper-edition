@@ -67,11 +67,11 @@ public final class ClientConfig {
 	public String dollShow = "ALWAYS";
 	/** TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT or BOTTOM_RIGHT. */
 	public String dollCorner = "TOP_LEFT";
-	/** Distance from the corner's side and top/bottom edge, in GUI pixels. */
-	public int dollX = 8;
-	public int dollY = 8;
-	/** Height of the doll's box, in GUI pixels. */
-	public int dollSize = 50;
+	/** Distance from the corner's side and top/bottom edge, in screen pixels (the GUI scale doesn't change them). */
+	public int dollX = 16;
+	public int dollY = 16;
+	/** Height of the doll's box, in screen pixels. */
+	public int dollSize = 100;
 	/** How solid the doll is drawn, in percent. */
 	public int dollOpacity = 100;
 	/** Which way the doll faces: 0 = straight at you, positive = turned to its left. */
@@ -91,8 +91,16 @@ public final class ClientConfig {
 			"TRANSFORMING", "ABILITY"));
 	/** "While Active" mode: how long the doll stays after the last trigger, in tenths of a second. */
 	public int dollLinger = 10;
-	/** OFF, THIN or THICK: a dark edge around the doll so it stands out from the world behind it. */
-	public String dollOutline = "THIN";
+	/** How far the dark vignette reaches out from the doll, in screen pixels; 0 is off. -1 until set: taken from dollOutline. */
+	public int dollVignette = -1;
+	/**
+	 * Whether the doll's size, distances and vignette are in screen pixels (6.6.0). Before, they were GUI pixels, so the
+	 * doll grew and shrank with the GUI scale; older settings are converted once at the GUI scale in use, so the doll
+	 * looks exactly as it did and only stops following the GUI scale. Missing from older settings files, so false.
+	 */
+	public boolean dollScreenPixels;
+	/** Before 6.6.0 the vignette's size was OFF, THIN or THICK. Read once into {@link #dollVignette}, then dropped. */
+	public String dollOutline;
 	/** How dark the outline is, in percent. */
 	public int dollOutlineStrength = 70;
 	/** Hide while the "now playing" music toast is up (it shares the top right corner). */
@@ -107,9 +115,18 @@ public final class ClientConfig {
 	public boolean dollHideThirdPerson = true;
 	/** Hide while the F3 debug screen is open. */
 	public boolean dollHideDebug = true;
+	/** Ask GitHub once per game start whether a newer RE:Morph is out, and say so in chat (see UpdateCheck). */
+	public boolean updateCheck = true;
+
+	/** The vignette slider's top, in screen pixels. */
+	public static final int VIGNETTE_MAX = 32;
 
 	public static void load() {
-		if (Files.exists(FILE)) {
+		boolean fresh = !Files.exists(FILE);
+		if (fresh) {
+			INSTANCE.dollScreenPixels = true;
+			INSTANCE.dollVignette = 6;
+		} else {
 			try (Reader r = Files.newBufferedReader(FILE, StandardCharsets.UTF_8)) {
 				ClientConfig loaded = GSON.fromJson(r, ClientConfig.class);
 				if (loaded != null) INSTANCE = loaded;
@@ -145,16 +162,35 @@ public final class ClientConfig {
 		if (dollCorner == null || !java.util.List.of("TOP_LEFT", "TOP_RIGHT", "BOTTOM_LEFT", "BOTTOM_RIGHT").contains(dollCorner)) dollCorner = "TOP_LEFT";
 		if (dollHead == null || !java.util.List.of("FOLLOW", "TURN", "LOOK", "FORWARD", "AT_VIEWER").contains(dollHead)) dollHead = "FOLLOW";
 		if (dollScale == null || !java.util.List.of("TRUE_SIZE", "FILL").contains(dollScale)) dollScale = "TRUE_SIZE";
-		if (dollOutline == null || !java.util.List.of("OFF", "THIN", "THICK").contains(dollOutline)) dollOutline = "THIN";
+		if (dollVignette < 0) dollVignette = "OFF".equals(dollOutline) ? 0 : "THICK".equals(dollOutline) ? 6 : 3;
+		dollOutline = null;
+		dollVignette = Math.clamp(dollVignette, 0, dollScreenPixels ? VIGNETTE_MAX : 16);
 		if (dollShowWhen == null) dollShowWhen = new java.util.ArrayList<>();
 		dollTilt = Math.clamp(dollTilt, -60, 60);
 		dollLinger = Math.clamp(dollLinger, 0, 50);
 		dollOutlineStrength = Math.clamp(dollOutlineStrength, 10, 100);
 		if (dollLight == null || !java.util.List.of("BRIGHT", "WORLD").contains(dollLight)) dollLight = "BRIGHT";
-		dollX = Math.clamp(dollX, 0, 1000);
-		dollY = Math.clamp(dollY, 0, 1000);
-		dollSize = Math.clamp(dollSize, 20, 200);
+		dollX = Math.clamp(dollX, 0, 4000);
+		dollY = Math.clamp(dollY, 0, 4000);
+		dollSize = Math.clamp(dollSize, dollScreenPixels ? 40 : 20, dollScreenPixels ? 800 : 200);
 		dollOpacity = Math.clamp(dollOpacity, 10, 100);
 		dollAngle = Math.clamp(dollAngle, -180, 180);
+	}
+
+	/**
+	 * Settings from before 6.6.0 hold the doll's size, distances and vignette in GUI pixels: turn them into the screen
+	 * pixels they cover at the GUI scale in use now, once. Called before the doll is first drawn or its settings opened.
+	 */
+	public static void dollToScreenPixels() {
+		ClientConfig c = INSTANCE;
+		if (c.dollScreenPixels) return;
+		int scale = Math.max(1, (int) Math.round(net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale()));
+		c.dollSize *= scale;
+		c.dollX *= scale;
+		c.dollY *= scale;
+		c.dollVignette *= scale;
+		c.dollScreenPixels = true;
+		c.clamp();
+		save();
 	}
 }

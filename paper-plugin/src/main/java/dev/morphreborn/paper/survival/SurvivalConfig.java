@@ -39,9 +39,11 @@ public final class SurvivalConfig {
 	 * @param parent   must be at least level 1 before this can be bought ("root" for none)
 	 * @param requires other upgrades and the level each needs
 	 * @param format   how a value is shown, {value} replaced
+	 * @param traits   the beneficial morph traits (abilities.yml passive names, effects as {@code effect:<name>}) that
+	 *                 stay off until this upgrade is bought
 	 */
 	public record Upgrade(String id, String name, String description, Material icon, String effectIcon, String parent, Map<String, Integer> requires,
-			int startLevel, int maxLevel, Curve value, Curve cost, String format) {}
+			int startLevel, int maxLevel, Curve value, Curve cost, String format, List<String> traits) {}
 
 	public final List<PotionEffectType> unlockEffects;
 	public final boolean bypassUnlock;
@@ -58,6 +60,8 @@ public final class SurvivalConfig {
 	public final Map<String, Integer> morphPrices;
 	/** In menu order. */
 	public final Map<String, Upgrade> upgrades;
+	/** Trait -> the upgrades that unlock it (any one of them is enough). Traits not listed are always on. */
+	public final Map<String, List<String>> traitUnlocks;
 
 	public SurvivalConfig(FileConfiguration c, Logger logger) {
 		List<PotionEffectType> effects = new ArrayList<>();
@@ -101,9 +105,11 @@ public final class SurvivalConfig {
 					if (effectKey != null && Registry.MOB_EFFECT.get(effectKey) != null) effectIcon = effectKey.toString();
 					else logger.warning("survival.yml: unknown effect-icon '" + effectName + "' for " + id);
 				}
+				List<String> traits = new ArrayList<>();
+				for (String t : u.getStringList("traits")) traits.add(normaliseTrait(t));
 				loaded.put(id, new Upgrade(id, u.getString("name", id), u.getString("description", ""), icon == null ? Material.PAPER : icon, effectIcon,
-						u.getString("parent", "root"), requires, Math.clamp(u.getInt("start-level", 0), 0, max), max, Curve.read(u.getConfigurationSection("value")),
-						Curve.read(u.getConfigurationSection("cost")), u.getString("format", "{value}")));
+						u.getString("parent", "root"), requires, Math.clamp(u.getInt("start-level", 0), 0, max), max, Curve.read(u, "value"),
+						Curve.read(u, "cost"), u.getString("format", "{value}"), List.copyOf(traits)));
 			}
 		}
 		// Same rule as iChun's loader: an upgrade whose parent doesn't exist is dropped.
@@ -116,6 +122,23 @@ public final class SurvivalConfig {
 			if (!loaded.containsKey(id)) logger.warning("survival.yml: upgrade " + id + " is missing; what it unlocks stays locked.");
 		}
 		upgrades = java.util.Collections.unmodifiableMap(loaded);
+		Map<String, List<String>> unlocks = new HashMap<>();
+		for (Upgrade u : loaded.values()) {
+			for (String t : u.traits()) unlocks.computeIfAbsent(t, k -> new ArrayList<>()).add(u.id());
+		}
+		unlocks.replaceAll((k, v) -> List.copyOf(v));
+		traitUnlocks = Map.copyOf(unlocks);
+	}
+
+	/** {@code Fire_Immunity} -> {@code fire-immunity}; {@code effect:minecraft:night_vision} -> {@code effect:night_vision}. */
+	public static String normaliseTrait(String trait) {
+		String t = trait.toLowerCase(Locale.ROOT).trim();
+		if (t.startsWith("effect:")) {
+			String effect = t.substring("effect:".length()).trim();
+			if (effect.startsWith("minecraft:")) effect = effect.substring("minecraft:".length());
+			return "effect:" + effect;
+		}
+		return t.replace('_', '-');
 	}
 
 	private static NamespacedKey key(String name) {

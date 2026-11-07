@@ -244,6 +244,41 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## Unreleased: 6.6.0 (2026-11-06)
+
+Built with tests passing (the plugin's SemVer comparison has its own tests); not tried in game yet.
+
+- [ ] Vignette Size slider: 0 hides the haze, 16 spreads it wide and stays smooth; an old config with Wide shows 6.
+- [ ] Show in Menus on: the doll on top of the inventory, a chest, chat, the pause menu, and another mod's settings
+      screen; off: hidden in all of them.
+- [ ] Update notices: a client older than the server gets the old-client message once per join; an admin gets the
+      "newer release" line when GitHub has one; the client's own notice doesn't repeat what the server said; the
+      [Modrinth] and [GitHub] links open the right pages.
+- [ ] A 6.5.0 client on a 6.6.0 server, and a 6.6.0 client on a 6.5.0 server (the extra handshake field).
+- [ ] Survival tree screen: three sections, the Morph Ability orb's tendrils move, links light up as things are bought,
+      the Abilities title says to buy Morph Abilities first, hover and click work on the orb.
+- [ ] Chest menu (no mod): the same sections in a double chest; every unlock buys.
+- [ ] Each ability unlock turns its traits on for the current morph straight away (night vision appears, a spider
+      starts climbing, fire stops hurting a blaze); drawbacks (sunburn, water damage) work before any unlock.
+- [ ] A cod morph without Water Breathing still breathes underwater; a turtle doesn't until it's bought.
+- [ ] Camouflage: before it, a zombie morph is attacked by zombies; after it, left alone.
+- [ ] Speeds: transformations and cooldowns are slower than Classic at the start, faster at the top level.
+- [ ] Reach 3 blocks at the start (a bow kill at 10 blocks gives nothing), Absorbable Mass level 5 absorbs the dragon.
+- [ ] A 6.5.0 survival.yml and player file: the upgrades section is replaced with a console warning and a backup, and
+      bought levels convert (reach 6 -> 4, efficiency 2 -> 5).
+- [ ] Favourites wheel: letting go in the middle only closes; clicking the orb opens the tree; the orb's tendrils move.
+- [ ] A spider's web stays.
+- [x] Tried in game (beta.2, test client fullscreen at 1440p, automatic GUI scale, 2026-11-07): letting go in the middle closes the wheel; the
+      orb and its tendrils; the tree's sections, with Abilities beside Morph on a short window; a click that opens the
+      tree buys nothing; one click buys one level; Night Vision on a cat and Fire Immunity on a blaze switch on when
+      bought (fire damage 19 -> 17 before, "invulnerable" after); the speed wording ("6.5 seconds per
+      transformation", "ability cooldowns ×1.3"); the old survival.yml migration with its warning and backup.
+- [x] Blaze in first person: no smoke in view looking ahead, up or down; the rods still float in view; third person
+      still shows the full smoke.
+- [x] The goo biomass bar at 1440p, automatic GUI scale: rippling edges, drops, black and red tendrils, the static red
+      fill (liked in test).
+- [ ] The biomass bar at GUI scale 2 and 3 (unchanged size); a capacity of 51,200; the bar while full (FULL label).
+
 ## 6.5.0 (2026-11-06)
 
 Local test server with the 6.5.0 plugin, MorphTester1 with the mod, in Creative, seen in third person.

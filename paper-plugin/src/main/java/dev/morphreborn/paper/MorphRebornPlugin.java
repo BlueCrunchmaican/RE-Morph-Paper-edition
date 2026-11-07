@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -102,7 +103,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		upgradeConfig();
 		installOrUpgrade("variants.yml");
 		installOrUpgrade("abilities.yml");
-		mergeUpgrade("survival.yml", "pre-6.1.6");
+		mergeUpgrade("survival.yml", "pre-6.1.6", SURVIVAL_REPLACED);
 		settings = new PluginSettings(getConfig());
 		try {
 			store = new DataStore(getDataFolder().toPath().resolve("players"), getLogger());
@@ -131,6 +132,9 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		trading = new dev.morphreborn.paper.ability.VillagerTrading(this);
 		getServer().getPluginManager().registerEvents(trading, this);
 		getServer().getPluginManager().registerEvents(new SurvivalListener(this), this);
+		UpdateChecker updates = new UpdateChecker(this);
+		getServer().getPluginManager().registerEvents(updates, this);
+		updates.start();
 		MorphCommand command = new MorphCommand(this);
 		Objects.requireNonNull(getCommand("morph")).setExecutor(command);
 		Objects.requireNonNull(getCommand("morph")).setTabCompleter(command);
@@ -170,7 +174,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		settings = new PluginSettings(getConfig());
 		installOrUpgrade("variants.yml");
 		installOrUpgrade("abilities.yml");
-		mergeUpgrade("survival.yml", "pre-6.1.6");
+		mergeUpgrade("survival.yml", "pre-6.1.6", SURVIVAL_REPLACED);
 		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		if (!settings.gameplayMode.equals(mode.id())) switchMode(settings.gameplayMode, false);
 		capture.setRules(VariantRules.load(yaml("variants.yml"), getConfig()));
@@ -191,7 +195,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	}
 
 	private void upgradeConfig() {
-		mergeUpgrade("config.yml", "pre-6.1.4");
+		mergeUpgrade("config.yml", "pre-6.1.4", Map.of());
 	}
 
 	/**
@@ -200,8 +204,11 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	 * layout: settings added since appear with their defaults and comments, and every value the admin set is kept (see
 	 * {@link ConfigMerge}). The old file stays next to it as {@code <name>-old-<version>.yml}. A missing file is written
 	 * from the bundled one. {@code unversioned} names files from before the file had a config-version.
+	 * <p>
+	 * {@code replaced}: sections whose meaning changed in a release (section -> that release). A file older than it gets
+	 * the bundled section instead of keeping its own, since the old values would mean something else now.
 	 */
-	private void mergeUpgrade(String name, String unversioned) {
+	private void mergeUpgrade(String name, String unversioned, Map<String, String> replaced) {
 		File file = new File(getDataFolder(), name);
 		if (!file.exists()) {
 			if (!name.equals("config.yml")) saveResource(name, false); // saveDefaultConfig writes config.yml
@@ -230,7 +237,15 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			getLogger().warning(name + " is from RE:Morph " + currentVersion + ", newer than this one (" + bundledVersion + "). Leaving it as it is.");
 		}
 		if (order >= 0) return;
-		List<String> added = ConfigMerge.merge(bundled, current, CONFIG_VERSION);
+		List<String> reset = new java.util.ArrayList<>();
+		for (Map.Entry<String, String> r : replaced.entrySet()) {
+			if (current.contains(r.getKey()) && compareVersions(currentVersion, r.getValue()) < 0) {
+				current.set(r.getKey(), null);
+				reset.add(r.getKey());
+			}
+		}
+		List<String> added = new java.util.ArrayList<>(ConfigMerge.merge(bundled, current, CONFIG_VERSION));
+		added.removeIf(key -> reset.stream().anyMatch(r -> key.equals(r) || key.startsWith(r + ".")));
 		bundled.options().width(1000); // long messages stay on one line
 		String from = currentVersion.isEmpty() ? unversioned : currentVersion;
 		File backup = new File(getDataFolder(), stem + "-old-" + from + ".yml");
@@ -243,10 +258,21 @@ public final class MorphRebornPlugin extends JavaPlugin {
 					+ " defaults until you add them by hand.");
 			return;
 		}
-		getLogger().info("Updated " + name + " from RE:Morph " + from + " to " + bundledVersion + ". Your settings are unchanged. "
+		getLogger().info("Updated " + name + " from RE:Morph " + from + " to " + bundledVersion + ". Your settings are unchanged"
+				+ (reset.isEmpty() ? ". " : " except the replaced sections below. ")
 				+ (added.isEmpty() ? "No new settings." : "New settings, at their defaults: " + String.join(", ", added) + ".")
 				+ " Your old file is " + backup.getName() + ".");
+		for (String section : reset) {
+			getLogger().warning(name + ": the '" + section + "' section changed its layout in " + replaced.get(section)
+					+ ", so it was replaced with the new one. Copy back any changes you made from " + backup.getName() + ".");
+		}
 	}
+
+	/**
+	 * survival.yml sections replaced on update. 6.6.0: the upgrade tree's levels changed meaning (Morph Efficiency and
+	 * Morph Abilities became "% of Classic", reach and absorbable mass got new levels) and the ability unlocks were added.
+	 */
+	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0");
 
 	/**
 	 * Write the bundled file if it's missing, or replace it when it comes from an older release (its config-version,

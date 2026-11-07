@@ -21,7 +21,8 @@ Nobody is kicked for not having the mod.
 - **Classic mode:** kill a creature to unlock it. Variants unlock separately: sheep colours, villager jobs, cat
   breeds, babies and so on. Killing a player unlocks their form.
 - **Survival mode:** iChun's unfinished "Default Mode", completed. Unlock the Biomass ability, absorb biomass from
-  kills, and spend it in an upgrade tree on the ability to morph, more storage, reach, flight and shorter cooldowns.
+  kills, and spend it in an upgrade tree on the ability to morph, more storage, reach, faster transformations and
+  cooldowns, and each kind of morph trait: night vision, fire immunity, flight, climbing, camouflage and more.
   Each morph costs biomass too, scaled by the creature's size.
   See [docs/SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md).
 - **Abilities and traits for 89 of the 90 mobs in 26.3:** flight, swimming, fire immunity, creeper explosions
@@ -67,6 +68,7 @@ The [server and player guide](docs/GUIDE.md) covers updating, settings, commands
 | [GUIDE.md](docs/GUIDE.md) | Install, updating, playing, commands, permissions, settings |
 | [SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md) | Survival Mode: the unlock, biomass, the upgrade tree and its numbers |
 | [ABILITIES.md](docs/ABILITIES.md) | Every mob's traits and abilities (generated from `abilities.yml`) |
+| [MOB-MASSES.md](docs/MOB-MASSES.md) | Survival Mode: every mob's mass, the upgrade it needs, its biomass and morph cost |
 | [BUILDING.md](docs/BUILDING.md) | Building the plugin and the mod from source |
 | [VERSIONING.md](docs/VERSIONING.md) | How versions are numbered (Semantic Versioning), and how older releases were renumbered |
 | [ROADMAP.md](docs/ROADMAP.md) | What's done, what's open, and why things were decided |
