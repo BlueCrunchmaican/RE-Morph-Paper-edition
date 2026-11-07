@@ -65,6 +65,11 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## Next release: 7.1.1 (fixes)
+
+- [x] A mooshroom struck back to the colour it was picked as ends its conversion (it stayed listed as converted to a
+      red mooshroom, in `/morph info`, though it looked right).
+
 ## Released: 7.1.0, vanilla conversions
 
 The user's request: whatever turns a mob into another in vanilla turns a morph of it too, per body (the GUI and the

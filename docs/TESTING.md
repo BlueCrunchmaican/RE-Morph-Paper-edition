@@ -268,8 +268,16 @@ Tried on the test server with two modded clients and a vanilla one; each convers
 - [x] Multimorph parts morph with the transformation (asked by the user): zombie + bat into cow + phantom, frame by
       frame: the bat wings go with the zombie's silhouette, the phantom wings grow in with the cow's.
 - [x] Milking a cow morph (another player with a bucket): milk. (Was on the untried list.)
-- [ ] Not tried: villager -> witch and mooshroom colour by lightning, husk -> zombie, the sulfur cube's blast spending
-      its block (each is the same code as one tried above).
+- [x] Villager (desert farmer) struck by lightning: witch for everyone, with the witch's potion ability; the selector
+      still shows Villager.
+- [x] Mooshroom struck by lightning: brown, and red again with a second bolt (once per bolt, though a bolt hurts for
+      several ticks). Flipping back still listed a red-mooshroom conversion; fixed for 7.1.1, it now ends the
+      conversion.
+- [x] Husk under water: zombie at 45 s; still under water, that zombie shook and became a drowned 45 s later (as in
+      vanilla).
+- [x] Sulfur cube fed TNT by another player (a real right click; one TNT used), set off with sneak + F by the player
+      without the mod (Classic mode: in Survival its abilities were locked): it blew up after its 6 s fuse and the
+      body went back to an empty cube.
 
 ## 7.0.0, Multimorph (2026-11-07)
 
