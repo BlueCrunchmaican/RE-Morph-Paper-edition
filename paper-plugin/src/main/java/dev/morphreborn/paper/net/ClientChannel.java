@@ -187,7 +187,7 @@ public final class ClientChannel implements PluginMessageListener {
 				.uuid(subject.getUniqueId())
 				.varInt(subject.getEntityId())
 				.optionalRef(state.prev)
-				.optionalRef(state.next)
+				.optionalRef(state.look()) // a vanilla conversion shows as its creature, with the form's variant id
 				.varInt(state.time)
 				.varInt(state.duration)
 				.string(state.overlay)

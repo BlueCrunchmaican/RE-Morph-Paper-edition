@@ -247,9 +247,22 @@ public final class DisguiseBridge {
 			if (watcher instanceof BeeWatcher bee) bee.setHasStung(flag(overlay, "HasStung", template instanceof Bee b && b.hasStung()));
 			if (watcher instanceof ArmadilloWatcher armadillo) armadillo.setState("scared".equals(overlay.get("state")) ? ArmadilloState.SCARED : ArmadilloState.IDLE);
 			if (watcher instanceof BatWatcher bat) bat.setHanging(flag(overlay, "BatFlags", false));
+			shake(watcher, flag(overlay, "MorphShaking", false));
 		} catch (RuntimeException | LinkageError e) {
 			logger.log(Level.FINE, "Could not apply overlay " + overlaySnbt, e);
 		}
+	}
+
+	/**
+	 * A vanilla conversion under way (Conversions): the body shakes, the way each creature shows it. Off again, a piglin
+	 * or hoglin goes back to never converting (see neverConvert).
+	 */
+	private static void shake(Object watcher, boolean shaking) {
+		if (watcher instanceof me.libraryaddict.disguise.disguisetypes.watchers.ZombieVillagerWatcher villager) villager.setShaking(shaking);
+		else if (watcher instanceof me.libraryaddict.disguise.disguisetypes.watchers.ZombieWatcher zombie) zombie.setConverting(shaking);
+		else if (watcher instanceof me.libraryaddict.disguise.disguisetypes.watchers.SkeletonWatcher skeleton) skeleton.setConvertingStray(shaking);
+		else if (watcher instanceof PiglinAbstractWatcher piglin) piglin.setShaking(shaking);
+		else if (watcher instanceof HoglinWatcher hoglin) hoglin.setShaking(shaking);
 	}
 
 	private static boolean flag(Map<String, Object> overlay, String key, boolean fallback) {

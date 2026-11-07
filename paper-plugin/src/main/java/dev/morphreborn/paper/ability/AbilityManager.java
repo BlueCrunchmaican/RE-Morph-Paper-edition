@@ -1616,6 +1616,7 @@ public final class AbilityManager {
 			} finally {
 				explosionImmune.remove(p.getUniqueId());
 			}
+			if (sulfur) plugin.conversions().onExploded(p); // the block it was fed is spent
 			// A real creeper is gone once it explodes: "<player> blew up". Killed outright rather than with a
 			// huge hit, which would wear every armour piece down to nothing before the death drop.
 			if (settings.creeperExplosionKillsUser && (p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE)) {

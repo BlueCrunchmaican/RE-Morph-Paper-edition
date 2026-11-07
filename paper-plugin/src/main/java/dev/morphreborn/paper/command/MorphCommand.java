@@ -411,6 +411,9 @@ public final class MorphCommand implements TabExecutor {
 		sender.sendMessage(Component.text(" form: " + (s == null || s.next == null ? "own body" : s.next.entityType() + " " + s.next.snbt()
 				+ (s.overlay.isEmpty() ? "" : " look " + s.overlay))
 				+ (s != null && s.isTransitioning() ? " (transforming " + s.time + "/" + s.duration + ")" : ""), NamedTextColor.GRAY));
+		if (s != null && s.converted != null) {
+			sender.sendMessage(Component.text(" turned into (not saved): " + s.converted.entityType() + " " + s.converted.snbt(), NamedTextColor.GRAY));
+		}
 		MorphRef lent = plugin.borrowedHeads().borrowed(target);
 		if (lent != null) sender.sendMessage(Component.text(" borrows from: " + lent.entityType() + " [" + lent.variantId() + "]", NamedTextColor.GRAY));
 		sender.sendMessage(Component.text(" collection: " + plugin.store().get(target.getUniqueId()).variantCount() + " variants", NamedTextColor.GRAY));

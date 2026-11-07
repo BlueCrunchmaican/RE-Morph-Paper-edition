@@ -135,6 +135,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		trading = new dev.morphreborn.paper.ability.VillagerTrading(this);
 		getServer().getPluginManager().registerEvents(trading, this);
 		getServer().getPluginManager().registerEvents(new SurvivalListener(this), this);
+		conversions = new dev.morphreborn.paper.morph.Conversions(this);
+		getServer().getPluginManager().registerEvents(conversions, this);
 		UpdateChecker updates = new UpdateChecker(this);
 		getServer().getPluginManager().registerEvents(updates, this);
 		updates.start();
@@ -147,6 +149,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			abilities.tick();
 			jockeys.tick();
 			borrowedHeads.tick();
+			conversions.tick();
 		}, 1L, 1L);
 		scheduleAutosave();
 
@@ -361,6 +364,12 @@ public final class MorphRebornPlugin extends JavaPlugin {
 
 	public VariantCapture capture() {
 		return capture;
+	}
+
+	private dev.morphreborn.paper.morph.Conversions conversions;
+
+	public dev.morphreborn.paper.morph.Conversions conversions() {
+		return conversions;
 	}
 
 	public MorphTemplates templates() {
