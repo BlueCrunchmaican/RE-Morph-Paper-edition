@@ -65,7 +65,7 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
-## 7.1.3, your own body in multimorphs
+## Released: 7.1.3, your own body in multimorphs
 
 The user found that multimorph refused your own body ("Your own body can't be combined"), a restriction they hadn't
 meant: you should be able to combine yourself with a bat or a horse as you can another player's form. Asked to be
@@ -101,6 +101,8 @@ combinations with anything that looked wrong fixed.
       the giant's head data (`morph-heads.json`) treats its head as a zombie's and floats it above the head; an
       ears-and-tail animal shows its whole head (the pack has heads only, as for wing creatures); in offline mode (no
       skins) a self-body disguise shows a default skin.
+- [x] Released 2026-11-11: tag `v7.1.3`, GitHub release `RE:Morph 7.1.3`, Modrinth `7.1.3+paper` / `7.1.3+fabric`
+      (the resource pack is 7.1.2's, unchanged).
 
 ## Released: 7.1.2, sulfur cubes as vanilla's
 
