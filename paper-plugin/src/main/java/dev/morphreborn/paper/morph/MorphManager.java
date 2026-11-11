@@ -75,7 +75,10 @@ public final class MorphManager {
 		requestMorph(player, variantId, null);
 	}
 
-	/** Why {@code form} can't be part of a multimorph, or null if it can: anything but your own body. */
+	/**
+	 * Why {@code form} can't be part of a multimorph, or null if it can. Your own body takes part as
+	 * {@link MorphRef#selfBody}; the plain "self" form (no morph at all) never does.
+	 */
 	public static @Nullable String cannotCombine(MorphRef form) {
 		if (form.isSelf()) return "Your own body can't be combined.";
 		return null;
@@ -104,8 +107,9 @@ public final class MorphManager {
 			refuse(player, ClientChannel.RESULT_BUSY, "You can morph again in " + secs + "s.");
 			return;
 		}
-		if (MorphRef.SELF_ID.equals(variantId)) {
-			if (current != null && current.isMorphed()) demorph(player, false);
+		if (MorphRef.ownBodyId(variantId) && borrowedId == null) {
+			// your own body: from your own body with something borrowed, only the borrowed form goes, at once
+			if (current != null && current.isMorphed()) demorph(player, current.next != null && current.next.isSelfBody());
 			ch.sendResult(player, ClientChannel.RESULT_OK, "");
 			return;
 		}
@@ -115,13 +119,13 @@ public final class MorphManager {
 			return;
 		}
 		PlayerMorphData data = plugin.store().get(player.getUniqueId());
-		MorphRef ref = data.byId(variantId);
+		MorphRef ref = resolve(player, data, variantId);
 		if (ref == null) {
 			refuse(player, ClientChannel.RESULT_UNKNOWN_MORPH, "You don't have that morph.");
 			ch.sendCollection(player);
 			return;
 		}
-		if (!canUseType(player, ref.entityType())) {
+		if (!ref.isSelfBody() && !canUseType(player, ref.entityType())) {
 			refuse(player, ClientChannel.RESULT_DENIED, "You are not allowed to use that morph.");
 			return;
 		}
@@ -136,13 +140,13 @@ public final class MorphManager {
 				refuse(player, ClientChannel.RESULT_DENIED, noCombining);
 				return;
 			}
-			borrowed = data.byId(borrowedId);
+			borrowed = resolve(player, data, borrowedId);
 			if (borrowed == null) {
 				refuse(player, ClientChannel.RESULT_UNKNOWN_MORPH, "You don't have that morph.");
 				ch.sendCollection(player);
 				return;
 			}
-			if (!canUseType(player, borrowed.entityType())) {
+			if (!borrowed.isSelfBody() && !canUseType(player, borrowed.entityType())) {
 				refuse(player, ClientChannel.RESULT_DENIED, "You are not allowed to use that morph.");
 				return;
 			}
@@ -161,15 +165,27 @@ public final class MorphManager {
 			return;
 		}
 		// Survival: each form that is new to the body costs its price; the body you keep is already paid for
-		int cost = (sameBody ? 0 : plugin.mode().morphCost(player, ref)) + (borrowed == null ? 0 : plugin.mode().morphCost(player, borrowed));
+		// your own body is free, as a main body or borrowed
+		int cost = (sameBody || ref.isSelfBody() ? 0 : plugin.mode().morphCost(player, ref))
+				+ (borrowed == null || borrowed.isSelfBody() ? 0 : plugin.mode().morphCost(player, borrowed));
 		if (borrowed != null) cost += plugin.mode().multimorphExtra(player, cost);
 		if (!plugin.mode().payBiomass(player, cost)) {
 			refuse(player, ClientChannel.RESULT_DENIED, "Not enough biomass: " + (borrowed == null ? "that morph" : "that combination") + " costs " + cost + ".");
 			return;
 		}
 		if (sameBody) plugin.borrowedHeads().setBorrowed(player, borrowed);
-		else morphTo(player, ref, false, borrowed);
+		else morphTo(player, ref, ref.isSelfBody() && (current == null || !current.isMorphed()), borrowed); // own body + borrowed: at once
 		ch.sendResult(player, ClientChannel.RESULT_OK, "");
+	}
+
+	/** Admin {@code /morph borrow} on a player in their own body: the body borrows {@code borrowed}, at once (7.1.3). */
+	public void lendToOwnBody(Player player, MorphRef borrowed) {
+		morphTo(player, MorphRef.selfBody(VariantCapture.skinOf(player)), true, borrowed);
+	}
+
+	/** A form from the player's collection by id, or their own body for "self" / "self-body"; null if they don't have it. */
+	private static @Nullable MorphRef resolve(Player player, PlayerMorphData data, String variantId) {
+		return MorphRef.ownBodyId(variantId) ? MorphRef.selfBody(VariantCapture.skinOf(player)) : data.byId(variantId);
 	}
 
 	/** A refused request: modded clients show it themselves; everyone else gets it in chat. */
@@ -210,7 +226,7 @@ public final class MorphManager {
 	/** After morphs were removed from a collection: a borrowed form that went with them is dropped too. */
 	public void checkBorrowed(Player player) {
 		MorphRef form = plugin.borrowedHeads().borrowed(player);
-		if (form != null && plugin.store().get(player.getUniqueId()).byId(form.variantId()) == null) plugin.borrowedHeads().setBorrowed(player, null);
+		if (form != null && !form.isSelfBody() && plugin.store().get(player.getUniqueId()).byId(form.variantId()) == null) plugin.borrowedHeads().setBorrowed(player, null);
 	}
 
 	// ------------------------------------------------------------------ unlocking
@@ -724,13 +740,19 @@ public final class MorphManager {
 		resetBody(player);
 		plugin.mode().onJoin(player);
 		if (plugin.settings().persistCurrentMorph && data.current != null) {
-			MorphRef owned = data.byId(data.current.variantId());
+			MorphRef owned = resolve(player, data, data.current.variantId());
 			// A Survival player who can't morph (yet) logs in as themselves; their morphs wait until they can.
-			if (owned != null && canUseType(player, owned.entityType()) && plugin.mode().cannotMorph(player) == null) {
-				MorphRef borrowed = data.borrowed == null ? null : data.byId(data.borrowed.variantId());
+			if (owned != null && (owned.isSelfBody() || canUseType(player, owned.entityType())) && plugin.mode().cannotMorph(player) == null) {
+				MorphRef borrowed = data.borrowed == null ? null : resolve(player, data, data.borrowed.variantId());
 				if (borrowed != null && (!plugin.settings().multimorphEnabled || !player.hasPermission("morphreborn.multimorph") || plugin.mode().cannotCombine(player) != null
-						|| !canUseType(player, borrowed.entityType()) || cannotCombine(borrowed) != null)) {
+						|| (!borrowed.isSelfBody() && !canUseType(player, borrowed.entityType())) || cannotCombine(borrowed) != null)) {
 					borrowed = null;
+				}
+				if (owned.isSelfBody() && borrowed == null) {
+					// your own body with nothing borrowed is just you
+					data.current = null;
+					data.borrowed = null;
+					return;
 				}
 				MorphRef keep = borrowed;
 				Bukkit.getScheduler().runTaskLater(plugin, () -> {

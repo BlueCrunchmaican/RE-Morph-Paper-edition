@@ -244,6 +244,30 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.1.3, your own body in multimorphs (2026-11-11)
+
+MorphTester2 (7.1.3 mod) wearing each combination, watched by MorphTester1 (7.1.3 mod and First-person Model) and
+VanillaViewer (no mod), all three facing it from the front or from behind; driven over RCON (`/morph borrow`).
+
+- [x] Before: "Your own body can't be combined." Now own body + bat: bat wings on the shoulder blades, from both
+      modded clients; the server reports "own body, combined".
+- [x] Own body + parrot, phantom, bee, allay, ender dragon, blaze, cod, axolotl: wings, rods, fins and tails where
+      they go on a standing body (the dragon's scaled to it).
+- [x] Own body + cow, creeper, spider, slime: the borrowed head in place of yours, turning with it.
+- [x] Own body + fox, wolf, horse, cat, rabbit, camel, donkey, armadillo (after the ears-and-tail change): your head
+      with their ears on top and their tail at the small of your back, checked side on and from behind at close range
+      once the user saw them floating: each ear reaches into the head, each tail starts at the back (the camel's flat
+      tail just shows behind it). Name tags hidden (a team and `appearance.name-tags: hidden`) so nothing covered them.
+- [x] Own body + ghast: a ghast head the size of yours, tentacles over the chest (it was a full-size ghast). Own body +
+      slime: the cube in place of your head; for players without the mod it now covers the head instead of sitting
+      behind it.
+- [x] Own body + giant: the giant's head 1.5 times yours. Giant + your own head: your head at the giant's head size.
+- [x] Horse and cow + your own head: the creature with your head where its neck was. The combination came back after a
+      relog and after a server restart.
+- [ ] Players without the mod, still wrong (left for 7.2.0, see the roadmap): your head on a creature isn't shown, a
+      borrowed ghast's tentacles sit by the feet, a giant's head floats above the head.
+- [x] Plugin unit tests: 29 of 29.
+
 ## 7.1.2, sulfur cubes (2026-11-07)
 
 A sulfur cube morph holding TNT (a player without the mod), and a player with the mod hitting and lighting it:

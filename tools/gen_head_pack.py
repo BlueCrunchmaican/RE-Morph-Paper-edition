@@ -91,8 +91,15 @@ def main():
         # where the head meets its neck, in the model's blocks from its pivot: the middle of its bottom, at the back
         # (item space faces -z), or the middle for a whole body; the plugin lines these up instead of the pivots
         whole = bool(head.get("whole", False))
-        lo = [min(e["from"][i] for e in elements) for i in range(3)]
-        hi = [max(e["to"][i] for e in elements) for i in range(3)]
+        # a body lent whole is measured by its big blocks, as the client mod does: a ghast's tentacles and a squid's
+        # hang below its body, and lined up by their ends the body sat over the head instead of on it
+        core = elements
+        if whole:
+            volume = lambda e: (e["to"][0] - e["from"][0]) * (e["to"][1] - e["from"][1]) * (e["to"][2] - e["from"][2])
+            biggest = max(volume(e) for e in elements)
+            core = [e for e in elements if volume(e) >= biggest * 0.25]
+        lo = [min(e["from"][i] for e in core) for i in range(3)]
+        hi = [max(e["to"][i] for e in core) for i in range(3)]
         anchor = [((lo[0] + hi[0]) / 2 - 8) / 16, (lo[1] - 8) / 16, (((lo[2] + hi[2]) / 2 if whole else hi[2]) - 8) / 16]
         plugin[mob] = {"neck": head["neck"], "height": head["height"], "scale": round(head["scale"] / k, 4),
                        "whole": whole, "anchor": [round(v, 4) for v in anchor],

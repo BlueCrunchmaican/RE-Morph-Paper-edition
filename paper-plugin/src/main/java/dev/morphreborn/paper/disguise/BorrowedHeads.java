@@ -87,6 +87,8 @@ public final class BorrowedHeads implements Listener {
 
 	/** A skull item's neck point from the display's origin (item space, blocks, at scale 1): the middle of its bottom. */
 	private static final Vector SKULL_ANCHOR = new Vector(0, -0.25, 0);
+	/** A borrowed head is drawn at most this many times the size of the body's own head (a giant's on a person). */
+	private static final double BIG_HEAD = 1.5;
 	private static final float SKULL_SCALE = 0.5F;
 
 	private final MorphRebornPlugin plugin;
@@ -220,7 +222,7 @@ public final class BorrowedHeads implements Listener {
 				continue;
 			}
 			Shown shown = displays.get(e.getKey());
-			Location neck = neck(player, main, body);
+			Location neck = neck(player, main, body, isWhole(lent.entityType()));
 			if (shown == null || !shown.valid(player)) {
 				removeDisplay(e.getKey());
 				displays.put(e.getKey(), spawn(player, lent, neck, coverScale(player, main, body, lent)));
@@ -234,13 +236,15 @@ public final class BorrowedHeads implements Listener {
 	 * Where the borrowed head goes: where the main body's own head meets its neck, turned with the body; the head turned
 	 * as the player looks.
 	 */
-	private Location neck(Player player, MorphRef main, Head body) {
+	private Location neck(Player player, MorphRef main, Head body, boolean centred) {
 		LivingEntity template = main.isPlayer() ? null : plugin.templates().get(main, player.getWorld());
 		double size = template == null || body.height() <= 0 ? 1.0 : template.getHeight() / body.height();
 		double yaw = Math.toRadians(player.getBodyYaw());
-		// the pivot, then the body's own head's neck point from it (item space faces -z: the body's +z is its -z)
+		// the pivot, then the body's own head's neck point from it (item space faces -z: the body's +z is its -z); a
+		// creature lent whole (a slime) stands on the middle of the head's bottom, not at its back, or it sat behind it
 		double s = body.scale() * size;
-		Vector n = body.neck().clone().multiply(size).add(new Vector(-body.anchor().getX() * s, body.anchor().getY() * s, -body.anchor().getZ() * s));
+		double back = centred ? body.anchor().getZ() - body.size().getZ() / 2.0 : body.anchor().getZ();
+		Vector n = body.neck().clone().multiply(size).add(new Vector(-body.anchor().getX() * s, body.anchor().getY() * s, -back * s));
 		double x = n.getX() * Math.cos(yaw) - n.getZ() * Math.sin(yaw);
 		double z = n.getX() * Math.sin(yaw) + n.getZ() * Math.cos(yaw);
 		Location at = player.getLocation().add(x, n.getY(), z);
@@ -260,22 +264,32 @@ public final class BorrowedHeads implements Listener {
 	 * mod always see the body's head; a smaller head would sit hidden inside it): at least 1.
 	 */
 	private double coverScale(Player owner, MorphRef main, Head body, MorphRef form) {
-		Head head = form.isPlayer() ? null : heads.get(form.entityType());
+		// a player's head (another player's form, or your own on a creature) covers the body's head too, or it hid in it
+		Head head = form.isPlayer() ? PLAYER : heads.get(form.entityType());
 		if (head == null || body.size().lengthSquared() == 0 || head.size().lengthSquared() == 0 || heads.get(main.entityType()) != null
 				&& isWhole(main.entityType())) {
 			return 1;
 		}
+		boolean whole = !form.isPlayer() && isWhole(form.entityType());
 		LivingEntity bodyTemplate = main.isPlayer() ? null : plugin.templates().get(main, owner.getWorld());
-		LivingEntity headTemplate = plugin.templates().get(form, owner.getWorld());
+		LivingEntity headTemplate = form.isPlayer() ? null : plugin.templates().get(form, owner.getWorld());
 		double bodySize = bodyTemplate == null || body.height() <= 0 ? 1.0 : bodyTemplate.getHeight() / body.height();
 		double headSize = headTemplate == null || head.height() <= 0 ? 1.0 : headTemplate.getHeight() / head.height();
-		double need = 1;
+		// what it takes to cover the body's head on every axis
+		double fit = 0, mainBig = 0, lentBig = 0;
 		for (int axis = 0; axis < 3; axis++) {
 			double main3 = component(body.size(), axis) * body.scale() * bodySize;
 			double lent3 = component(head.size(), axis) * head.scale() * headSize;
-			if (lent3 > 1e-3) need = Math.max(need, main3 / lent3 * 1.04);
+			if (lent3 > 1e-3) fit = Math.max(fit, main3 / lent3 * 1.04);
+			mainBig = Math.max(mainBig, main3);
+			lentBig = Math.max(lentBig, lent3);
 		}
-		return need;
+		if (fit <= 0) return 1;
+		// a creature lent whole is a head, so it shrinks to the head it covers (a full-size ghast on a person); any other
+		// head much bigger than the body's (a giant's) is drawn at most BIG_HEAD times it, as the client mod does
+		if (whole) return fit;
+		if (mainBig > 1e-3 && lentBig > BIG_HEAD * mainBig) return BIG_HEAD * mainBig / lentBig;
+		return Math.max(1, fit);
 	}
 
 	private static double component(Vector v, int axis) {

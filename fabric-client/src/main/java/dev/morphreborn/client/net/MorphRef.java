@@ -19,6 +19,13 @@ public record MorphRef(String entityType, String variantId, String snbt, @Nullab
 		return SELF_ID.equals(variantId);
 	}
 
+	/** Your own body as part of a multimorph (the server's "self-body" form, 7.1.3): a player form with your skin. */
+	public static final String SELF_BODY_ID = "self-body";
+
+	public boolean isSelfBody() {
+		return SELF_BODY_ID.equals(variantId);
+	}
+
 	/** Cache key for entity instances: same appearance, same entity. */
 	public String appearanceKey() {
 		if (isPlayer()) return entityType + "|" + (skin == null ? "?" : skin.profileId());
