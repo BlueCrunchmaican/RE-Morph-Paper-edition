@@ -98,7 +98,7 @@ public final class MorphCommand implements TabExecutor {
 		sender.sendMessage(Component.text("RE:Morph", NamedTextColor.GOLD));
 		sender.sendMessage(Component.text("/" + label + " list | use <id> | off | ability | fav <id>", NamedTextColor.GRAY));
 		if (plugin.settings().multimorphEnabled) {
-			sender.sendMessage(Component.text("/" + label + " combine <main> <borrowed> | combine <borrowed> | combine off", NamedTextColor.GRAY));
+			sender.sendMessage(Component.text("/" + label + " combine <main> <borrowed> | combine <borrowed> | combine off (\"self\" is your own body)", NamedTextColor.GRAY));
 		}
 		if (plugin.survival().active()) sender.sendMessage(Component.text("/" + label + " biomass | upgrades | upgrade <id>", NamedTextColor.GRAY));
 		if (sender.hasPermission("morphreborn.admin")) {
@@ -265,6 +265,7 @@ public final class MorphCommand implements TabExecutor {
 
 	/** A morph id the player owns, from an id or a type ("cow" picks their first cow). */
 	private String ownedId(Player p, String arg) {
+		if (arg.equalsIgnoreCase("me") || arg.equalsIgnoreCase(p.getName())) return MorphRef.SELF_ID; // your own body
 		PlayerMorphData data = plugin.store().get(p.getUniqueId());
 		if (data.byId(arg) == null && !arg.equals(MorphRef.SELF_ID)) {
 			List<PlayerMorphData.StoredVariant> ofType = data.morphs.get(VariantRules.normaliseType(arg));
@@ -284,7 +285,12 @@ public final class MorphCommand implements TabExecutor {
 		if (args.length < 2) throw new IllegalArgumentException("Usage: /morph combine <main> <borrowed> | combine <borrowed> | combine off");
 		MorphRef body = plugin.morphs().activeForm(p);
 		if (args.length == 2) {
-			if (body == null || body.isSelf()) throw new IllegalArgumentException("Morph first, or name both: /morph combine <main> <borrowed>.");
+			if (body == null || body.isSelf()) {
+				// in your own body: your body borrows the form
+				if (args[1].equalsIgnoreCase("off")) return;
+				plugin.morphs().requestMorph(p, MorphRef.SELF_ID, ownedId(p, args[1]));
+				return;
+			}
 			if (args[1].equalsIgnoreCase("off")) {
 				plugin.morphs().requestMorph(p, body.variantId(), null);
 				return;
@@ -341,7 +347,7 @@ public final class MorphCommand implements TabExecutor {
 		} else {
 			removed = data.removeType(VariantRules.normaliseType(args[2]));
 		}
-		if (current != null && data.byId(current.variantId()) == null && !current.isSelf()) plugin.morphs().demorph(target, true);
+		if (current != null && data.byId(current.variantId()) == null && !current.isSelf() && !current.isSelfBody()) plugin.morphs().demorph(target, true);
 		plugin.morphs().checkBorrowed(target);
 		plugin.store().markDirty(target.getUniqueId());
 		plugin.channel().sendCollection(target);
@@ -383,22 +389,32 @@ public final class MorphCommand implements TabExecutor {
 
 	/** Multimorph test: {@code /morph borrow <player> <type|off> [snbt]} gives a morphed player a borrowed form. */
 	private void borrow(CommandSender sender, String[] args) {
-		if (args.length < 3) throw new IllegalArgumentException("Usage: /morph borrow <player> <type|off> [snbt]");
+		if (args.length < 3) throw new IllegalArgumentException("Usage: /morph borrow <player> <type|self|off> [snbt]");
 		Player target = player(args[1]);
+		MorphRef body = plugin.morphs().activeForm(target);
+		boolean ownBody = body == null || body.isSelf() || body.isSelfBody();
 		if (args[2].equalsIgnoreCase("off")) {
-			plugin.borrowedHeads().setBorrowed(target, null);
+			if (body != null && body.isSelfBody()) plugin.morphs().demorph(target, true); // their own body again
+			else plugin.borrowedHeads().setBorrowed(target, null);
 			sender.sendMessage(Component.text(target.getName() + " borrows nothing now.", NamedTextColor.GREEN));
 			return;
 		}
-		// the player's own morph of that kind when they have one, so it is saved and comes back after a relog
-		PlayerMorphData data = plugin.store().get(target.getUniqueId());
-		MorphRef ref = data.byId(args[2]);
-		if (ref == null) {
-			MorphRef appearance = appearanceFrom(args[2], args, 3);
-			PlayerMorphData.StoredVariant owned = data.find(appearance);
-			ref = owned != null ? PlayerMorphData.toRef(appearance.entityType(), owned) : appearance;
+		MorphRef ref;
+		if (args[2].equalsIgnoreCase("self") || args[2].equalsIgnoreCase(target.getName())) {
+			if (ownBody) throw new IllegalArgumentException(target.getName() + " is in their own body: morph them first.");
+			ref = MorphRef.selfBody(VariantCapture.skinOf(target));
+		} else {
+			// the player's own morph of that kind when they have one, so it is saved and comes back after a relog
+			PlayerMorphData data = plugin.store().get(target.getUniqueId());
+			ref = data.byId(args[2]);
+			if (ref == null) {
+				MorphRef appearance = appearanceFrom(args[2], args, 3);
+				PlayerMorphData.StoredVariant owned = data.find(appearance);
+				ref = owned != null ? PlayerMorphData.toRef(appearance.entityType(), owned) : appearance;
+			}
 		}
-		plugin.borrowedHeads().setBorrowed(target, ref);
+		if (ownBody && (body == null || !body.isSelfBody())) plugin.morphs().lendToOwnBody(target, ref); // their own body borrows it
+		else plugin.borrowedHeads().setBorrowed(target, ref);
 		sender.sendMessage(Component.text(target.getName() + " borrows from ", NamedTextColor.GREEN).append(MorphManager.displayName(ref)));
 	}
 
@@ -408,7 +424,7 @@ public final class MorphCommand implements TabExecutor {
 		ActiveMorph s = plugin.morphs().state(target);
 		String version = plugin.channel().clientVersion(target);
 		sender.sendMessage(Component.text(target.getName() + ": " + (version == null ? "vanilla client" : "RE:Morph client " + version), NamedTextColor.GOLD));
-		sender.sendMessage(Component.text(" form: " + (s == null || s.next == null ? "own body" : s.next.entityType() + " " + s.next.snbt()
+		sender.sendMessage(Component.text(" form: " + (s == null || s.next == null ? "own body" : s.next.isSelfBody() ? "own body, combined" : s.next.entityType() + " " + s.next.snbt()
 				+ (s.overlay.isEmpty() ? "" : " look " + s.overlay))
 				+ (s != null && s.isTransitioning() ? " (transforming " + s.time + "/" + s.duration + ")" : ""), NamedTextColor.GRAY));
 		if (s != null && s.converted != null) {
@@ -651,6 +667,7 @@ public final class MorphCommand implements TabExecutor {
 				ids.add(type.replace("minecraft:", ""));
 				list.forEach(v -> ids.add(v.id));
 			});
+			if (sub.equals("combine")) ids.add("self");
 			if (sub.equals("combine") && args.length == 2) ids.add("off");
 			return filter(ids, args[args.length - 1]);
 		}

@@ -22,6 +22,7 @@
   "morphreborn.multimorph.close": "Esc / right click: close",
   "morphreborn.multimorph.cant_combine": "%s can't be combined.",
   "morphreborn.multimorph.same_type": "Combine two different creatures.",
+  "morphreborn.multimorph.own_body_server": "Combining your own body needs RE:Morph 7.1.3 or newer on the server.",
   "morphreborn.preview.title": "Multimorph preview",
   "morphreborn.preview.help": "Left/Right: borrowed form   Up/Down: main body   Space: none",
   "morphreborn.preview.help_mouse": "Drag: turn   Scroll: zoom",

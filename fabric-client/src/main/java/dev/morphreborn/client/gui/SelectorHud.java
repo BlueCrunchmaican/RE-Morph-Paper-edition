@@ -274,7 +274,8 @@ public final class SelectorHud {
 
 	private boolean isCurrent(MorphRef ref) {
 		MorphRef current = currentMorph();
-		return current == null ? ref.isSelf() : current.variantId().equals(ref.variantId());
+		if (current == null || current.isSelfBody()) return ref.isSelf(); // your own body, whatever it borrows
+		return current.variantId().equals(ref.variantId());
 	}
 
 	/** The form the player's body borrows from now, or null. */
@@ -286,7 +287,7 @@ public final class SelectorHud {
 
 	/** Why {@code main} can't borrow from {@code other}, or null if it can. */
 	private static @Nullable Component cannotBorrow(MorphRef main, MorphRef other) {
-		if (!MultimorphPreview.combinable(other)) return Component.translatable("morphreborn.multimorph.cant_combine", typeName(other.entityType()));
+		if (!MultimorphPreview.combinable(other)) return cantCombine(other);
 		if (main.entityType().equals(other.entityType())) return Component.translatable("morphreborn.multimorph.same_type");
 		return null;
 	}
@@ -295,8 +296,14 @@ public final class SelectorHud {
 	private boolean startMultimorph(Collection.Variant variant) {
 		if (!Keys.shiftDown() || !ClientNet.multimorphAllowed()) return false;
 		if (MultimorphPreview.combinable(variant.ref)) pendingMain = variant;
-		else ClientNet.message(Component.translatable("morphreborn.multimorph.cant_combine", typeName(variant.ref.entityType())).withStyle(ChatFormatting.GRAY));
+		else ClientNet.message(cantCombine(variant.ref).copy().withStyle(ChatFormatting.GRAY));
 		return true;
+	}
+
+	/** Why {@code ref} can't be part of a multimorph here. */
+	private static Component cantCombine(MorphRef ref) {
+		if (ref.isSelf()) return Component.translatable("morphreborn.multimorph.own_body_server");
+		return Component.translatable("morphreborn.multimorph.cant_combine", typeName(ref.entityType()));
 	}
 
 	/** The second pick of a multimorph. False (and why, on screen) if {@code ref} can't be borrowed. */
@@ -348,7 +355,7 @@ public final class SelectorHud {
 			closeSelector();
 			return;
 		}
-		if (pendingMain != null && !variant.ref.isSelf()) {
+		if (pendingMain != null && (!variant.ref.isSelf() || MultimorphPreview.combinable(variant.ref))) {
 			if (variant.ref.variantId().equals(pendingMain.ref.variantId())) pick(variant.ref); // the same one again: just that creature
 			else if (!finishMultimorph(variant.ref)) return;
 			closeSelector();

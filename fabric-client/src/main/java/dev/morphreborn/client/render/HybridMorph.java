@@ -34,7 +34,8 @@ import org.jspecify.annotations.Nullable;
  * Multimorph for players with the mod: the main body, with the borrowed form's head in place of its own and its
  * appendages (wings, tails, fins, blaze and breeze rods) grafted on. Bodies are living mobs or the ender dragon, as main
  * or borrowed form; the dragon's wings and tail are scaled to the body they go on. A creature known by its wings, rods or fins lends
- * only its parts and the main body keeps its own head (see {@link #lendsPartsOnly}). The main body is drawn as usual with its head left
+ * only its parts and the main body keeps its own head (see {@link #lendsPartsOnly}); an animal with a tail and ears standing
+ * out of its head lends those (see {@link #EARS_AND_TAIL}). The main body is drawn as usual with its head left
  * out (hidden at draw time, as for the first-person body); the borrowed head's cubes are then drawn on the main head's
  * posed frame, so it turns and nods with it, at the borrowed mob's real size. Mobs without a head part (slimes, ghasts,
  * squid, fish, bees) lend their whole body, standing on the neck, and nothing else.
@@ -81,8 +82,20 @@ public final class HybridMorph {
 
 	private HybridMorph() {}
 
+	/** Blocks borrowed ears reach into the head they go on, on every side (see {@link #placeEars}). */
+	private static final float EAR_SET_IN = 0.0625F;
+	/** A borrowed head is drawn at most this many times the size of the head it replaces (see {@link #place}). */
+	private static final float BIG_HEAD = 1.5F;
+
 	/** Per model: does a borrowed form with this model lend only its parts? (see {@link #lendsPartsOnly}) */
 	private static final Map<ModelPart, Boolean> PARTS_ONLY = new java.util.WeakHashMap<>();
+	/**
+	 * Per model: does a borrowed form with this model lend its ears and tail instead of its head? Animals with a tail and
+	 * ears that stand out from the head (wolves, foxes, cats, ocelots, rabbits, armadillos, camels, the horse family):
+	 * the main body keeps its own head, with the ears on top of it (7.1.3, the user's call: a fox on a person reads as
+	 * fox ears and a tail, not a fox's head).
+	 */
+	private static final Map<ModelPart, Boolean> EARS_AND_TAIL = new java.util.WeakHashMap<>();
 
 	/** Extraction: {@code main} is drawn with {@code borrowed}'s head and parts, or only its parts, on it. */
 	public static void attach(EntityRenderDispatcher dispatcher, EntityRenderState main, EntityRenderState borrowed) {
@@ -104,7 +117,9 @@ public final class HybridMorph {
 		}
 		((Mark) main).morph$setBorrowed(borrowed);
 		// a pufferfish is its puffed body, not its fins (too small to see): it lends itself whole
-		boolean partsOnly = borrowed.entityType != net.minecraft.world.entity.EntityTypes.PUFFERFISH && PARTS_ONLY.computeIfAbsent(lent, HybridMorph::hasDefiningParts);
+		boolean earsAndTail = EARS_AND_TAIL.computeIfAbsent(lent, k -> lendsEarsAndTail(dispatcher, borrowed));
+		boolean partsOnly = borrowed.entityType != net.minecraft.world.entity.EntityTypes.PUFFERFISH
+				&& (earsAndTail || PARTS_ONLY.computeIfAbsent(lent, HybridMorph::hasDefiningParts));
 		((Mark) main).morph$setHideHead(!partsOnly);
 	}
 
@@ -135,6 +150,133 @@ public final class HybridMorph {
 			if (hasDefiningParts(child.getValue())) return true;
 		}
 		return false;
+	}
+
+	/** A tail, and ears standing out of the head (see {@link #EARS_AND_TAIL}). */
+	private static boolean lendsEarsAndTail(EntityRenderDispatcher dispatcher, EntityRenderState state) {
+		Body body = body(dispatcher, state);
+		if (body == null || !hasTail(body.root()) || headPath(body.root()) == null) return false;
+		List<Cube> head = new ArrayList<>();
+		Matrix4f frame = headCubes(body.root(), body.base(), head);
+		if (frame == null) return false;
+		float[][] core = coreBox(head, frame);
+		return core != null && !ears(head, frame, core, namedEars(body.root())).isEmpty();
+	}
+
+	/**
+	 * The cubes of parts named as ears ("left_ear", "ear", "right_ear_cube"...): a camel's head part holds its neck, so
+	 * its ears don't stand out of the head's box.
+	 */
+	private static Set<ModelPart.Cube> namedEars(ModelPart part) {
+		Set<ModelPart.Cube> out = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+		addNamedEars(part, false, out);
+		return out;
+	}
+
+	private static void addNamedEars(ModelPart part, boolean ear, Set<ModelPart.Cube> out) {
+		ModelPartAccessor access = (ModelPartAccessor) (Object) part;
+		if (ear) out.addAll(access.morph$cubes());
+		for (Map.Entry<String, ModelPart> child : access.morph$children().entrySet()) {
+			addNamedEars(child.getValue(), ear || child.getKey().matches("(.*_)?ears?(\\d+)?(_.*)?"), out);
+		}
+	}
+
+	private static boolean hasTail(ModelPart part) {
+		for (Map.Entry<String, ModelPart> child : ((ModelPartAccessor) (Object) part).morph$children().entrySet()) {
+			String name = child.getKey();
+			if (name.contains("tail") && !name.contains("fin")) return true;
+			if (hasTail(child.getValue())) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * A head's ears: parts named as ears, and the small blocks (a quarter of its biggest or less) sticking out of its core
+	 * box at the top or the sides, not the front (a nose) or below (a beard). Measured in the head's frame (model axes:
+	 * +y down, -z forward).
+	 */
+	private static List<Cube> ears(List<Cube> head, Matrix4f frame, float[][] core, Set<ModelPart.Cube> named) {
+		Matrix4f inverse = new Matrix4f(frame).invert();
+		float biggest = 0;
+		for (Cube c : head) biggest = Math.max(biggest, volume(c.cube()));
+		List<Cube> out = new ArrayList<>();
+		for (Cube c : head) {
+			if (named.contains(c.cube())) {
+				out.add(c);
+				continue;
+			}
+			if (volume(c.cube()) >= biggest * 0.25F) continue;
+			float[][] box = cubeBox(c, inverse);
+			float x = (box[0][0] + box[1][0]) / 2F, y = (box[0][1] + box[1][1]) / 2F, z = (box[0][2] + box[1][2]) / 2F;
+			boolean above = y < core[0][1];
+			boolean beside = x < core[0][0] || x > core[1][0];
+			boolean front = z < core[0][2];
+			boolean below = y > core[1][1];
+			if ((above || beside) && !front && !below) out.add(c);
+		}
+		return out;
+	}
+
+	/** One cube's box {lo, hi} in a frame ({@code inverse} takes model space into it). */
+	private static float[][] cubeBox(Cube c, Matrix4f inverse) {
+		Matrix4f toLocal = new Matrix4f(inverse).mul(c.pose());
+		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		for (ModelPart.Polygon polygon : c.cube().polygons) {
+			for (ModelPart.Vertex v : polygon.vertices()) {
+				Vector3f p = toLocal.transformPosition(new Vector3f(v.x() / 16F, v.y() / 16F, v.z() / 16F));
+				lo[0] = Math.min(lo[0], p.x); lo[1] = Math.min(lo[1], p.y); lo[2] = Math.min(lo[2], p.z);
+				hi[0] = Math.max(hi[0], p.x); hi[1] = Math.max(hi[1], p.y); hi[2] = Math.max(hi[2], p.z);
+			}
+		}
+		return new float[][] {lo, hi};
+	}
+
+	/**
+	 * The borrowed head's ears on the main head: each where it stands on its own head, as a share of that head's width
+	 * and depth and above its top, moved to the same share of the main head, at the size the main head's width asks
+	 * for. Both heads are measured in their own posed frames, so the ears turn and nod with the main head.
+	 */
+	private static void placeEars(Body lent, Body main, List<Cube> out) {
+		List<Cube> ownHead = new ArrayList<>();
+		Matrix4f ownFrame = headCubes(lent.root(), lent.base(), ownHead);
+		if (ownFrame == null || headPath(main.root()) == null) return;
+		List<Cube> mainHead = new ArrayList<>();
+		Matrix4f mainFrame = headCubes(main.root(), main.base(), mainHead);
+		if (mainFrame == null) return;
+		float[][] own = coreBox(ownHead, ownFrame), mine = coreBox(mainHead, mainFrame);
+		if (own == null || mine == null) return;
+		float ownWidth = Math.max(0.01F, own[1][0] - own[0][0]), ownDepth = Math.max(0.01F, own[1][2] - own[0][2]);
+		float size = Math.clamp((mine[1][0] - mine[0][0]) / ownWidth, 0.5F, 2F); // an armadillo's at 2.5 were twice its head
+		Matrix4f ownInverse = new Matrix4f(ownFrame).invert();
+		for (Cube c : ears(ownHead, ownFrame, own, namedEars(lent.root()))) {
+			float[][] box = cubeBox(c, ownInverse);
+			// where the ear meets the head: the middle of its bottom
+			Vector3f joint = new Vector3f((box[0][0] + box[1][0]) / 2F, box[1][1], (box[0][2] + box[1][2]) / 2F);
+			float shareX = (joint.x - own[0][0]) / ownWidth, shareZ = Math.clamp((joint.z - own[0][2]) / ownDepth, 0F, 1F);
+			Vector3f at = new Vector3f(mine[0][0] + shareX * (mine[1][0] - mine[0][0]), mine[0][1] + (joint.y - own[0][1]) * size,
+					mine[0][2] + shareZ * (mine[1][2] - mine[0][2]));
+			// then into the head on every side by EAR_SET_IN: a tilted ear's box bottom isn't where it joins, and the head's
+			// top is the hat layer, half a pixel above the head, so ears floated over it (the user saw it)
+			Matrix4f mainInverse = new Matrix4f(mainFrame).invert();
+			float[][] box2 = cubeBox(new Cube(new Matrix4f(mainFrame).translate(at).scale(size).translate(-joint.x, -joint.y, -joint.z).mul(ownInverse)
+					.mul(c.pose()), c.normal(), c.cube()), mainInverse);
+			// sideways: at least touching the head (a camel's stick out of its sides)
+			float lo = mine[0][0] + EAR_SET_IN, hi = mine[1][0] - EAR_SET_IN;
+			if (box2[0][0] > hi) at.x -= box2[0][0] - hi;
+			else if (box2[1][0] < lo) at.x += lo - box2[1][0];
+			// front to back: its middle over the head (a horse's leans back, and off the back edge it floated behind)
+			float middle = (box2[0][2] + box2[1][2]) / 2F;
+			lo = mine[0][2] + EAR_SET_IN;
+			hi = mine[1][2] - EAR_SET_IN;
+			if (lo < hi) at.z += Math.clamp(middle, lo, hi) - middle;
+			// down: its lowest third in the head, at least EAR_SET_IN, so a tilted base is in it all along
+			float sink = Math.max(EAR_SET_IN, (box2[1][1] - box2[0][1]) / 3F);
+			at.y += mine[0][1] + sink - box2[1][1];
+			Matrix4f move = new Matrix4f(mainFrame).translate(at).scale(size).translate(-joint.x, -joint.y, -joint.z).mul(ownInverse);
+			Matrix3f turn = move.get3x3(new Matrix3f()).scale(1F / size);
+			out.add(new Cube(new Matrix4f(move).mul(c.pose()), new Matrix3f(turn).mul(c.normal()), c.cube()));
+		}
 	}
 
 	/**
@@ -244,12 +386,23 @@ public final class HybridMorph {
 				if (state instanceof LivingEntityRenderState living) {
 					look.rotationY((float) Math.toRadians(living.yRot)).rotateX((float) Math.toRadians(living.xRot));
 				}
-				// on a dragon, a head is scaled to the dragon's (as a borrowed dragon's parts are to the body): at its own
-				// size a cow's head was a speck on the end of the neck
 				float grow = 1F;
-				if (state instanceof EnderDragonRenderState && !mainHead.isEmpty()) {
-					float ownSize = headSize(cubes, bodyB);
-					if (ownSize > 0.01F) grow = Math.max(1F, headSize(mainHead, bodyM) / ownSize);
+				float ownSize = mainHead.isEmpty() ? 0F : headSize(cubes, bodyB);
+				if (ownSize > 0.01F) {
+					float mainSize = headSize(mainHead, bodyM);
+					if (state instanceof EnderDragonRenderState || state.entityType == net.minecraft.world.entity.EntityTypes.GIANT) {
+						// on a dragon or a giant, a head is scaled up to theirs (as a borrowed dragon's parts are to the body):
+						// at its own size a cow's head was a speck on the end of the dragon's neck
+						grow = Math.max(1F, mainSize / ownSize);
+					} else if (wholeBody) {
+						// a creature lent whole is a head: no bigger than the head it stands in for (a full-size ghast on a
+						// person buried the body and the ground under its tentacles; the user saw it)
+						grow = Math.min(1F, mainSize / ownSize);
+					} else if (ownSize > BIG_HEAD * mainSize) {
+						// a much bigger head (a giant's, a ravager's) at most this much bigger than the one it replaces: a
+						// giant's head on a person is bigger than a zombie's would be, not a giant's (the user's call)
+						grow = BIG_HEAD * mainSize / ownSize;
+					}
 				}
 				Matrix4f place = new Matrix4f(bodyM).translate(mainNeck).mul(look).scale(grow).translate(-ownNeck.x, -ownNeck.y, -ownNeck.z)
 						.mul(bodyB.invert(new Matrix4f()));
@@ -257,6 +410,8 @@ public final class HybridMorph {
 				for (Cube c : cubes) placed.add(new Cube(new Matrix4f(place).mul(c.pose()), new Matrix3f(turn).mul(c.normal()), c.cube()));
 			}
 		}
+		// ears on the main head (not in First-person Model's body view, where the head is the camera)
+		if (!headSwap && withHead && Boolean.TRUE.equals(EARS_AND_TAIL.get(lent.root()))) placeEars(lent, main, placed);
 		// the parts; a whole body lent as a head (a slime) has none to give
 		if (mainTorso != null && (!headSwap || headPath(lent.root()) != null)) {
 			float[][] ownTorso = torso(lent.root(), local(lent.base(), lent.unturn()));
@@ -504,8 +659,10 @@ public final class HybridMorph {
 	 * tall as it is long.
 	 */
 	private record Graft(float[][] own, float[][] main, Matrix4f ownUnturn, Matrix4f mainUnturn, float scale, float[][] ownAll, float[][] mainAll) {
-		/** Blocks wings and tails stand clear of the body. */
+		/** Blocks wings stand clear of the body. */
 		private static final float CLEAR = 0.04F;
+		/** Blocks a tail is set into the body it joins. */
+		private static final float SET_IN = 0.03F;
 
 		static boolean stands(float[][] box) {
 			return box[1][1] - box[0][1] >= box[1][2] - box[0][2];
@@ -574,9 +731,37 @@ public final class HybridMorph {
 					at.y = Math.max(at.y, main[0][1] + 0.67F * h);
 				}
 			} else if (name.contains("tail")) {
-				at.z = Math.max(at.z, main[1][2] + CLEAR); // behind: the back of a standing body, the rear of a lying one
+				// behind: the back of a standing body, the rear of a lying one, set into it a little so it joins it (a tail's
+				// pivot sits past the end of its own body, and kept that distance it floated behind; the user saw it)
+				at.z = main[1][2] - SET_IN;
 			}
 			return at;
+		}
+
+		/**
+		 * A tail moved by {@code move} ({@code cubes} as posed on the borrowed body), shifted so it joins the main body's
+		 * back: into it by SET_IN where it stands off it, out of it where it would be hidden (a camel's is a flat strip
+		 * hanging down the back, and set in it disappeared).
+		 */
+		Matrix4f touch(Matrix4f move, List<Cube> cubes) {
+			float lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
+			Matrix4f toMain = new Matrix4f(mainUnturn).mul(move);
+			for (Cube c : cubes) {
+				Matrix4f m = new Matrix4f(toMain).mul(c.pose());
+				for (ModelPart.Polygon polygon : c.cube().polygons) {
+					for (ModelPart.Vertex v : polygon.vertices()) {
+						float z = m.transformPosition(new Vector3f(v.x() / 16F, v.y() / 16F, v.z() / 16F)).z;
+						lo = Math.min(lo, z);
+						hi = Math.max(hi, z);
+					}
+				}
+			}
+			if (lo > hi) return move;
+			float back = main[1][2], shift = 0F;
+			if (hi < back + 0.005F) shift = back + 0.005F - hi;
+			else if (lo > back - SET_IN) shift = back - SET_IN - lo;
+			if (shift == 0F) return move;
+			return new Matrix4f(mainUnturn).invert().translate(0F, 0F, shift).mul(mainUnturn).mul(move);
 		}
 
 		/** The borrowed body's facing swapped for the main body's. */
@@ -624,6 +809,7 @@ public final class HybridMorph {
 			}
 			List<Cube> cubes = new ArrayList<>();
 			collect(limb, copy(pose), cubes);
+			if (!segment && name.contains("tail") && !name.contains("fin")) move = graft.touch(move, cubes);
 			for (Cube c : cubes) out.add(new Cube(new Matrix4f(move).mul(c.pose()), new Matrix3f(turn).mul(c.normal()), c.cube()));
 		}
 		pose.popPose();

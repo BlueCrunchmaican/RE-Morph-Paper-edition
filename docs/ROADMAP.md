@@ -65,6 +65,43 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## 7.1.3, your own body in multimorphs
+
+The user found that multimorph refused your own body ("Your own body can't be combined"), a restriction they hadn't
+meant: you should be able to combine yourself with a bat or a horse as you can another player's form. Asked to be
+pushed right away, as a patch on 7.1.2 (the 7.2.0 work stays separate), after an extensive visual run of the player
+combinations with anything that looked wrong fixed.
+
+- [x] Your own body as a multimorph's main body or borrowed form. The server lends it as a player form with your
+      skin (`MorphRef.selfBody`, id `self-body`, never in a collection), so the disguise, the hybrid model and the
+      borrowed head all work as for another player's form. It costs nothing itself; going from your own body to your
+      own body plus a creature (and back) is instant. It is saved and restored on login like any multimorph.
+- [x] The client offers it only on servers from 7.1.3 (the server's version in its hello); an older server would just
+      have turned you back into yourself. `/morph combine bat` in your own body, `/morph combine self` / your name,
+      and `/morph borrow <player> <mob|self>` for admins (on an unmorphed player it combines their own body).
+- [x] The user's call, from the run: an animal with a tail and ears standing out of its head (wolf, fox, cat,
+      ocelot, rabbit, armadillo, camel, the horse family) lends its ears, on the body's own head, and its tail, not
+      its head. Ears are found by name (camel) or as small blocks standing out of the top or sides of the head (a
+      wolf's and a cat's are boxes in the head part).
+- [x] Ears and tails join the body (the user saw them floating, slightly off it): a tail starts at the back's surface,
+      set into it (its pivot sat past the end of its own body, and kept that distance), but never hidden in it (a
+      camel's is a flat strip); each ear reaches into the head by a third of its height, at least a pixel, with its
+      middle over the head (the head's top is the hat layer, and a tilted ear's box bottom isn't where it joins).
+      Ears are drawn at most twice their size (an armadillo's were huge at 2.5).
+- [x] A creature lent whole (no head part: ghast, slime, squid) is no bigger than the head it replaces; a full-size
+      ghast on a person buried the body and the observer under its tentacles.
+- [x] The user's call on giants: a borrowed head is drawn at most 1.5 times the head it replaces (a giant's on a person
+      is bigger than a zombie's, not a giant's), and a giant body, like the dragon, grows the head it borrows to its own
+      head's size (a player's head at giant size).
+- [x] Players without the mod: a creature lent whole stands on the middle of the head (it sat behind it) and is
+      measured by its body, not its tentacles (`tools/gen_head_pack.py`; a ghast sat above the head); a player's head
+      lent to a creature is scaled to cover the creature's head.
+- [ ] Known, for players without the mod (7.2.0): a player's head lent to a creature isn't seen although its display is
+      there (the same path as another player's head in 7.1.2); a borrowed ghast's tentacles show down by the feet;
+      the giant's head data (`morph-heads.json`) treats its head as a zombie's and floats it above the head; an
+      ears-and-tail animal shows its whole head (the pack has heads only, as for wing creatures); in offline mode (no
+      skins) a self-body disguise shows a default skin.
+
 ## Released: 7.1.2, sulfur cubes as vanilla's
 
 The user asked whether a sulfur cube morph holding TNT bounces when hit and can be lit. Neither worked: a hit hurt it as

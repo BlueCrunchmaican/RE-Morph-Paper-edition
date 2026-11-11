@@ -203,6 +203,11 @@ public final class ClientNet {
 		send(new Wire.Out(Wire.C_SELECT).string(mainId).string(borrowedId));
 	}
 
+	/** Servers from 7.1.3 take your own body as part of a multimorph; older ones would just turn you back into it. */
+	public static boolean serverCombinesOwnBody() {
+		return !serverVersion.isEmpty() && dev.morphreborn.client.SemVer.compare(serverVersion, "7.1.3") >= 0;
+	}
+
 	public static boolean multimorphAllowed() {
 		return multimorphAllowed;
 	}

@@ -25,9 +25,9 @@ import org.jspecify.annotations.Nullable;
 public final class MultimorphPreview {
 	private MultimorphPreview() {}
 
-	/** Morphs that can be part of a multimorph: any creature or player form, not your own body. */
+	/** Morphs that can be part of a multimorph: any creature or player form, and your own body on servers from 7.1.3. */
 	public static boolean combinable(MorphRef ref) {
-		return !ref.isSelf();
+		return !ref.isSelf() || dev.morphreborn.client.net.ClientNet.serverCombinesOwnBody();
 	}
 
 	/**

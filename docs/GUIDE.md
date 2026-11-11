@@ -209,12 +209,18 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
   your cursor on it, and the price. Pick a second creature to combine them. Picking the first again makes you just
   that creature; right click, `Esc` or `Backspace` closes without changing anything. In the wheel you can also let go
   of its key with `Shift` held and click the second favourite.
-- **Without the mod:** `/morph combine <main> <borrowed>` (a new pair), `/morph combine <borrowed>` (onto the body
-  you're in), `/morph combine off`.
+- **Your own body** (7.1.3) takes part like any other form: shift-pick **Player** and then a creature for your body
+  with that creature's wings, ears or head, or a creature and then **Player** for that creature with your head. It
+  costs nothing itself (the creature still costs its price in Survival); picking Player again turns you back.
+- **Without the mod:** `/morph combine <main> <borrowed>` (a new pair; `self` or your name is your own body),
+  `/morph combine <borrowed>` (onto the body you're in, your own included), `/morph combine off`.
 - **What the borrowed form lends:** a creature known by its wings, rods or fins (bat, phantom, parrot, bee, chicken,
   allay, vex, blaze, breeze, fish, dolphin, the ender dragon) lends those, with its tail and stinger; the body keeps
-  its own head. Anything else lends its head (at its real size) and any tail. The ender dragon's wings and tail are
-  scaled to the body. Parts morph in with the transformation.
+  its own head. An animal with a tail and ears that stand out from its head (wolf, fox, cat, ocelot, rabbit,
+  armadillo, camel, the horse family) lends its ears, on top of the body's own head, and its tail (7.1.3). Anything
+  else lends its head (at its real size) and any tail; a creature with no separate head (slime, ghast, squid) is lent
+  whole, no bigger than the head it replaces. The ender dragon's wings and tail are scaled to the body. Parts morph
+  in with the transformation.
 - **Traits and abilities:** the combination has every trait either form has (good ones still need their Survival
   unlocks), and every drawback. With two different abilities, the second input (sneak + ability key with the mod,
   `F` without) steps through both; the action bar shows which one the ability key uses. A borrowed creeper's blast
@@ -367,7 +373,7 @@ All need `morphreborn.admin` (ops by default).
 | `/morph revoke <player> <mob, id or all>` | Take morphs away |
 | `/morph reset <player>` | Wipe someone's whole collection |
 | `/morph force <player> <mob, id or off> [snbt]` | Morph someone right now |
-| `/morph borrow <player> <mob, id or off> [snbt]` | Give a morphed player a borrowed form (multimorph), or take it away |
+| `/morph borrow <player> <mob, id, self or off> [snbt]` | Give a player a borrowed form (multimorph; on their own body too), or take it away; `self` lends a morphed player their own head |
 | `/morph info <player>` | Their form, collection size, and whether they have the mod |
 | `/morph clients` | Who online has the mod |
 | `/morph ability <player>` | Fire someone's ability |
