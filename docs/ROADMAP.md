@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **6.6.1** (2026-11-07). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **7.1.3** (2026-11-11). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
 ## 6.6.1 (released 2026-11-07)
