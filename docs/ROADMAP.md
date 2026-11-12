@@ -90,6 +90,8 @@ User calls: one upgrade with three levels (each raises all three), Classic gets 
 - [x] Balance: the starting numbers above were measured (TESTING, 7.3.0-beta.1) and the user kept them as they are
       (2026-11-12).
 - [x] compat_check: the 7.3.0 client mod against all 14 released servers, 6.0.0 to 7.2.0: every one OK.
+- [x] Released 2026-11-12: tag `v7.3.0`, GitHub release `RE:Morph 7.3.0`, Modrinth `7.3.0+paper` / `7.3.0+fabric`
+      (the resource pack is 7.2.0's, unchanged).
 
 ## Released: 7.2.0, rage, room in the collection, ears and tails, version notices
 
