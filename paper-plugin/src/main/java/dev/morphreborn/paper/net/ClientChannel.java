@@ -32,6 +32,8 @@ public final class ClientChannel implements PluginMessageListener {
 	private final MorphRebornPlugin plugin;
 	private final Set<UUID> modded = ConcurrentHashMap.newKeySet();
 	private final Map<UUID, String> versions = new ConcurrentHashMap<>();
+	/** Client mod versions newer than this plugin that the console was told about (once each per server run). */
+	private final java.util.Set<String> newerClients = ConcurrentHashMap.newKeySet();
 
 	public ClientChannel(MorphRebornPlugin plugin) {
 		this.plugin = plugin;
@@ -91,6 +93,7 @@ public final class ClientChannel implements PluginMessageListener {
 					var result = plugin.survival().buyWithFeedback(player, upgrade);
 					sendUpgrades(player, false, plugin.survival().describe(result, player, upgrade));
 				}
+				case Wire.C_RAGE -> plugin.rage().trigger(player);
 				default -> plugin.debug("Unknown packet " + id + " from " + player.getName());
 			}
 		} catch (Wire.MalformedPacketException | IllegalArgumentException e) {
@@ -118,11 +121,19 @@ public final class ClientChannel implements PluginMessageListener {
 		fullSync(player);
 		sendTraits(player, plugin.abilities().clientTraits(player));
 		plugin.survival().sync(player);
+		plugin.rage().sync(player);
 		String server = plugin.getPluginMeta().getVersion();
 		String message = plugin.settings().oldClientMessage;
-		if (!wasModded && !message.isEmpty() && !modVersion.equals("?") && dev.morphreborn.paper.SemVer.compare(modVersion, server) < 0) {
+		if (wasModded || modVersion.equals("?")) return;
+		int age = dev.morphreborn.paper.SemVer.compare(modVersion, server);
+		if (age < 0 && !message.isEmpty()) {
 			player.sendMessage(MiniMessage.miniMessage().deserialize(message.replace("{client}", dev.morphreborn.paper.SemVer.clean(modVersion))
 					.replace("{server}", dev.morphreborn.paper.SemVer.clean(server))));
+		} else if (age > 0 && newerClients.add(dev.morphreborn.paper.SemVer.clean(modVersion))) {
+			// The mod tells the player itself; the console hears it once per version.
+			plugin.getLogger().info(player.getName() + " has RE:Morph client mod " + dev.morphreborn.paper.SemVer.clean(modVersion)
+					+ ", newer than this server's " + dev.morphreborn.paper.SemVer.clean(server) + ". A newer plugin is probably out: "
+					+ dev.morphreborn.paper.UpdateChecker.MODRINTH_PAGE + " or " + dev.morphreborn.paper.UpdateChecker.GITHUB_PAGE);
 		}
 	}
 
@@ -138,7 +149,8 @@ public final class ClientChannel implements PluginMessageListener {
 				.string(plugin.settings().nameTagMode.name())
 				.string(plugin.mode().id())
 				.string(plugin.getPluginMeta().getVersion()) // since 6.6.0; older clients stop reading before it
-				.bool(plugin.settings().multimorphEnabled); // since 7.0.0
+				.bool(plugin.settings().multimorphEnabled) // since 7.0.0
+				.bool(plugin.rage().enabled()); // since 7.2.0: the client shows a rage meter and sends C_RAGE only when this is true
 	}
 
 	/** Send the server settings again (the gameplay mode changed). The client takes a repeated hello as an update. */
@@ -167,6 +179,14 @@ public final class ClientChannel implements PluginMessageListener {
 				out.ref(PlayerMorphData.toRef(e.getKey(), v));
 				out.bool(v.favourite);
 			}
+		}
+		// Since 7.2.0, after the rows (older clients stop reading before it), for the selector's room counters: the
+		// most kinds of creature and the most looks of one the collection may hold, each plus 1 (0: no limit), then for
+		// each row above, in the same order, whether its creature comes in more than one look.
+		out.varInt(plugin.mode().typeCapacity(player) + 1);
+		out.varInt(plugin.morphs().lookLimit(player) + 1);
+		for (Map.Entry<String, List<PlayerMorphData.StoredVariant>> e : data.morphs.entrySet()) {
+			out.bool(plugin.morphs().hasLooks(player, e.getKey(), e.getValue().size()));
 		}
 		send(player, out);
 		plugin.survival().sendCosts(player);
@@ -233,6 +253,28 @@ public final class ClientChannel implements PluginMessageListener {
 	/** Survival Mode status for the client's biomass bar and selector (only sent in Survival Mode). */
 	public void sendSurvival(Player player, boolean unlocked, int biomass, int capacity, boolean canMorph) {
 		if (isModded(player)) send(player, new Wire.Out(Wire.S_SURVIVAL).bool(unlocked).varInt(biomass).varInt(capacity).bool(canMorph));
+	}
+
+	/**
+	 * The rage meter (S_RAGE, since 7.2.0; older clients skip the unknown packet): whether the player can rage, the hits
+	 * within the window of those needed, the wait left of the whole wait in ticks (0: none), whether they are raging now,
+	 * and the rage's ticks left of its whole length.
+	 */
+	public void sendRage(Player player, boolean available, int hits, int needed, int waitLeft, int wait, boolean raging, int rageLeft, int rageLength) {
+		if (isModded(player)) {
+			send(player, new Wire.Out(Wire.S_RAGE).bool(available).varInt(hits).varInt(needed).varInt(waitLeft).varInt(wait).bool(raging)
+					.varInt(rageLeft).varInt(rageLength));
+		}
+	}
+
+	/** A rage's tendrils (S_RAGE_DRAIN): the creatures {@code origin} drains now, to players with the mod nearby (empty: none). */
+	public void broadcastRageDrain(Player origin, java.util.List<Integer> targets) {
+		Wire.Out out = new Wire.Out(Wire.S_RAGE_DRAIN).varInt(origin.getEntityId()).varInt(targets.size());
+		for (int id : targets) out.varInt(id);
+		byte[] bytes = out.bytes();
+		for (Player viewer : origin.getWorld().getPlayers()) {
+			if (isModded(viewer) && (viewer == origin || viewer.getLocation().distanceSquared(origin.getLocation()) <= 96 * 96)) send(viewer, bytes);
+		}
 	}
 
 	/** The upgrade tree for the client's own screen; {@code open} opens it, otherwise an open one refreshes. */

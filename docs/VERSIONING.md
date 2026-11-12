@@ -12,7 +12,12 @@ always share one version. The releases before this rule were renumbered to match
 | **PATCH** | Bug fixes only: no new settings, nothing new to learn | a morph facing the wrong way, a crash fix |
 
 A release with features and fixes is a MINOR one. The client protocol number (`Wire.PROTOCOL_VERSION`, 3 since
-6.0.0) is separate and only changes with a MAJOR version. Each config file's `config-version` is the release that last
+6.0.0) is separate and only changes with a MAJOR version.
+
+**Compatibility:** from 6.0.0 on, a newer client mod works on every older server, and an older client mod on every newer
+server; neither side needs the other to update first. [PROTOCOL.md](PROTOCOL.md) has the rules that keep it so (the
+protocol number stays 3, fields are only added at the end of a packet), and `tools/compat_check.py` checks the new
+client against every released server before a release. Each config file's `config-version` is the release that last
 changed it, without a pre-release suffix.
 
 ## Names

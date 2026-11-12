@@ -46,6 +46,9 @@ public final class PlayerMorphData {
 	public @Nullable MorphRef borrowed;
 	/** Block an enderman morph is carrying (BlockData string), kept across logins. */
 	public @Nullable String carriedBlock;
+	/** Rage (ability/Rage): charged and waiting to be set off, and when the wait after the last one ends (epoch millis, 0: none). */
+	public boolean rageCharged;
+	public long rageReadyAt;
 	/** Survival Mode progress; absent until the player first plays in Survival Mode, kept when the server is Classic. */
 	public @Nullable SurvivalData survival;
 

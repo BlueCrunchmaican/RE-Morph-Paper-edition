@@ -164,6 +164,32 @@ public final class HybridMorph {
 	}
 
 	/**
+	 * For the head dump (dev/HeadDump): the cubes a borrowed form with this model lends as ears, posed by {@code base};
+	 * empty when it lends its head instead (no tail, or no ears standing out of its head).
+	 */
+	public static Set<ModelPart.Cube> lentEars(ModelPart root, PoseStack base) {
+		Set<ModelPart.Cube> out = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+		if (!hasTail(root) || headPath(root) == null) return out;
+		List<Cube> head = new ArrayList<>();
+		Matrix4f frame = headCubes(root, base, head);
+		if (frame == null) return out;
+		float[][] core = coreBox(head, frame);
+		if (core == null) return out;
+		for (Cube c : ears(head, frame, core, namedEars(root))) out.add(c.cube());
+		return out;
+	}
+
+	/** For the head dump: the torso's box {lo, hi} as borrowed parts are grafted onto it, in {@code base}'s frame. */
+	public static float @Nullable [][] torsoBox(ModelPart root, PoseStack base) {
+		return torso(root, base);
+	}
+
+	/** For the head dump: the name of a part that is a tail, as the graft treats tails. */
+	public static boolean isTail(String name) {
+		return name.contains("tail") && !name.contains("fin");
+	}
+
+	/**
 	 * The cubes of parts named as ears ("left_ear", "ear", "right_ear_cube"...): a camel's head part holds its neck, so
 	 * its ears don't stand out of the head's box.
 	 */

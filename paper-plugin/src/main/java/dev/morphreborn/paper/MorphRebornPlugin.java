@@ -57,6 +57,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	private MorphManager morphs;
 	private SurvivalMode survival;
 	private dev.morphreborn.paper.ability.Jockeys jockeys;
+	private dev.morphreborn.paper.ability.Rage rage;
 	private dev.morphreborn.paper.ability.VillagerTrading trading;
 	/** config.yml gameplay-mode; switched live by /morph mode or /morph reload ({@link #switchMode}). */
 	private GameplayMode mode;
@@ -124,6 +125,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		abilities.load(yaml("abilities.yml"));
 		jockeys = new dev.morphreborn.paper.ability.Jockeys(this);
 		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
+		rage = new dev.morphreborn.paper.ability.Rage(this);
+		rage.load(yaml("abilities.yml").getConfigurationSection("rage"));
 		morphs = new MorphManager(this);
 		survival = new SurvivalMode(this, new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		mode = settings.gameplayMode.equals("survival") ? survival : new ClassicMode(this);
@@ -132,6 +135,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(new MorphListener(this), this);
 		getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
 		getServer().getPluginManager().registerEvents(jockeys, this);
+		getServer().getPluginManager().registerEvents(rage, this);
 		trading = new dev.morphreborn.paper.ability.VillagerTrading(this);
 		getServer().getPluginManager().registerEvents(trading, this);
 		getServer().getPluginManager().registerEvents(new SurvivalListener(this), this);
@@ -148,6 +152,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			morphs.tick();
 			abilities.tick();
 			jockeys.tick();
+			rage.tick();
 			borrowedHeads.tick();
 			conversions.tick();
 		}, 1L, 1L);
@@ -161,6 +166,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		if (jockeys != null) jockeys.releaseAll();
+		if (rage != null) rage.releaseAll();
 		if (trading != null) trading.releaseAll();
 		if (borrowedHeads != null) borrowedHeads.removeAll();
 		if (morphs != null) morphs.shutdown();
@@ -188,12 +194,14 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		capture.setRules(VariantRules.load(yaml("variants.yml"), getConfig()));
 		abilities.load(yaml("abilities.yml"));
 		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
+		rage.load(yaml("abilities.yml").getConfigurationSection("rage"));
 		templates.clear();
 		scheduleAutosave();
 		for (Player p : Bukkit.getOnlinePlayers()) {
 			abilities.onFormChanged(p, morphs.activeForm(p));
 			channel.fullSync(p);
 			survival.sync(p);
+			rage.sync(p);
 		}
 	}
 
@@ -392,6 +400,10 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		return effects;
 	}
 
+	public dev.morphreborn.paper.ability.Rage rage() {
+		return rage;
+	}
+
 	public AbilityManager abilities() {
 		return abilities;
 	}
@@ -426,6 +438,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			channel.resendHello(p);
 			channel.fullSync(p);
 			survival.sync(p);
+			rage.sync(p); // the meter counts differently in each mode
 			mode.onJoin(p);
 		}
 		getLogger().info("Switched from " + from + " to " + next.id() + " mode" + (save ? " (saved to config.yml)." : "."));

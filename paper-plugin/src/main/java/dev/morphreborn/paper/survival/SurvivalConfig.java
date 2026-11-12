@@ -31,8 +31,9 @@ public final class SurvivalConfig {
 	public static final String MORPH_ABILITIES = "morph_abilities";
 	public static final String MORPH_FLIGHT = "morph_flight";
 	public static final String MULTIMORPH = "multimorph";
+	public static final String RAGE = "rage";
 	public static final List<String> KNOWN = List.of(BIOMASS_CAPACITY, BIOMASS_EFFICIENCY, BIOMASS_REACH, BIOMASS_MAX_MASS, MORPH_ABILITY,
-			MORPH_CAPACITY, MORPH_VARIANT_CAPACITY, MORPH_EFFICIENCY, MORPH_ABILITIES, MORPH_FLIGHT, MULTIMORPH);
+			MORPH_CAPACITY, MORPH_VARIANT_CAPACITY, MORPH_EFFICIENCY, MORPH_ABILITIES, MORPH_FLIGHT, MULTIMORPH, RAGE);
 
 	/**
 	 * One node of the upgrade tree.

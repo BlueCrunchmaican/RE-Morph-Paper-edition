@@ -29,6 +29,8 @@ public final class Wire {
 	public static final int C_OPEN_UPGRADES = 6;
 	/** Buy the next level of an upgrade: string upgrade id. Answered with S_UPGRADES. */
 	public static final int C_BUY_UPGRADE = 7;
+	/** Set off a charged rage (7.2.0): no fields. Sent only to servers whose S_HELLO says they have rage. */
+	public static final int C_RAGE = 8;
 
 	public static final int S_HELLO = 0;
 	public static final int S_COLLECTION = 1;
@@ -50,6 +52,16 @@ public final class Wire {
 	public static final int S_UPGRADES = 10;
 	/** Survival morph prices: varInt count, then string variant id and varInt biomass cost each. Empty: morphing is free. */
 	public static final int S_COSTS = 11;
+	/**
+	 * Rage meter (7.2.0): bool available, varInt hits (within the window), varInt hits needed, varInt wait ticks left,
+	 * varInt wait ticks in all (0: no wait), bool raging now, varInt rage ticks left, varInt rage ticks in all.
+	 */
+	public static final int S_RAGE = 12;
+	/**
+	 * A rage's tendrils (7.2.0): varInt the raging player's entity id, varInt count, then each drained entity's id. An
+	 * empty list ends them.
+	 */
+	public static final int S_RAGE_DRAIN = 13;
 
 	public static final int TRAIT_CLIMB = 1;
 	public static final int TRAIT_WEB = 2;

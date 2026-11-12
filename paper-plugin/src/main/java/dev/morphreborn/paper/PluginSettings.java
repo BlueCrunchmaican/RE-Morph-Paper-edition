@@ -196,8 +196,8 @@ public final class PluginSettings {
 		oldClientMessage = c.getString("client.old-client-message", "");
 		updateCheck = c.getBoolean("update-check.enabled", true);
 		debug = c.getBoolean("debug", false);
-		String chosenMode = c.getString("gameplay-mode", "classic").trim().toLowerCase(java.util.Locale.ROOT);
-		gameplayMode = chosenMode.equals("survival") || chosenMode.equals("default") ? "survival" : "classic";
+		String chosenMode = c.getString("gameplay-mode", "survival").trim().toLowerCase(java.util.Locale.ROOT);
+		gameplayMode = chosenMode.equals("classic") ? "classic" : "survival"; // survival (also "default") since 7.2.0
 	}
 
 	private static WorldRule worldRule(FileConfiguration c, String path) {

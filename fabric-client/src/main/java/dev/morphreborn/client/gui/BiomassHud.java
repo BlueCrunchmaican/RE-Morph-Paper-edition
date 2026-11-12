@@ -26,9 +26,14 @@ public final class BiomassHud {
 	/** How long the "+21" floats and the tendrils surge after a gain. */
 	private static final int GAIN_TICKS = 30;
 
+	/** This frame's bar: its opacity (0: not drawn) and the scale it was drawn at, for the rage meter above it. */
+	static int shownAlpha;
+	static float shownScale = 1F;
+
 	private BiomassHud() {}
 
 	public static void render(GuiGraphicsExtractor g, DeltaTracker deltaTracker) {
+		shownAlpha = 0;
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || !ClientNet.isSurvival() || !ClientNet.biomassUnlocked()) return;
 		String mode = ClientConfig.INSTANCE.biomassBar;
@@ -51,6 +56,8 @@ public final class BiomassHud {
 		// corner readout and its pixels stay whole.
 		int guiScale = (int) Math.round(mc.getWindow().getGuiScale());
 		float s = guiScale >= 4 ? (guiScale - 1) / (float) guiScale : 1F;
+		shownAlpha = a;
+		shownScale = s;
 		g.pose().pushMatrix();
 		g.pose().translate(0, g.guiHeight());
 		g.pose().scale(s, s);

@@ -4,6 +4,7 @@ import dev.morphreborn.paper.MorphRebornPlugin;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.data.SurvivalData;
 import dev.morphreborn.paper.mode.GameplayMode;
+import dev.morphreborn.paper.morph.MorphManager;
 import dev.morphreborn.paper.survival.SurvivalConfig.Upgrade;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -134,7 +135,8 @@ public final class SurvivalMode implements GameplayMode {
 	public void onKill(Player killer, LivingEntity victim, @Nullable MorphRef appearance) {
 		if (!isUnlocked(killer)) return; // before "A Mutation Complication", kills give nothing
 		double reach = value(killer, SurvivalConfig.BIOMASS_REACH);
-		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && reach >= 0 && distance(killer, victim) > reach) {
+		// a rage's tendrils reach what they drain: its kills are absorbed wherever they are
+		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && reach >= 0 && !plugin.rage().isRageKill(victim) && distance(killer, victim) > reach) {
 			killer.sendActionBar(Component.text("Too far away to absorb (your reach is " + number(reach) + " blocks).", NamedTextColor.GRAY));
 			return;
 		}
@@ -148,15 +150,23 @@ public final class SurvivalMode implements GameplayMode {
 		}
 		double gain = mass * config.biomassValue * value(killer, SurvivalConfig.BIOMASS_EFFICIENCY) / 100.0 * config.gainMultiplier;
 		double added = addBiomass(killer, gain);
-		MorphRef morph = appearance != null && canMorph(killer) ? plugin.morphs().acquire(killer, appearance) : null;
+		MorphManager.Acquisition got = appearance != null && canMorph(killer) ? plugin.morphs().acquire(killer, appearance) : MorphManager.Acquisition.NOTHING;
+		MorphRef morph = got.morph();
 		if (added > 0 || morph != null) plugin.morphs().playAcquisition(killer, victim, morph != null);
 		SurvivalData d = data(killer);
+		// One action bar line for the whole kill: the biomass, then what it did to the collection (room left, or why
+		// nothing was added). Two separate lines would replace each other at once.
+		Component status = got.status();
 		if (added > 0) {
-			killer.sendActionBar(Component.text("+" + number(added) + " biomass", NamedTextColor.RED)
-					.append(Component.text("  (" + number(d.biomass) + " / " + number(capacity(killer)) + ")", NamedTextColor.GRAY)));
+			Component line = Component.text("+" + number(added) + " biomass", NamedTextColor.RED)
+					.append(Component.text("  (" + number(d.biomass) + " / " + number(capacity(killer)) + ")", NamedTextColor.GRAY));
+			killer.sendActionBar(status == null ? line : line.append(MorphManager.SEPARATOR).append(status));
 		} else if (gain > 0) {
-			killer.sendActionBar(Component.text("Biomass full (" + number(d.biomass) + " / " + number(capacity(killer)) + "). Spend it or upgrade Biomass Capacity: /morph upgrades",
-					NamedTextColor.YELLOW));
+			Component full = Component.text("Biomass full (" + number(d.biomass) + " / " + number(capacity(killer)) + ")", NamedTextColor.YELLOW);
+			killer.sendActionBar(status == null ? full.append(Component.text(". Spend it or upgrade Biomass Capacity: /morph upgrades"))
+					: full.append(MorphManager.SEPARATOR).append(status));
+		} else if (status != null) {
+			killer.sendActionBar(got.withHint());
 		}
 	}
 
@@ -421,6 +431,9 @@ public final class SurvivalMode implements GameplayMode {
 	/** Some upgrades change what the player's current form can do right away. */
 	private void afterUpgrade(Player player, String id) {
 		if (!active()) return;
+		// the selector's room counters come with the collection
+		if (id.equals(SurvivalConfig.MORPH_CAPACITY) || id.equals(SurvivalConfig.MORPH_VARIANT_CAPACITY)) plugin.channel().sendCollection(player);
+		if (id.equals(SurvivalConfig.RAGE)) plugin.rage().sync(player); // the rage meter appears
 		Upgrade u = config.upgrades.get(id);
 		if (id.equals(SurvivalConfig.MORPH_FLIGHT) || id.equals(SurvivalConfig.MORPH_ABILITIES) || (u != null && !u.traits().isEmpty())) {
 			plugin.abilities().refreshMovement(player);
@@ -432,6 +445,7 @@ public final class SurvivalMode implements GameplayMode {
 		plugin.store().get(player.getUniqueId()).survival = null;
 		changed(player);
 		if (active()) {
+			plugin.channel().sendCollection(player); // capacities are back at their start levels
 			if (plugin.morphs().activeForm(player) != null) plugin.morphs().demorph(player, true);
 			plugin.abilities().refreshMovement(player);
 		}

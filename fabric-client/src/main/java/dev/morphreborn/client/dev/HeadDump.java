@@ -8,6 +8,7 @@ import com.mojang.math.Axis;
 import dev.morphreborn.client.MorphClient;
 import dev.morphreborn.client.mixin.LivingEntityRendererInvoker;
 import dev.morphreborn.client.mixin.ModelPartAccessor;
+import dev.morphreborn.client.render.HybridMorph;
 import dev.morphreborn.client.render.ModelCapture;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -150,14 +151,18 @@ public final class HeadDump {
 			pivot = neck;
 		}
 
+		// an animal that lends its ears and tail instead of its head (HybridMorph.lentEars): its ears are marked among the
+		// head's elements and measured, and its tail is written as a model of its own
+		Measure measure = new Measure(whole ? java.util.Collections.emptySet() : HybridMorph.lentEars(root, base));
 		JsonArray elements = new JsonArray();
 		for (List<ModelPart> path : heads) {
 			PoseStack pose = new PoseStack();
 			pose.last().pose().set(base.last().pose());
 			for (int i = 0; i < path.size() - 1; i++) path.get(i).translateAndRotate(pose);
-			collect(path.getLast(), pose, pivot, rendererScale * state.scale, elements);
+			collect(path.getLast(), pose, pivot, rendererScale * state.scale, elements, measure);
 		}
 		if (elements.isEmpty()) return null;
+		JsonObject tail = measure.ears.isEmpty() ? null : tail(root, base, rendererScale * state.scale);
 
 		JsonObject head = new JsonObject();
 		Identifier texture = lr.getTextureLocation(state);
@@ -173,7 +178,106 @@ public final class HeadDump {
 		head.addProperty("width", round(entity.getBbWidth()));
 		head.addProperty("height", round(entity.getBbHeight()));
 		head.add("elements", elements);
+		// the torso a borrowed tail is grafted onto, as the client mod measures it: item space (the face towards -z),
+		// blocks from the feet, at the mob's real size
+		PoseStack itemBase = new PoseStack();
+		itemBase.last().pose().rotationY((float) Math.PI).mul(base.last().pose());
+		itemBase.last().normal().rotationY((float) Math.PI).mul(base.last().normal());
+		float[][] torso = HybridMorph.torsoBox(root, itemBase);
+		if (torso != null) head.add("torso", box(torso));
+		if (tail != null && measure.earLo[0] <= measure.earHi[0]) {
+			// item pixels, as the elements: the ears' box, and the box of the head's big blocks without them
+			JsonObject ears = new JsonObject();
+			ears.add("box", box(new float[][] {measure.earLo, measure.earHi}));
+			ears.add("core", box(measure.core()));
+			head.add("ears", ears);
+			head.add("tail", tail);
+		}
 		return head;
+	}
+
+	/** {lo, hi} as two arrays. */
+	private static JsonArray box(float[][] b) {
+		JsonArray out = new JsonArray();
+		out.add(vec(b[0][0], b[0][1], b[0][2]));
+		out.add(vec(b[1][0], b[1][1], b[1][2]));
+		return out;
+	}
+
+	/**
+	 * The first tail part, not inside the head: its elements in item space with its pivot (where it joins the body) at
+	 * (8, 8, 8), its box in item pixels, and that pivot in item space (blocks from the feet, at real size).
+	 */
+	private static @Nullable JsonObject tail(ModelPart root, PoseStack base, float scale) {
+		List<ModelPart> path = findTail(root, new ArrayList<>());
+		if (path == null) return null;
+		PoseStack pose = new PoseStack();
+		pose.last().pose().set(base.last().pose());
+		for (int i = 0; i < path.size() - 1; i++) path.get(i).translateAndRotate(pose);
+		PoseStack at = new PoseStack();
+		at.last().pose().set(pose.last().pose());
+		path.getLast().translateAndRotate(at);
+		Vector3f joint = at.last().pose().transformPosition(new Vector3f());
+		JsonArray elements = new JsonArray();
+		Measure measure = new Measure(java.util.Collections.emptySet());
+		collect(path.getLast(), pose, joint, scale, elements, measure);
+		if (elements.isEmpty()) return null;
+		JsonObject tail = new JsonObject();
+		tail.add("joint", vec(-joint.x, joint.y, -joint.z)); // item space is the body's frame turned half way round
+		tail.add("box", box(new float[][] {measure.allLo, measure.allHi}));
+		tail.add("elements", elements);
+		return tail;
+	}
+
+	/** Depth-first path to the first tail part, not looking inside the head or face parts. */
+	private static @Nullable List<ModelPart> findTail(ModelPart part, List<ModelPart> path) {
+		path.add(part);
+		for (Map.Entry<String, ModelPart> child : ((ModelPartAccessor) (Object) part).morph$children().entrySet()) {
+			String name = child.getKey();
+			if (name.contains("head") || FACE_PARTS.contains(name)) continue;
+			if (HybridMorph.isTail(name)) {
+				path.add(child.getValue());
+				return path;
+			}
+			List<ModelPart> found = findTail(child.getValue(), new ArrayList<>(path));
+			if (found != null) return found;
+		}
+		return null;
+	}
+
+	/** Boxes measured while collecting, in item pixels: the ears', every cube's, and each other cube's with its volume. */
+	private static final class Measure {
+		final Set<ModelPart.Cube> ears;
+		final float[] earLo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, earHi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		final float[] allLo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, allHi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		final List<float[][]> others = new ArrayList<>();
+		float biggest;
+
+		Measure(Set<ModelPart.Cube> ears) {
+			this.ears = ears;
+		}
+
+		void add(ModelPart.Cube cube, float[] lo, float[] hi) {
+			grow(allLo, allHi, lo, hi);
+			float volume = (cube.maxX - cube.minX) * (cube.maxY - cube.minY) * (cube.maxZ - cube.minZ);
+			biggest = Math.max(biggest, volume);
+			if (ears.contains(cube)) grow(earLo, earHi, lo, hi);
+			else others.add(new float[][] {lo, hi, {volume}});
+		}
+
+		/** The head's big blocks without the ears (as the client mod's coreBox: a quarter of the biggest or more). */
+		float[][] core() {
+			float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+			for (float[][] o : others) if (o[2][0] >= biggest * 0.25F) grow(lo, hi, o[0], o[1]);
+			return new float[][] {lo, hi};
+		}
+
+		private static void grow(float[] lo, float[] hi, float[] blo, float[] bhi) {
+			for (int i = 0; i < 3; i++) {
+				lo[i] = Math.min(lo[i], blo[i]);
+				hi[i] = Math.max(hi[i], bhi[i]);
+			}
+		}
 	}
 
 	/** Depth-first path from {@code part} to the first descendant called {@code name}, both ends included. */
@@ -217,7 +321,7 @@ public final class HeadDump {
 	 * Every visible cube of {@code part} and its children as an element. A cube's corners in item space are
 	 * {@code A * local + t}: the element is the cube's own box at {@code t}, turned by {@code A} about {@code t}.
 	 */
-	private static void collect(ModelPart part, PoseStack pose, Vector3f neck, float scale, JsonArray out) {
+	private static void collect(ModelPart part, PoseStack pose, Vector3f neck, float scale, JsonArray out, Measure measure) {
 		if (!part.visible) return;
 		ModelPartAccessor access = (ModelPartAccessor) (Object) part;
 		pose.pushPose();
@@ -233,28 +337,49 @@ public final class HeadDump {
 		if (!part.skipDraw) {
 			for (ModelPart.Cube cube : access.morph$cubes()) {
 				JsonObject element = element(cube, rot, t);
-				if (element != null) out.add(element);
+				if (element == null) continue;
+				if (measure.ears.contains(cube)) element.addProperty("ear", true);
+				out.add(element);
+				// its box in item pixels, from its turned corners
+				float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+				for (ModelPart.Polygon polygon : cube.polygons) {
+					for (ModelPart.Vertex v : polygon.vertices()) {
+						Vector3f p = local.transformPosition(new Vector3f(v.x(), v.y(), v.z()));
+						lo[0] = Math.min(lo[0], p.x); lo[1] = Math.min(lo[1], p.y); lo[2] = Math.min(lo[2], p.z);
+						hi[0] = Math.max(hi[0], p.x); hi[1] = Math.max(hi[1], p.y); hi[2] = Math.max(hi[2], p.z);
+					}
+				}
+				measure.add(cube, lo, hi);
 			}
 		}
-		for (ModelPart child : access.morph$children().values()) collect(child, pose, neck, scale, out);
+		for (ModelPart child : access.morph$children().values()) collect(child, pose, neck, scale, out, measure);
 		pose.popPose();
 	}
 
+	/**
+	 * A cube as an element. {@code rot} may carry a uniform scale besides the turn: models enlarged by their root part
+	 * rather than their renderer (a ghast's 4.5, a giant's 6) have one. It is taken out first and applied to the cube's
+	 * size: left in, a ghast's tentacles kept their own size but stood 4.5 times as far apart, and a giant's head was a
+	 * zombie's, written upside down.
+	 */
 	private static @Nullable JsonObject element(ModelPart.Cube cube, Matrix3f rot, Vector3f t) {
-		if (quarterTurns(rot)) return alignedElement(cube, rot, t);
+		float s = (float) Math.cbrt(Math.abs(rot.determinant()));
+		if (s < 1e-6F) return null;
+		if (quarterTurns(new Matrix3f(rot).scale(1F / s))) return alignedElement(cube, rot, t);
+		Matrix3f turn = new Matrix3f(rot).scale(1F / s);
 		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
 		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
 		for (ModelPart.Polygon polygon : cube.polygons) {
 			for (ModelPart.Vertex v : polygon.vertices()) {
-				lo[0] = Math.min(lo[0], v.x()); lo[1] = Math.min(lo[1], v.y()); lo[2] = Math.min(lo[2], v.z());
-				hi[0] = Math.max(hi[0], v.x()); hi[1] = Math.max(hi[1], v.y()); hi[2] = Math.max(hi[2], v.z());
+				lo[0] = Math.min(lo[0], v.x() * s); lo[1] = Math.min(lo[1], v.y() * s); lo[2] = Math.min(lo[2], v.z() * s);
+				hi[0] = Math.max(hi[0], v.x() * s); hi[1] = Math.max(hi[1], v.y() * s); hi[2] = Math.max(hi[2], v.z() * s);
 			}
 		}
 		if (lo[0] > hi[0]) return null;
 		JsonObject element = new JsonObject();
 		element.add("from", vec(t.x + lo[0], t.y + lo[1], t.z + lo[2]));
 		element.add("to", vec(t.x + hi[0], t.y + hi[1], t.z + hi[2]));
-		Vector3f euler = rot.getEulerAnglesZYX(new Vector3f());
+		Vector3f euler = turn.getEulerAnglesZYX(new Vector3f());
 		if (Math.abs(euler.x) + Math.abs(euler.y) + Math.abs(euler.z) > 1e-4F) {
 			JsonObject rotation = new JsonObject();
 			rotation.add("origin", vec(t.x, t.y, t.z));
@@ -299,7 +424,7 @@ public final class HeadDump {
 				lo[0] = Math.min(lo[0], p.x); lo[1] = Math.min(lo[1], p.y); lo[2] = Math.min(lo[2], p.z);
 				hi[0] = Math.max(hi[0], p.x); hi[1] = Math.max(hi[1], p.y); hi[2] = Math.max(hi[2], p.z);
 			}
-			addFace(faces, rot.transform(new Vector3f(polygon.normal())), polygon, pos);
+			addFace(faces, rot.transform(new Vector3f(polygon.normal())).normalize(), polygon, pos); // rot may scale
 		}
 		if (lo[0] > hi[0] || faces.isEmpty()) return null;
 		JsonObject element = new JsonObject();

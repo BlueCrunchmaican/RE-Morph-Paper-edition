@@ -77,7 +77,7 @@ public final class UpdateChecker implements Listener {
 		Player player = event.getPlayer();
 		String latest = newer;
 		if (latest == null || !plugin.settings().updateCheck || !player.hasPermission("morphreborn.admin")) return;
-		player.sendMessage(Component.text("RE:Morph " + latest + " is out (this server runs " + version() + "). ", NamedTextColor.YELLOW)
+		player.sendMessage(Component.text("RE:Morph " + latest + " is out; this server's plugin is " + SemVer.clean(version()) + ". ", NamedTextColor.YELLOW)
 				.append(link("Modrinth", MODRINTH_PAGE)).append(Component.text(" ")).append(link("GitHub", GITHUB_PAGE)));
 	}
 

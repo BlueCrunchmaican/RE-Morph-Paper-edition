@@ -28,9 +28,18 @@ public final class Collection {
 	public static final class Row {
 		public final String entityType;
 		public final List<Variant> variants = new ArrayList<>();
+		/** The creature comes in more than one look, so the look limit means something for it (servers from 7.2.0 say). */
+		public boolean hasLooks;
 
 		Row(String entityType) {
 			this.entityType = entityType;
+		}
+
+		/** Looks the collection holds of this creature, as the server counts them (your own body isn't one). */
+		public int looksHeld() {
+			int held = 0;
+			for (Variant v : variants) if (!v.ref.isSelf()) held++;
+			return held;
 		}
 
 		public boolean hasFavourite() {
@@ -42,12 +51,25 @@ public final class Collection {
 	private List<Row> rows = new ArrayList<>();
 	/** Bumped whenever the server sends a new collection, so the GUI can re-validate its indices. */
 	public int revision;
+	/** Kinds of creature in the collection, as the server counts them against {@link #kindLimit}. */
+	public int kinds;
+	/** The most kinds of creature (Survival's Morph Capacity) and looks of one the collection may hold; -1: no limit, or a server before 7.2.0. */
+	public int kindLimit = -1;
+	public int lookLimit = -1;
 
 	public List<Row> rows() {
 		return rows;
 	}
 
-	public void replace(List<Row> fromServer) {
+	/** The server's collection with its limits ({@code -1}: none). */
+	public void replace(List<Row> fromServer, int kinds, int kindLimit, int lookLimit) {
+		this.kinds = kinds;
+		this.kindLimit = kindLimit;
+		this.lookLimit = lookLimit;
+		replace(fromServer);
+	}
+
+	private void replace(List<Row> fromServer) {
 		Minecraft mc = Minecraft.getInstance();
 		Row self = new Row(MorphRef.PLAYER_TYPE);
 		MorphRef.Skin skin = mc.player == null ? null
@@ -55,8 +77,10 @@ public final class Collection {
 		self.variants.add(new Variant(new MorphRef(MorphRef.PLAYER_TYPE, MorphRef.SELF_ID, "", skin), false));
 		List<Row> others = new ArrayList<>();
 		for (Row r : fromServer) {
-			if (r.entityType.equals(MorphRef.PLAYER_TYPE)) self.variants.addAll(r.variants);
-			else {
+			if (r.entityType.equals(MorphRef.PLAYER_TYPE)) {
+				self.variants.addAll(r.variants);
+				self.hasLooks = r.hasLooks; // other players' looks share your own row
+			} else {
 				r.variants.sort(VARIANT_ORDER); // stable: ties keep the order they were collected in
 				others.add(r);
 			}
@@ -114,6 +138,8 @@ public final class Collection {
 
 	public void clear() {
 		rows = new ArrayList<>();
+		kinds = 0;
+		kindLimit = lookLimit = -1;
 		revision++;
 	}
 }

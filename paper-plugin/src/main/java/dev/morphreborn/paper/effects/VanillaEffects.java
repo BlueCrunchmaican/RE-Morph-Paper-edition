@@ -23,6 +23,8 @@ public final class VanillaEffects {
 	private static final Color[] SKIN = {Color.fromRGB(2, 2, 2), Color.fromRGB(15, 15, 15), Color.fromRGB(26, 26, 26), Color.fromRGB(38, 38, 38)};
 	/** Biomass gains: the red of the biomass bar. */
 	private static final Color BIOMASS = Color.fromRGB(105, 24, 26);
+	/** A rage's tendrils: the red of the red tendrils. */
+	private static final Color RAGE = Color.fromRGB(150, 28, 32);
 	private static final double VIEW_RANGE_SQ = 64 * 64;
 
 	private final MorphRebornPlugin plugin;
@@ -98,6 +100,51 @@ public final class VanillaEffects {
 		Particle.DustOptions dust = new Particle.DustOptions(SKIN[0], 1.6F);
 		for (Player v : viewers) {
 			v.spawnParticle(Particle.DUST, from, 30, acquired.getWidth() * 0.4, acquired.getHeight() * 0.4, acquired.getWidth() * 0.4, 0, dust);
+		}
+	}
+
+	/** A rage starting: a burst of red and morph-skin dust around the player. */
+	public void rageStart(Player subject) {
+		Location mid = subject.getLocation().add(0, subject.getHeight() / 2, 0);
+		Particle.DustOptions red = new Particle.DustOptions(RAGE, 1.8F);
+		Particle.DustOptions dark = new Particle.DustOptions(SKIN[1], 1.6F);
+		double w = subject.getWidth();
+		for (Player v : vanillaViewers(mid, subject, true)) {
+			v.spawnParticle(Particle.DUST, mid, 40, w * 0.9, subject.getHeight() * 0.4, w * 0.9, 0, red);
+			v.spawnParticle(Particle.DUST, mid, 20, w * 0.7, subject.getHeight() * 0.3, w * 0.7, 0, dark);
+		}
+	}
+
+	/**
+	 * One frame of a rage's tendril: a wavering line of dark red from the player's chest to {@code target}, with red
+	 * motes now and then running back along it into the player (the drain).
+	 */
+	public void rageTether(Player origin, LivingEntity target, int tick) {
+		Location from = origin.getLocation().add(0, origin.getHeight() * 0.6, 0);
+		Location to = target.getLocation().add(0, target.getHeight() / 2, 0);
+		List<Player> viewers = vanillaViewers(from, origin, true);
+		if (viewers.isEmpty()) return;
+		Vector line = to.toVector().subtract(from.toVector());
+		double length = line.length();
+		if (length < 0.3) return;
+		// a sideways wave, still at both ends
+		Vector side = line.clone().crossProduct(new Vector(0, 1, 0));
+		if (side.lengthSquared() < 1e-4) side = new Vector(1, 0, 0);
+		side.normalize();
+		Vector up = side.clone().crossProduct(line).normalize();
+		int points = (int) Math.ceil(length * 3);
+		double phase = target.getEntityId() * 1.7 + tick * 0.35;
+		Particle.DustOptions dust = new Particle.DustOptions(RAGE, 0.7F);
+		for (int i = 1; i < points; i++) {
+			double s = i / (double) points;
+			double wave = Math.sin(s * Math.PI) * 0.25;
+			Location at = from.clone().add(line.clone().multiply(s)).add(side.clone().multiply(wave * Math.sin(phase + s * 7)))
+					.add(up.clone().multiply(wave * 0.6 * Math.cos(phase * 0.8 + s * 5)));
+			for (Player v : viewers) v.spawnParticle(Particle.DUST, at, 1, 0, 0, 0, 0, dust, true);
+		}
+		if (tick % 6 == 0) {
+			Particle.Trail trail = new Particle.Trail(from, BIOMASS, 10 + ThreadLocalRandom.current().nextInt(5));
+			for (Player v : viewers) v.spawnParticle(Particle.TRAIL, to, 3, 0.1, 0.1, 0.1, 0, trail, true);
 		}
 	}
 

@@ -101,6 +101,42 @@ class VariantFilterTest {
 	}
 
 	@Test
+	void creaturesWithLooks() {
+		VariantRules r = capture(true).rules();
+		// a look key in a default mob's save data
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:sheep", "{Health:8.0f,Color:0b,Sheared:0b}"));
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:creeper", "{powered:0b,Fuse:30s}"));
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:villager", "{Age:0,VillagerData:{level:1,profession:\"minecraft:none\",type:\"minecraft:plains\"}}"));
+		// babies only
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:zombie", "{IsBaby:0b,CanBreakDoors:0b}"));
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:polar_bear", "{Age:0,AngerTime:0}"));
+		// one look: no look key, no babies; custom names don't count
+		assertTrue(!VariantCapture.hasLooks(r, "minecraft:iron_golem", "{PlayerCreated:0b,CustomName:\"Bob\"}"));
+		assertTrue(!VariantCapture.hasLooks(r, "minecraft:blaze", "{Health:20.0f}"));
+		// never a baby in normal play
+		assertTrue(!VariantCapture.hasLooks(r, "minecraft:wandering_trader", "{Age:0,DespawnDelay:0}"));
+		// tadpoles drop Age (it's how far they've grown, not babyhood)
+		assertTrue(!VariantCapture.hasLooks(r, "minecraft:tadpole", "{Age:0}"));
+		// a per-type key: the sulfur cube's block, though an empty cube doesn't save it
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:sulfur_cube", "{Size:1}") && VariantCapture.hasLooks(r, "minecraft:sulfur_cube", null));
+		// players: every skin
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:player", null));
+		// no babies allowed: a polar bear has one look
+		assertTrue(!VariantCapture.hasLooks(capture(false).rules(), "minecraft:polar_bear", "{Age:0,AngerTime:0}"));
+	}
+
+	@Test
+	void collapsedTypesHaveOneLook() {
+		YamlConfiguration variants = YamlConfiguration.loadConfiguration(
+				new InputStreamReader(VariantFilterTest.class.getResourceAsStream("/variants.yml"), StandardCharsets.UTF_8));
+		YamlConfiguration config = new YamlConfiguration();
+		config.set("morphs.single-variant-types", java.util.List.of("sheep"));
+		VariantRules r = VariantRules.load(variants, config);
+		assertTrue(!VariantCapture.hasLooks(r, "minecraft:sheep", "{Color:0b,Sheared:0b,Age:0}"));
+		assertTrue(VariantCapture.hasLooks(r, "minecraft:cow", "{Age:0,variant:\"minecraft:temperate\"}"));
+	}
+
+	@Test
 	void disabledTypesSupportWildcards() {
 		VariantRules rules = capture(true).rules();
 		assertTrue(rules.isDisabled("minecraft:armor_stand"));

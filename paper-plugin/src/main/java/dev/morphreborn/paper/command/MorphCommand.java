@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 
 /** /morph: player selection for unmodded clients plus admin management. */
 public final class MorphCommand implements TabExecutor {
-	private static final List<String> PLAYER_SUBS = List.of("list", "use", "combine", "off", "ability", "fav", "upgrades", "upgrade", "biomass");
+	private static final List<String> PLAYER_SUBS = List.of("list", "use", "combine", "off", "ability", "fav", "upgrades", "upgrade", "biomass", "rage");
 	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "borrow", "info", "clients", "carry", "setting", "reload", "survival", "mode", "cost");
 	private static final List<String> SURVIVAL_ACTIONS = List.of("info", "unlock", "lock", "give", "take", "set", "level", "buy", "reset");
 
@@ -67,10 +67,12 @@ public final class MorphCommand implements TabExecutor {
 					if (p != null) plugin.abilities().trigger(p);
 				}
 				case "fav" -> fav(sender, args);
-				case "upgrades" -> plugin.openUpgrades(self(sender));
+				// admins: open it for another player (support, testing)
+				case "upgrades" -> plugin.openUpgrades(args.length > 1 && sender.hasPermission("morphreborn.admin") ? player(args[1]) : self(sender));
 				case "upgrade" -> upgrade(sender, args);
 				case "biomass" -> biomass(sender, args.length > 1 && sender.hasPermission("morphreborn.admin") ? player(args[1]) : self(sender));
 				case "survival" -> survival(sender, args);
+				case "rage" -> rage(sender, args);
 				case "grant" -> grant(sender, args);
 				case "revoke" -> revoke(sender, args);
 				case "reset" -> reset(sender, args);
@@ -228,11 +230,46 @@ public final class MorphCommand implements TabExecutor {
 		return false;
 	}
 
+	/**
+	 * /morph rage: set off your charged rage (or hear why not). Admins, for testing: /morph rage <player> as their own key
+	 * press would, {@code go} to set it off charged or not, {@code fill} to charge it.
+	 */
+	private void rage(CommandSender sender, String[] args) {
+		if (args.length >= 2 && sender.hasPermission("morphreborn.admin")) {
+			Player target = player(args[1]);
+			String action = args.length >= 3 ? args[2].toLowerCase(Locale.ROOT) : "";
+			switch (action) {
+				case "" -> plugin.rage().trigger(target);
+				case "go" -> {
+					String why = plugin.rage().start(target);
+					sender.sendMessage(why == null ? Component.text(target.getName() + " is raging.", NamedTextColor.GREEN) : Component.text(why, NamedTextColor.RED));
+				}
+				case "fill" -> {
+					plugin.rage().fill(target);
+					sender.sendMessage(Component.text(target.getName() + "'s rage is charged.", NamedTextColor.GREEN));
+				}
+				default -> throw new IllegalArgumentException("Usage: /morph rage <player> [go|fill]");
+			}
+			return;
+		}
+		Player p = self(sender);
+		if (p != null) plugin.rage().trigger(p);
+	}
+
 	private void list(CommandSender sender, Player target) {
 		PlayerMorphData data = plugin.store().get(target.getUniqueId());
 		ActiveMorph state = plugin.morphs().state(target);
 		String currentId = state != null && state.next != null ? state.next.variantId() : MorphRef.SELF_ID;
 		sender.sendMessage(Component.text(target.getName() + "'s morphs (" + data.variantCount() + "):", NamedTextColor.GOLD));
+		if (plugin.survival().active()) {
+			// Survival's room, as the selector shows it to players with the mod
+			int kinds = plugin.mode().typeCapacity(target);
+			int looks = plugin.morphs().lookLimit(target);
+			List<String> room = new ArrayList<>();
+			if (kinds >= 0) room.add("Morphs " + data.morphs.size() + "/" + kinds + (data.morphs.size() >= kinds ? " full" : ""));
+			if (looks >= 0) room.add("up to " + looks + (looks == 1 ? " look" : " looks") + " of each creature");
+			if (!room.isEmpty()) sender.sendMessage(Component.text(" " + String.join(", ", room), NamedTextColor.GRAY));
+		}
 		sender.sendMessage(entry(MorphRef.self(VariantCapture.skinOf(target)), false, currentId.equals(MorphRef.SELF_ID), sender == target)
 				.append(Component.text(" (your own form)", NamedTextColor.DARK_GRAY)));
 		for (Map.Entry<String, List<PlayerMorphData.StoredVariant>> e : data.morphs.entrySet()) {
@@ -639,7 +676,7 @@ public final class MorphCommand implements TabExecutor {
 			return List.of();
 		}
 		if (args.length == 2 && sub.equals("upgrade")) return filter(List.copyOf(plugin.survival().config().upgrades.keySet()), args[1]);
-		if (args.length == 2 && List.of("grant", "revoke", "reset", "force", "borrow", "info", "list", "carry", "ability", "biomass").contains(sub)) {
+		if (args.length == 2 && List.of("grant", "revoke", "reset", "force", "borrow", "info", "list", "carry", "ability", "biomass", "upgrades").contains(sub)) {
 			return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
 		}
 		if (sub.equals("cost") && sender.hasPermission("morphreborn.admin")) {
@@ -651,6 +688,10 @@ public final class MorphCommand implements TabExecutor {
 			}
 			if (args.length == 4 && args[1].equalsIgnoreCase("price")) return filter(List.of("formula"), args[3]);
 			return List.of();
+		}
+		if (sub.equals("rage") && sender.hasPermission("morphreborn.admin")) {
+			if (args.length == 2) return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
+			return args.length == 3 ? filter(List.of("go", "fill"), args[2]) : List.of();
 		}
 		if (sub.equals("mode") && sender.hasPermission("morphreborn.admin")) {
 			return args.length == 2 ? filter(List.of("classic", "survival"), args[1]) : List.of();
