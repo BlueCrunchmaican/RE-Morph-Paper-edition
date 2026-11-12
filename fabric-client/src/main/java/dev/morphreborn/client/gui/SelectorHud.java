@@ -566,10 +566,16 @@ public final class SelectorHud {
 						MorphRef lent = borrowedNow();
 						if (lent != null && isCurrent(selected.ref)) text.append(Component.literal(" + ").append(typeName(lent.entityType())).withStyle(ChatFormatting.GOLD));
 						MutableComponent customName = showTime >= SHOW_SELECTOR_TIME ? customName(selected.ref) : null;
-						double textX = Math.min(posX + size + 5 + colOffset, screenW - font.width(text) - 2);
+						Component room = roomLine(row);
+						int widest = Math.max(font.width(text), room == null ? 0 : font.width(room));
+						double textX = Math.min(posX + size + 5 + colOffset, screenW - widest - 2);
+						// with a room line under it, the two lines are centred on the row together
+						double titleY = room == null ? textY : textY - (font.lineHeight + 2) / 2D;
+						double roomY = titleY + font.lineHeight + 2;
 						double nameY = top + size - font.lineHeight - 5 + rowOffset;
 						overlays.add(() -> {
-							text(g, text, textX, textY);
+							text(g, text, textX, titleY);
+							if (room != null) text(g, room, textX, roomY);
 							if (customName != null) text(g, customName, 3, nameY);
 						});
 					}
@@ -856,6 +862,33 @@ public final class SelectorHud {
 		if (cost <= 0 || isCurrent(ref)) return Component.empty();
 		boolean affordable = cost <= ClientNet.biomass();
 		return Component.literal(String.format(java.util.Locale.ROOT, "  %,d biomass", cost)).withStyle(affordable ? ChatFormatting.RED : ChatFormatting.DARK_GRAY);
+	}
+
+	/**
+	 * The room line under the selected row's name: whether a kill can still add something. "Looks 2/3" for a creature
+	 * that comes in more than one look, "Morphs 4/6" for kinds of creature, each in gold with "full" once nothing more
+	 * fits. Only where a limit applies: Survival's capacities, and in Classic only config.yml's look cap, once reached.
+	 * A creature with one look never gets a look count. Null when there's nothing to say (Classic, servers before
+	 * 7.2.0, which don't send the limits).
+	 */
+	private @Nullable Component roomLine(Collection.Row row) {
+		Collection c = data();
+		MutableComponent line = null;
+		if (row.hasLooks && c.lookLimit >= 0) {
+			int held = row.looksHeld();
+			if (ClientNet.isSurvival() || held >= c.lookLimit) line = counter("morphreborn.selector.looks", held, c.lookLimit);
+		}
+		if (c.kindLimit >= 0) {
+			MutableComponent kinds = counter("morphreborn.selector.morphs", c.kinds, c.kindLimit);
+			line = line == null ? kinds : line.append(Component.literal("  ·  ").withStyle(ChatFormatting.DARK_GRAY)).append(kinds);
+		}
+		return line;
+	}
+
+	/** "Looks 2/3" in grey, or "Looks 3/3 full" in gold. */
+	private static MutableComponent counter(String key, int held, int limit) {
+		boolean full = held >= limit;
+		return Component.translatable(full ? key + "_full" : key, held, limit).withStyle(full ? ChatFormatting.GOLD : ChatFormatting.GRAY);
 	}
 
 	/** Survival: the price line under a favourite in the wheel, coloured like the selector's; null when free or current. */

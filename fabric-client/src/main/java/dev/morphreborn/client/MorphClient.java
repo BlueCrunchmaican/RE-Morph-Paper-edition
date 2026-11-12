@@ -56,6 +56,7 @@ public final class MorphClient implements ClientModInitializer {
 		PictureInPictureRendererRegistry.register(context -> new dev.morphreborn.client.gui.PaperDoll.Renderer());
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "selector"), SelectorHud.INSTANCE::render);
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "biomass"), dev.morphreborn.client.gui.BiomassHud::render);
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "rage"), dev.morphreborn.client.gui.RageHud::render); // after the bar: it reads where the bar went
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "paper_doll"), dev.morphreborn.client.gui.PaperDoll::render);
 		// With a menu open the doll is drawn over the menu (Show in Menus); Fabric makes a screen's events anew each init.
 		ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> ScreenEvents.afterExtract(screen).register(dev.morphreborn.client.gui.PaperDoll::renderOverScreen));
@@ -132,6 +133,11 @@ public final class MorphClient implements ClientModInitializer {
 			if (!ClientNet.isActive()) ClientNet.warnInactive();
 			else if (ClientNet.isSurvival()) ClientNet.openUpgrades();
 			else ClientNet.message(net.minecraft.network.chat.Component.translatable("morphreborn.message.classic_mode").withStyle(net.minecraft.ChatFormatting.GRAY));
+		}
+		while (Keys.RAGE.consumeClick()) {
+			if (mc.gui.screen() != null || mc.player == null) continue;
+			if (!ClientNet.isActive()) ClientNet.warnInactive();
+			else ClientNet.rage();
 		}
 		ClientNet.tick();
 		SelectorHud.INSTANCE.onRenderTick();

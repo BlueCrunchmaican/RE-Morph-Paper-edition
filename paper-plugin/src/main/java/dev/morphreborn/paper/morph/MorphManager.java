@@ -260,35 +260,121 @@ public final class MorphManager {
 	}
 
 	/**
-	 * Count a kill toward {@code appearance} and unlock it when enough kills are in (required-kills) and the collection
-	 * has room (config.yml's per-type cap, and the mode's capacity). Returns the new morph, or null.
+	 * What a kill did to the collection: the morph it unlocked (or null), a short {@code status} for the action bar
+	 * (or null), and a {@code hint} to add when the status has the action bar to itself.
 	 */
-	public @Nullable MorphRef acquire(Player killer, MorphRef appearance) {
+	public record Acquisition(@Nullable MorphRef morph, @Nullable Component status, @Nullable Component hint) {
+		public static final Acquisition NOTHING = new Acquisition(null, null, null);
+
+		/** The status with its hint after it, for an action bar of its own. */
+		public @Nullable Component withHint() {
+			if (status == null || hint == null) return status;
+			return status.append(Component.text(". ", NamedTextColor.GRAY)).append(hint);
+		}
+	}
+
+	/** Separates parts of one action bar line ("+12 biomass (40 / 100)  ·  Morphs 5/6"). */
+	public static final Component SEPARATOR = Component.text("  ·  ", NamedTextColor.DARK_GRAY);
+
+	/**
+	 * The most looks of one creature the player's collection may hold now: the mode's limit (Survival's Variant
+	 * Capacity) or config.yml's {@code max-variants-per-type}, whichever is lower; -1 for no limit.
+	 */
+	public int lookLimit(Player player) {
+		int mode = plugin.mode().variantCapacity(player);
+		int cap = plugin.settings().maxVariantsPerType;
+		if (cap <= 0) return mode;
+		return mode < 0 ? cap : Math.min(mode, cap);
+	}
+
+	/**
+	 * Whether the player's morphs of {@code type} get a look counter in the selector: the creature can come in more
+	 * than one look ({@link VariantCapture#hasLooks}), or the player already holds more than one of it (a name-tagged
+	 * one, say), which the look limit counts too.
+	 */
+	public boolean hasLooks(Player player, String type, int held) {
+		if (held > 1) return true;
+		return plugin.capture().hasLooks(type, () -> templateSaveData(type, player.getWorld()));
+	}
+
+	/** The raw save data of a default, never-spawned {@code type}, or null (players, unknown types). */
+	private @Nullable String templateSaveData(String type, org.bukkit.World world) {
+		if (type.equals(MorphRef.PLAYER_TYPE)) return null;
+		LivingEntity template = plugin.templates().get(new MorphRef(type, "", "", null), world);
+		if (template == null) return null;
+		try {
+			org.bukkit.entity.EntitySnapshot snapshot = template.createSnapshot();
+			return snapshot == null ? null : snapshot.getAsString();
+		} catch (RuntimeException e) {
+			plugin.debug("No save data for " + type + ": " + e);
+			return null;
+		}
+	}
+
+	/** A creature's name for messages, in the reader's language (players: "Player"). */
+	public static Component typeName(String entityType) {
+		String path = entityType.substring(entityType.indexOf(':') + 1);
+		return Component.translatable("entity." + entityType.replace(':', '.'), path);
+	}
+
+	/**
+	 * Count a kill toward {@code appearance} and unlock it when the collection has room (the mode's Morph Capacity for
+	 * a new creature; the look limit, {@link #lookLimit}, for another look of one) and enough kills are in
+	 * (required-kills). A kill that can't fit isn't counted toward required-kills. The result says what happened, for
+	 * the mode's action bar.
+	 */
+	public Acquisition acquire(Player killer, MorphRef appearance) {
 		PluginSettings s = plugin.settings();
 		PlayerMorphData data = plugin.store().get(killer.getUniqueId());
-		if (data.find(appearance) != null) return null;
-		List<PlayerMorphData.StoredVariant> existing = data.morphs.get(appearance.entityType());
-		int types = plugin.mode().typeCapacity(killer);
-		if (types >= 0 && existing == null && data.morphs.size() >= types) {
-			killer.sendActionBar(Component.text("Your collection is full (" + types + " mob types). Upgrade Morph Capacity or delete a morph.", NamedTextColor.GRAY));
-			return null;
+		if (data.find(appearance) != null) return Acquisition.NOTHING;
+		String type = appearance.entityType();
+		List<PlayerMorphData.StoredVariant> existing = data.morphs.get(type);
+		int kinds = plugin.mode().typeCapacity(killer);
+		if (kinds >= 0 && existing == null && data.morphs.size() >= kinds) {
+			Component status = Component.text("No room for ", NamedTextColor.GOLD).append(typeName(type))
+					.append(Component.text(": morphs full (" + data.morphs.size() + "/" + kinds + ")"));
+			String upgrade = plugin.survival().displayName(dev.morphreborn.paper.survival.SurvivalConfig.MORPH_CAPACITY);
+			return new Acquisition(null, status, Component.text("Upgrade " + upgrade + (s.allowDelete ? " or delete one." : "."), NamedTextColor.GRAY));
 		}
-		int looks = plugin.mode().variantCapacity(killer);
+		int looks = lookLimit(killer);
 		if (looks >= 0 && existing != null && existing.size() >= looks) {
-			killer.sendActionBar(Component.text("No room for another look of this mob (" + looks + "). Upgrade Morph Variant Capacity.", NamedTextColor.GRAY));
-			return null;
-		}
-		int needed = s.requiredKills(appearance.entityType());
-		if (needed > 1) {
-			int kills = data.killCounts.merge(appearance.entityType(), 1, Integer::sum);
-			plugin.store().markDirty(killer.getUniqueId());
-			if (kills < needed) {
-				killer.sendActionBar(Component.text("Morph progress: " + kills + "/" + needed, NamedTextColor.GRAY));
-				return null;
+			Component status = Component.text("No room for this ", NamedTextColor.GOLD).append(typeName(type))
+					.append(Component.text(" look (" + existing.size() + "/" + looks + ")")); // short: it shares a line with the biomass
+			int fromMode = plugin.mode().variantCapacity(killer);
+			boolean serverCap = s.maxVariantsPerType > 0 && (fromMode < 0 || s.maxVariantsPerType <= fromMode);
+			// Hints stay short: with the status they must fit a small window's action bar.
+			String hint;
+			if (serverCap) {
+				hint = s.allowDelete ? "Delete one to make room." : "That's this server's limit.";
+			} else {
+				String upgrade = plugin.survival().displayName(dev.morphreborn.paper.survival.SurvivalConfig.MORPH_VARIANT_CAPACITY);
+				hint = "Upgrade " + upgrade + (s.allowDelete ? " or delete one." : ".");
 			}
+			return new Acquisition(null, status, Component.text(hint, NamedTextColor.GRAY));
 		}
-		if (s.maxVariantsPerType > 0 && existing != null && existing.size() >= s.maxVariantsPerType) return null;
-		return unlock(killer, appearance);
+		int needed = s.requiredKills(type);
+		if (needed > 1) {
+			int kills = data.killCounts.merge(type, 1, Integer::sum);
+			plugin.store().markDirty(killer.getUniqueId());
+			if (kills < needed) return new Acquisition(null, Component.text("Morph progress: " + kills + "/" + needed, NamedTextColor.GRAY), null);
+		}
+		MorphRef added = unlock(killer, appearance);
+		if (added == null) return Acquisition.NOTHING;
+		// the room left after it, where a limit applies: "Morphs 5/6" for a new creature, "Sheep looks 2/3" for a look
+		Component room = null;
+		if (existing == null && kinds >= 0) {
+			room = count(Component.text("Morphs "), data.morphs.size(), kinds);
+		} else if (existing != null && looks >= 0) {
+			room = count(typeName(type).append(Component.text(" looks ")), data.morphs.get(type).size(), looks);
+		}
+		return new Acquisition(added, room, null);
+	}
+
+	/** "Morphs 5/6" in grey, or "Morphs 6/6 full" in gold once the limit is reached. */
+	private static Component count(Component label, int have, int limit) {
+		boolean full = have >= limit;
+		return Component.text("", full ? NamedTextColor.GOLD : NamedTextColor.GRAY).append(label)
+				.append(Component.text(have + "/" + limit + (full ? " full" : "")));
 	}
 
 	/**
@@ -296,6 +382,7 @@ public final class MorphManager {
 	 * a new morph from a kill that only gave biomass (Survival), so each looks different.
 	 */
 	public void playAcquisition(Player killer, LivingEntity victim, boolean newMorph) {
+		plugin.rage().noteAcquisition(victim, newMorph);
 		plugin.channel().sendAcquire(killer, victim, newMorph);
 		plugin.effects().acquisition(killer, victim, newMorph);
 	}

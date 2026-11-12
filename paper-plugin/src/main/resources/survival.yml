@@ -13,7 +13,7 @@
 # old file stays next to it (named like survival-old-6.1.6.yml). One exception: when a release changes what the
 # upgrade levels mean (6.6.0 did), the whole upgrades section is replaced with the new one; copy back your changes from
 # the old file.
-config-version: 7.0.0
+config-version: 7.2.0
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
@@ -200,6 +200,17 @@ upgrades:
     max-level: 1
     value: [1]
     cost: [1200]
+  rage:
+    name: Rage
+    description: Taking hits from several attackers in quick succession charges your rage. Set it off (the Rage key, or /morph rage) and tendrils latch onto the creatures around you and drain them, and you absorb what dies.
+    icon: minecraft:rotten_flesh
+    effect-icon: minecraft:hunger
+    parent: morph_ability
+    requires: { morph_abilities: 1 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [1500]
   # Abilities: one-time unlocks for the good things a morph's body does by itself.
   ability_night_vision:
     name: Night Vision

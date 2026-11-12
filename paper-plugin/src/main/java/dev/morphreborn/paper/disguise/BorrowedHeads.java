@@ -51,7 +51,7 @@ public final class BorrowedHeads implements Listener {
 	/** Ticks a head glides to its next spot: about the time a viewer's game takes to move the body it sits on. */
 	private static final int GLIDE_TICKS = 3;
 	private static final NamespacedKey MARKER = MorphRebornPlugin.key("borrowed_head");
-	/** On a head display: 1 for the resource pack's model, 0 for a vanilla skull meant for players without the pack. */
+	/** On a head display, who it is for: {@link #FOR_PACK}, {@link #FOR_NO_PACK} or {@link #FOR_ALL}. */
 	private static final NamespacedKey PACK_KEY = MorphRebornPlugin.key("borrowed_head_pack");
 
 	/**
@@ -60,15 +60,42 @@ public final class BorrowedHeads implements Listener {
 	 * the pivot (item space: +y up, the face towards -z). Heads are lined up by that point, not by their pivots, which sit
 	 * in different places (a wolf's mid-head, a golem's at its chin): lining up pivots sank heads into bodies.
 	 */
-	private record Head(Vector neck, double height, double scale, Vector anchor, Vector size) {}
+	private record Head(Vector neck, double height, double scale, Vector anchor, Vector size, double @Nullable [][] torso, @Nullable Ears ears,
+			@Nullable Tail tail) {
+		/** An animal that lends its ears and tail instead of its head (wolf, fox, cat...), as the client mod does. */
+		boolean lendsEarsAndTail() {
+			return ears != null && tail != null;
+		}
+	}
 
-	/** A player's body (a player form): Lib's Disguises draws a player, 0.9375 of the model's size. */
-	private static final Head PLAYER = new Head(new Vector(0, 1.40625, 0), 1.8, 0.9375, new Vector(0, -0.0312, 0.2812), new Vector(0.5625, 0.5625, 0.5625));
+	/**
+	 * An animal's ears: their box and the box of its head's big blocks without them (item space, blocks from the head's
+	 * pivot, at the mob's real size), and the ears model's display scale at that size.
+	 */
+	private record Ears(double[][] box, double[][] core, double scale) {}
+
+	/**
+	 * An animal's tail: where it joins its body (item space, blocks from the feet, real size), its box from there, and the
+	 * tail model's display scale.
+	 */
+	private record Tail(Vector joint, double[][] box, double scale) {}
+
+	/**
+	 * A player's body (a player form): Lib's Disguises draws a player, 0.9375 of the model's size. Its torso is the
+	 * model's 8 x 12 x 4 body at that size.
+	 */
+	private static final Head PLAYER = new Head(new Vector(0, 1.40625, 0), 1.8, 0.9375, new Vector(0, -0.0312, 0.2812), new Vector(0.5625, 0.5625, 0.5625),
+			new double[][] {{-0.2344, 0.7031, -0.1172}, {0.2344, 1.4063, 0.1172}}, null, null);
+	/** Blocks borrowed ears reach into the head they go on (the client mod's EAR_SET_IN). */
+	private static final double EAR_SET_IN = 0.0625;
+	/** Blocks a borrowed tail is set into the body it joins (the client mod's Graft.SET_IN). */
+	private static final double TAIL_SET_IN = 0.03;
 
 	/**
 	 * Vanilla heads, for players without the resource pack and for the forms the pack has no head for (the ender
-	 * dragon, player forms): the game's own skulls, which need nothing installed. A skull item on a display is drawn
-	 * twice the size of the head it shows ({@link #SKULL_SCALE} makes it real size).
+	 * dragon, player forms): the game's own skulls, which need nothing installed. A skull item on a display (26.3,
+	 * transform NONE) is drawn at the head's real size, its top at the display's origin, facing backwards; see
+	 * {@link #SKULL_ANCHOR}.
 	 */
 	private static final Map<String, Material> SKULLS = Map.of("minecraft:zombie", Material.ZOMBIE_HEAD, "minecraft:skeleton", Material.SKELETON_SKULL,
 			"minecraft:wither_skeleton", Material.WITHER_SKELETON_SKULL, "minecraft:creeper", Material.CREEPER_HEAD, "minecraft:piglin", Material.PIGLIN_HEAD,
@@ -85,32 +112,47 @@ public final class BorrowedHeads implements Listener {
 	/** Players whose disguise wears a borrowed skull, and which form's. */
 	private final Map<UUID, String> helmets = new HashMap<>();
 
-	/** A skull item's neck point from the display's origin (item space, blocks, at scale 1): the middle of its bottom. */
-	private static final Vector SKULL_ANCHOR = new Vector(0, -0.25, 0);
+	/**
+	 * A skull item's neck point (blocks, at scale 1, once it is turned to face forward): the middle of its hat layer's
+	 * bottom, at the back, as the pack heads' anchors are. Measured in game against a block ruler (2026-11-11): the head
+	 * hangs half a block down from the display's origin, a quarter block either side. The old numbers (half size, centred
+	 * on the neck) sank a lent player's head inside the body's head, so players without the mod never saw it.
+	 */
+	private static final Vector SKULL_ANCHOR = new Vector(0, -0.53125, 0.28125);
 	/** A borrowed head is drawn at most this many times the size of the body's own head (a giant's on a person). */
 	private static final double BIG_HEAD = 1.5;
-	private static final float SKULL_SCALE = 0.5F;
+	private static final float SKULL_SCALE = 1F;
+	/** Who a head display is for: viewers with the resource pack, without it, or both (a skull with no pack model beside it). */
+	private static final byte FOR_NO_PACK = 0, FOR_PACK = 1, FOR_ALL = 2;
 
 	private final MorphRebornPlugin plugin;
 	private final Map<String, Head> heads = new HashMap<>();
 	private final Map<UUID, MorphRef> borrowed = new HashMap<>();
-	/** Each multimorph's head displays: the resource pack's model, and a vanilla skull for the others, either may be missing. */
-	private record Shown(@Nullable ItemDisplay pack, @Nullable ItemDisplay skull) {
-		boolean valid(Player owner) {
-			for (ItemDisplay d : new ItemDisplay[] {pack, skull}) {
-				if (d != null && (!d.isValid() || d.getWorld() != owner.getWorld())) return false;
-			}
-			return pack != null || skull != null;
+	/**
+	 * Each multimorph's displays: the resource pack's head model and a vanilla skull for the others, or for an animal that
+	 * lends its ears and tail, the pack's ears (on the body's head) and tail (at its back). Any may be missing.
+	 */
+	private record Shown(@Nullable ItemDisplay pack, @Nullable ItemDisplay skull, @Nullable ItemDisplay ears, @Nullable ItemDisplay tail) {
+		ItemDisplay[] all() {
+			return new ItemDisplay[] {pack, skull, ears, tail};
 		}
 
-		void teleport(Location at) {
+		boolean valid(Player owner) {
+			for (ItemDisplay d : all()) {
+				if (d != null && (!d.isValid() || d.getWorld() != owner.getWorld())) return false;
+			}
+			return pack != null || skull != null || ears != null || tail != null;
+		}
+
+		void teleport(Location at, @Nullable Location tailAt) {
 			if (pack != null) pack.teleport(at);
 			if (skull != null) skull.teleport(at);
+			if (ears != null) ears.teleport(at);
+			if (tail != null && tailAt != null) tail.teleport(tailAt);
 		}
 
 		void remove() {
-			if (pack != null && pack.isValid()) pack.remove();
-			if (skull != null && skull.isValid()) skull.remove();
+			for (ItemDisplay d : all()) if (d != null && d.isValid()) d.remove();
 		}
 	}
 
@@ -138,12 +180,32 @@ public final class BorrowedHeads implements Listener {
 				if (h.has("whole") && h.get("whole").getAsBoolean()) whole.add(e.getKey());
 				JsonArray z = h.has("size") ? h.getAsJsonArray("size") : null;
 				Vector size = z == null ? new Vector() : new Vector(z.get(0).getAsDouble(), z.get(1).getAsDouble(), z.get(2).getAsDouble());
+				double[][] torso = h.has("torso") ? box(h.getAsJsonArray("torso")) : null;
+				Ears ears = null;
+				Tail tail = null;
+				if (h.has("ears") && h.has("tail")) {
+					JsonObject ea = h.getAsJsonObject("ears"), ta = h.getAsJsonObject("tail");
+					JsonArray j = ta.getAsJsonArray("joint");
+					ears = new Ears(box(ea.getAsJsonArray("box")), box(ea.getAsJsonArray("core")), ea.get("scale").getAsDouble());
+					tail = new Tail(new Vector(j.get(0).getAsDouble(), j.get(1).getAsDouble(), j.get(2).getAsDouble()), box(ta.getAsJsonArray("box")),
+							ta.get("scale").getAsDouble());
+				}
 				heads.put(e.getKey(), new Head(new Vector(n.get(0).getAsDouble(), n.get(1).getAsDouble(), n.get(2).getAsDouble()),
-						h.get("height").getAsDouble(), h.get("scale").getAsDouble(), anchor, size));
+						h.get("height").getAsDouble(), h.get("scale").getAsDouble(), anchor, size, torso, ears, tail));
 			}
 		} catch (Exception e) {
 			plugin.getLogger().log(Level.WARNING, "Could not read morph-heads.json; multimorph heads won't show to players without the mod.", e);
 		}
+	}
+
+	/** {lo, hi} from two JSON arrays of three. */
+	private static double[][] box(JsonArray a) {
+		double[][] out = new double[2][3];
+		for (int c = 0; c < 2; c++) {
+			JsonArray v = a.get(c).getAsJsonArray();
+			for (int i = 0; i < 3; i++) out[c][i] = v.get(i).getAsDouble();
+		}
+		return out;
 	}
 
 	public @Nullable MorphRef borrowed(Player player) {
@@ -223,11 +285,13 @@ public final class BorrowedHeads implements Listener {
 			}
 			Shown shown = displays.get(e.getKey());
 			Location neck = neck(player, main, body, isWhole(lent.entityType()));
+			Head lentHead = lent.isPlayer() ? null : heads.get(lent.entityType());
+			Location tailAt = lentHead != null && lentHead.lendsEarsAndTail() ? tailAt(player, main, body, lent, lentHead) : null;
 			if (shown == null || !shown.valid(player)) {
 				removeDisplay(e.getKey());
-				displays.put(e.getKey(), spawn(player, lent, neck, coverScale(player, main, body, lent)));
+				displays.put(e.getKey(), spawn(player, main, body, lent, neck, tailAt, coverScale(player, main, body, lent)));
 			} else {
-				shown.teleport(neck);
+				shown.teleport(neck, tailAt);
 			}
 		}
 	}
@@ -303,24 +367,132 @@ public final class BorrowedHeads implements Listener {
 		return whole.contains(type);
 	}
 
-	/** The head displays for {@code form} at {@code at}: the pack's model where there is one, a vanilla skull where there is one. */
-	private Shown spawn(Player owner, MorphRef form, Location at, double cover) {
+	/** How big a form is drawn against the size its numbers were measured at (a baby, a big slime). */
+	private double sizeOf(Player owner, MorphRef form, Head head) {
+		LivingEntity template = form.isPlayer() ? null : plugin.templates().get(form, owner.getWorld());
+		return template == null || head.height() <= 0 ? 1.0 : template.getHeight() / head.height();
+	}
+
+	/** An item showing one of the pack's models: {@code kind} "head", "ears" or "tail", for {@code form}'s mob. */
+	private static ItemStack packItem(String kind, MorphRef form) {
+		ItemStack item = new ItemStack(Material.PAPER);
+		ItemMeta meta = item.getItemMeta();
+		String name = form.entityType().substring(form.entityType().indexOf(':') + 1);
+		meta.setItemModel(new NamespacedKey(MorphRebornPlugin.NAMESPACE, kind + "/" + name));
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	/**
+	 * The displays for {@code form} on {@code main}: the head at {@code at} (the pack's model where there is one, a vanilla
+	 * skull where there is one), or for an animal that lends its ears and tail, those (pack only: the game has no ears).
+	 */
+	private Shown spawn(Player owner, MorphRef main, Head body, MorphRef form, Location at, @Nullable Location tailAt, double cover) {
 		Head head = form.isPlayer() ? null : heads.get(form.entityType());
+		if (head != null && head.lendsEarsAndTail()) {
+			ItemDisplay ears = ears(owner, main, body, form, head, at);
+			ItemDisplay tail = tailAt == null || head.tail() == null ? null
+					: display(owner, packItem("tail", form), tailAt, (float) (head.tail().scale() * sizeOf(owner, form, head)), new Vector3f(), new Quaternionf(), FOR_PACK);
+			return new Shown(null, null, ears, tail);
+		}
 		ItemDisplay pack = null;
 		if (head != null) {
-			ItemStack item = new ItemStack(Material.PAPER);
-			ItemMeta meta = item.getItemMeta();
-			String name = form.entityType().substring(form.entityType().indexOf(':') + 1);
-			meta.setItemModel(new NamespacedKey(MorphRebornPlugin.NAMESPACE, "head/" + name));
-			item.setItemMeta(meta);
-			LivingEntity template = plugin.templates().get(form, owner.getWorld());
-			double size = template == null || head.height() <= 0 ? 1.0 : template.getHeight() / head.height();
-			pack = display(owner, item, at, (float) (head.scale() * size * cover), head.anchor(), true);
+			pack = display(owner, packItem("head", form), at, (float) (head.scale() * sizeOf(owner, form, head) * cover), head.anchor(), false, FOR_PACK);
 		}
 		ItemDisplay skull = null;
 		ItemStack skullItem = skullItem(form);
-		if (skullItem != null) skull = display(owner, skullItem, at, (float) (SKULL_SCALE * cover), SKULL_ANCHOR, head == null);
-		return new Shown(pack, skull);
+		// a skull with no pack model beside it (player forms, the dragon) is the only head there is: everyone sees it
+		// (a player's at the size coverScale measured it: a disguised player's head, PLAYER.scale of the model's)
+		double skullScale = SKULL_SCALE * (form.isPlayer() ? PLAYER.scale() : 1) * cover;
+		if (skullItem != null) skull = display(owner, skullItem, at, (float) skullScale, SKULL_ANCHOR, true, head == null ? FOR_ALL : FOR_NO_PACK);
+		return new Shown(pack, skull, null, null);
+	}
+
+	/**
+	 * Borrowed ears on the main body's own head, as the client mod places them (HybridMorph.placeEars): at the size the
+	 * main head's width asks for (half to twice their own), where they stand on their own head as a share of it, their
+	 * middle over the head from front to back, and their lowest third (at least EAR_SET_IN) in it. The display sits on
+	 * the neck point, as a head would, so the ears turn and nod with the head. None on a body that is all head (a slime).
+	 */
+	private @Nullable ItemDisplay ears(Player owner, MorphRef main, Head body, MorphRef form, Head head, Location at) {
+		Ears ea = head.ears();
+		if (ea == null || (!main.isPlayer() && isWhole(main.entityType())) || body.size().lengthSquared() == 0) return null;
+		double sizeA = sizeOf(owner, form, head);
+		double sB = body.scale() * sizeOf(owner, main, body);
+		// the main head, item space from its neck point (the middle of its bottom, at the back; the face towards -z)
+		double wB = body.size().getX() * sB, hB = body.size().getY() * sB, dB = body.size().getZ() * sB;
+		double[][] core = scale(ea.core(), sizeA), box = scale(ea.box(), sizeA);
+		double wA = Math.max(0.01, core[1][0] - core[0][0]);
+		double k = Math.clamp(wB / wA, 0.5, 2); // an armadillo's at 2.5 were twice its head
+		// the borrowed head's top middle goes on the main head's top middle, (0, hB, -dB / 2)
+		double tx = (core[0][0] + core[1][0]) / 2, ty = core[1][1], tz = (core[0][2] + core[1][2]) / 2;
+		double middle = -dB / 2 + k * ((box[0][2] + box[1][2]) / 2 - tz);
+		double front = -dB + EAR_SET_IN, back = -EAR_SET_IN;
+		double dz = front < back ? Math.clamp(middle, front, back) - middle : 0;
+		double bottom = hB + k * (box[0][1] - ty);
+		double sink = Math.max(EAR_SET_IN, k * (box[1][1] - box[0][1]) / 3);
+		double dy = hB - sink - bottom;
+		// where the ears model's origin (the borrowed head's pivot) goes, item space; the display shows it turned round
+		double ox = -k * tx, oy = hB - k * ty + dy, oz = -dB / 2 - k * tz + dz;
+		Vector3f shift = new Vector3f((float) -ox, (float) oy, (float) -oz);
+		return display(owner, packItem("ears", form), at, (float) (ea.scale() * sizeA * k), shift, new Quaternionf(), FOR_PACK);
+	}
+
+	/**
+	 * Where a borrowed tail joins the main body, as the client mod's Graft puts it: at the same share of the main torso's
+	 * box as of its own (a lying torso on a standing one as if it stood up: its rear to the bottom, so a wolf's tail joins
+	 * a person at the small of the back), at the back, then moved so it just reaches into the body. Turned with the body.
+	 */
+	private @Nullable Location tailAt(Player player, MorphRef main, Head body, MorphRef lent, Head lentHead) {
+		Tail tail = lentHead.tail();
+		if (tail == null || body.torso() == null || lentHead.torso() == null) return null;
+		double sizeA = sizeOf(player, lent, lentHead);
+		double[][] own = scale(lentHead.torso(), sizeA), mine = scale(body.torso(), sizeOf(player, main, body));
+		double[] at = graft(own, mine, new double[] {tail.joint().getX() * sizeA, tail.joint().getY() * sizeA, tail.joint().getZ() * sizeA});
+		double lo = at[2] + tail.box()[0][2] * sizeA, hi = at[2] + tail.box()[1][2] * sizeA, back = mine[1][2];
+		if (hi < back + 0.005) at[2] += back + 0.005 - hi;
+		else if (lo > back - TAIL_SET_IN) at[2] += back - TAIL_SET_IN - lo;
+		// item space is the body's frame turned half way round; then the body's facing
+		double yaw = Math.toRadians(player.getBodyYaw());
+		double bx = -at[0], bz = -at[2];
+		Location l = player.getLocation().add(bx * Math.cos(yaw) - bz * Math.sin(yaw), at[1], bx * Math.sin(yaw) + bz * Math.cos(yaw));
+		l.setYaw(player.getBodyYaw());
+		l.setPitch(0);
+		return l;
+	}
+
+	/** The client mod's Graft.place for a tail (item space: the back is +z): where {@code joint} on {@code own} goes on {@code main}. */
+	private static double[] graft(double[][] own, double[][] main, double[] joint) {
+		boolean ownStands = own[1][1] - own[0][1] >= own[1][2] - own[0][2];
+		boolean mainStands = main[1][1] - main[0][1] >= main[1][2] - main[0][2];
+		int[] from = ownStands == mainStands ? new int[] {0, 1, 2} : new int[] {0, 2, 1};
+		boolean[] flip = new boolean[3];
+		if (from[1] == 2) {
+			if (mainStands) flip[1] = true; // lying -> standing: front up, top to the back
+			else flip[2] = true; // standing -> lying: top forward, back up
+		}
+		double[] at = new double[3];
+		for (int axis = 0; axis < 3; axis++) {
+			int a = from[axis];
+			double lo = own[0][a], hi = own[1][a], j = joint[a], mlo = main[0][axis], mhi = main[1][axis];
+			if (hi - lo < 0.01) {
+				double off = j - (lo + hi) / 2;
+				at[axis] = (mlo + mhi) / 2 + (flip[axis] ? -off : off);
+			} else if (j < lo) {
+				at[axis] = flip[axis] ? mhi + (lo - j) : mlo - (lo - j);
+			} else if (j > hi) {
+				at[axis] = flip[axis] ? mlo - (j - hi) : mhi + (j - hi);
+			} else {
+				double share = (j - lo) / (hi - lo);
+				at[axis] = mlo + (flip[axis] ? 1 - share : share) * (mhi - mlo);
+			}
+		}
+		at[2] = main[1][2] - TAIL_SET_IN; // at the back, set into it a little
+		return at;
+	}
+
+	private static double[][] scale(double[][] box, double by) {
+		return new double[][] {{box[0][0] * by, box[0][1] * by, box[0][2] * by}, {box[1][0] * by, box[1][1] * by, box[1][2] * by}};
 	}
 
 	/** The vanilla skull for {@code form} as an item (a player form's with its skin), or null when there is none. */
@@ -339,12 +511,19 @@ public final class BorrowedHeads implements Listener {
 
 	/**
 	 * One head display following the owner. The model is moved so its neck point ({@code anchor}, item space) is the
-	 * display's origin: the head sits on the neck, and nods about it. {@code pack}: shown to players with the resource
-	 * pack, or (false) to those without it; a skull with no pack model beside it is shown to both.
+	 * display's origin: the head sits on the neck, and nods about it. {@code skull}: a vanilla skull, which the game
+	 * draws facing backwards, so it is turned half way round. {@code audience}: {@link #FOR_PACK}, {@link #FOR_NO_PACK}
+	 * or {@link #FOR_ALL} (players without the mod).
 	 */
-	private ItemDisplay display(Player owner, ItemStack item, Location at, float scale, Vector anchor, boolean pack) {
+	private ItemDisplay display(Player owner, ItemStack item, Location at, float scale, Vector anchor, boolean skull, byte audience) {
 		// the item is drawn turned half way round inside the display: its -z face looks the display's way
 		Vector3f shift = new Vector3f((float) anchor.getX() * scale, (float) -anchor.getY() * scale, (float) anchor.getZ() * scale);
+		Quaternionf turn = skull ? new Quaternionf().rotateY((float) Math.PI) : new Quaternionf();
+		return display(owner, item, at, scale, shift, turn, audience);
+	}
+
+	/** One display following the owner: the model moved by {@code shift} (display space) and turned by {@code turn}. */
+	private ItemDisplay display(Player owner, ItemStack item, Location at, float scale, Vector3f shift, Quaternionf turn, byte audience) {
 		ItemDisplay display = owner.getWorld().spawn(at, ItemDisplay.class, d -> {
 			d.setPersistent(false);
 			d.getPersistentDataContainer().set(MARKER, PersistentDataType.BYTE, (byte) 1);
@@ -352,30 +531,32 @@ public final class BorrowedHeads implements Listener {
 			d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
 			d.setBillboard(Display.Billboard.FIXED);
 			d.setTeleportDuration(GLIDE_TICKS);
-			d.setTransformation(new Transformation(shift, new Quaternionf(), new Vector3f(scale), new Quaternionf()));
+			d.setTransformation(new Transformation(shift, turn, new Vector3f(scale), new Quaternionf()));
 		});
-		display.getPersistentDataContainer().set(PACK_KEY, PersistentDataType.BYTE, (byte) (pack ? 1 : 0));
+		display.getPersistentDataContainer().set(PACK_KEY, PersistentDataType.BYTE, audience);
 		owner.hideEntity(plugin, display);
 		String mode = plugin.settings().multimorphVanillaHeads;
 		for (Player viewer : plugin.getServer().getOnlinePlayers()) {
-			if (viewer != owner && !canSee(viewer, mode, pack)) viewer.hideEntity(plugin, display);
+			if (viewer != owner && !canSee(viewer, mode, audience)) viewer.hideEntity(plugin, display);
 		}
 		return display;
 	}
 
 	/**
 	 * Players with the mod draw multimorphs themselves. The pack's models go to players who have the pack (in "auto",
-	 * those whose game loaded it; in "pack", everyone), skulls to the rest.
+	 * those whose game loaded it; in "pack", everyone), skulls to the rest, and a skull that is the only head there is
+	 * to everyone.
 	 */
-	private boolean canSee(Player viewer, String mode, boolean packDisplay) {
+	private boolean canSee(Player viewer, String mode, byte audience) {
 		if (plugin.channel().isModded(viewer)) return false;
+		if (audience == FOR_ALL) return true;
 		boolean hasPack = mode.equals("pack") || (mode.equals("auto") && packLoaded.contains(viewer.getUniqueId()));
-		return packDisplay == hasPack;
+		return (audience == FOR_PACK) == hasPack;
 	}
 
 	private boolean canSee(Player viewer, String mode, ItemDisplay display) {
-		Byte pack = display.getPersistentDataContainer().get(PACK_KEY, PersistentDataType.BYTE);
-		return canSee(viewer, mode, pack == null || pack == 1);
+		Byte audience = display.getPersistentDataContainer().get(PACK_KEY, PersistentDataType.BYTE);
+		return canSee(viewer, mode, audience == null ? FOR_PACK : audience);
 	}
 
 	/** A viewer's client mod finished its handshake, or its resource pack loaded: show or hide every head for it. */
@@ -383,7 +564,7 @@ public final class BorrowedHeads implements Listener {
 		String mode = plugin.settings().multimorphVanillaHeads;
 		for (Map.Entry<UUID, Shown> e : displays.entrySet()) {
 			if (e.getKey().equals(viewer.getUniqueId())) continue;
-			for (ItemDisplay d : new ItemDisplay[] {e.getValue().pack(), e.getValue().skull()}) {
+			for (ItemDisplay d : e.getValue().all()) {
 				if (d == null) continue;
 				if (canSee(viewer, mode, d)) viewer.showEntity(plugin, d);
 				else viewer.hideEntity(plugin, d);

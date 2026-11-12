@@ -22,7 +22,9 @@ public final class ClassicMode implements GameplayMode {
 	@Override
 	public void onKill(Player killer, LivingEntity victim, @Nullable MorphRef appearance) {
 		if (appearance == null) return;
-		if (plugin.morphs().acquire(killer, appearance) != null) plugin.morphs().playAcquisition(killer, victim, true);
+		var result = plugin.morphs().acquire(killer, appearance);
+		if (result.morph() != null) plugin.morphs().playAcquisition(killer, victim, true); // Classic says nothing about room on a new morph
+		else if (result.status() != null) killer.sendActionBar(result.withHint());
 	}
 
 	@Override

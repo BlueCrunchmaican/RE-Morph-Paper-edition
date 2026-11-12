@@ -7,8 +7,14 @@
 - Two **Fabric 26.3** clients with the mod (Fabric Loader 0.20.1, Fabric API 0.165.0+26.3), run side by side so
   each could watch the other.
 - Admin commands sent from the server console over RCON.
-- Unit tests: `paper-plugin` → `gradlew test`, **20 of 20 pass** (variant filter, config versions, config.yml
-  upgrades, Survival upgrade curves).
+- Compatibility with older servers (7.2.0 on): `py -3 tools/compat_check.py <server jars>` starts the test server with
+  each released plugin jar and a fresh data folder, joins with the client mod built from this checkout, drives every
+  server packet over RCON and reads both logs. Logs and each command's reply land in `test-server/compat/`. Run it
+  against every released version before a release ([PROTOCOL.md](PROTOCOL.md)).
+- Single-player: `gradlew runSingleplayer` opens the world "RE-Morph test" in `run-client2/saves` (make it once
+  through the menus; a copy of the test server's world doesn't load, since Paper stores it differently).
+- Unit tests: `paper-plugin` → `gradlew test`, **31 of 31 pass** (variant filter and which creatures have looks,
+  config versions, config.yml upgrades, Survival upgrade curves).
 
 ## Checked and working
 
@@ -243,6 +249,172 @@ Not tested in game: the paper doll's head modes, tilt, Fill the Box, the level-h
 each "show when" trigger one by one (only the settings page and the vignette were looked at); jockeys for the other
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
+
+## 7.2.0 release (2026-11-11)
+
+- [x] The 7.2.0 client jar is the 7.2.0-beta.5 one but for its version in `fabric.mod.json` (every other entry compared
+      byte for byte), so beta.5's compat_check run (13 of 13 released servers OK, below) stands for it.
+- [x] Plugin: one change after beta.5, the "Your rage is charged" chat line also for players whose client mod is older
+      than 7.2.0 (they have no meter). Checked with `SemVer.compare` against 7.2.0: 6.6.0, 7.1.3, 7.2.0-beta.5 and a
+      client that sent no version get the line; 7.2.0, 7.2.1 and 7.10.0 don't. Not tried in game with an old client.
+- [x] Unit tests 31/31.
+
+## 7.2.0-beta.1, version notices (2026-11-08)
+
+On the test server with MorphTester2 (an admin), builds numbered for each case (same code), GitHub's latest being 7.1.2:
+
+- [x] Plugin and mod both 7.1.1: the console warned that 7.1.2 is out; on joining, the admin line and then the mod's
+      own line. A rejoin (`/transfer` back to the same server) showed both again.
+- [x] Mod 7.1.1 on a 7.2.0-beta.1 plugin: only the plugin's old-client message, not the mod's line as well. Switching
+      the gameplay mode (a repeated hello) repeated nothing.
+- [x] Mod 7.3.0 on a 7.2.0-beta.1 plugin: the mod's "server runs 7.2.0-beta.1" line on each join; the console logged
+      the newer client once, not again on the rejoin.
+- [x] Mod 7.1.1 on a server without RE:Morph: the "7.1.2 is out" line 10 seconds after joining (when the mod gives up
+      waiting for RE:Morph).
+- [x] Mod 7.2.0-beta.1 on the original 6.1.8 jar (6.5.0): the "from before 6.6.0" line; it connected, synced its
+      collection and showed forced morphs (pig, sheep, off) with no errors on either side.
+- [x] A single-player world (new, made through the menus; then `runSingleplayer`'s quick play into it): the mod gave
+      up on RE:Morph after 10 seconds and showed "RE:Morph 7.1.2 is out; your client mod is 7.1.1" with both links.
+- [x] The re-check, with `-Dmorphreborn.updateCheck.refreshSeconds=60`: a rejoin 55 s after GitHub's answer didn't ask
+      again; one at 65 s did. A failed check (an unreachable proxy, `retrySeconds=20`) logged the failure, showed no
+      release line, and each later rejoin asked again.
+- [x] The links, clicked in chat: [Modrinth] and [GitHub] in the mod's line, the admin line and the old-client message
+      each opened Minecraft's "open this website?" screen with `https://modrinth.com/plugin/re-morph` or
+      `https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest` (which redirects to the newest
+      release). Not opened in a browser, which would have taken over the shared screen's browser; the Modrinth page
+      stays private until the project is approved.
+- [x] By hand on the 6.5.0 server (fresh data) with the 7.2.0-beta.1 mod: the selector (`]`, Enter) morphed into a snow
+      golem; the ability key threw snowballs (the server saw one per press); the favourite key starred it and the
+      server saved it; Player in the selector turned back. Enter is read once per tick, so a synthetic key press
+      shorter than a tick is missed; hold it a quarter second when testing this way.
+- [x] Survival as the default: a fresh install of the 7.2.0-beta.1 plugin started in Survival and wrote
+      `gameplay-mode: survival`; a server set to Classic with a 7.1.0 config updated it to 7.2.0 and stayed Classic.
+      Plugin unit tests: 29 of 29 pass.
+- [x] `tools/compat_check.py` with the 7.2.0-beta.1 mod against all 12 released servers (6.0.0, 6.1.0, 6.2.0, 6.3.0,
+      6.4.0, 6.5.0, 6.6.0, 6.6.1, 7.0.0, 7.1.0, 7.1.1, 7.1.2), twice: every one OK. On each, the handshake went through,
+      the server saw the mod's version, the mod said the server was older, 4 morphs were granted, 2 forced (spider,
+      chicken: states, transitions, traits), a cow kill unlocked a fifth (the acquisition), Survival biomass was given
+      and unlocked, and the mode switched both ways (a repeated hello; 6.0.0 has no `/morph mode`). No warnings or
+      errors on either side. Not driven: the upgrade tree packet, which a server only sends when a player opens the
+      screen (its format hasn't changed since 6.0.0).
+
+## 7.2.0-beta.3, room in the collection (2026-11-11)
+
+On the test server in Survival with MorphTester2 (Client 2, GUI scale 2), capacities set with
+`/morph survival MorphTester2 level morph_capacity|morph_variant_capacity <n>` and kills made over RCON with
+`execute at MorphTester2 run damage @e[type=<mob>,sort=nearest,limit=1] 500 minecraft:player_attack by MorphTester2`:
+
+- [x] Morph Capacity 3 kinds, Variant Capacity 2: white and red sheep, an iron golem. The selector's own-body row read
+      "Morphs 2/3"; the iron golem's (one look) only "Morphs 2/3", no look count; the sheep's "Looks 2/2 full" in gold,
+      then "Morphs 2/3" in grey.
+- [x] Variant Capacity raised to 3 with the selector open: the sheep row changed to "Looks 2/3" at once.
+- [x] A blue sheep: unlocked, action bar "+31.6 biomass (2,253.5 / 51,200) · Sheep looks 3/3 full", the row
+      "Looks 3/3 full". A green sheep then: "· No room for this Sheep look (3/3)", nothing added.
+- [x] A blaze: "· Morphs 3/3 full" on the action bar and the selector. A cow then: "· No room for Cow: morphs full
+      (3/3)", nothing added. `/morph list` began with "Morphs 2/3, up to 2 looks of each creature".
+- [x] Classic (`/morph mode classic`) with the default `max-variants-per-type: 64`: no second line on any row, no
+      prices. With the cap at 3: the sheep row read "Looks 3/3 full", and a fourth sheep's action bar "No room for this
+      Sheep look (3/3). Delete one to make room."
+- [x] Which creatures have looks, checked against real save data (every mob in [MOB-MASSES.md](MOB-MASSES.md) summoned
+      and its look keys read over RCON): of 87, 53 have looks (sheep, villagers, cats, creepers, tropical fish, and
+      mobs whose only other look is a baby, such as bees, zombies and polar bears) and 34 have one (blaze, enderman,
+      skeletons, iron golem, piglin brute, wandering trader, camel husk, the dragon...); slimes and magma cubes, checked
+      on their own, save Size.
+      Unit tests cover the same rule, `single-variant-types` and babies switched off.
+- [x] `tools/compat_check.py` with the 7.2.0-beta.3 mod against all 13 released servers (6.0.0 to 7.1.3): every one
+      OK; older servers send no limits, so the selector shows no room line.
+- [x] The released 7.1.3 mod on the 7.2.0-beta.3 server: it connected, got the old-client message, and read the
+      collection after a capacity change and a new morph (both send the new fields) with no warnings; its parser stops
+      after the rows. Its selector wasn't opened on screen: the window never had focus, and taking it would have
+      interrupted someone using the PC.
+- Test method: the client window was captured with `PrintWindow` and keys were posted to its window, so no other
+  window lost focus or was minimised. This only works on a client window that has had focus since it started.
+
+### Rage set off by choice (7.2.0-beta.5, 2026-11-11)
+
+Same setup as below, on the beta.5 build:
+
+- [x] Before it was charged, a key press (`/morph rage MorphTester2`, which runs what the key sends) said "Rage isn't
+      charged: 0/6 hits. It takes 6 within 6s from at least 2 attackers." and nothing happened.
+- [x] Four zombies around the player: the meter filled and read READY, and nothing was drained; the zombies kept
+      their health. A leader zombie (96 health) then killed the player; after respawning the meter still read READY.
+- [x] Set off next to two NoAI zombies and a skeleton: "Rage!", the tendrils and the meter's countdown, all three
+      drained to death. Pressed again: "Your rage is spent; hits count toward it again in 13s."
+- [x] The one-time hint, first charged with the Rage key unbound: "Your rage is charged. Bind the Rage key in
+      Controls (under RE:Morph) to set it off, or type /morph rage." It was on the action bar at first, where the
+      server's lines replaced it; it is now a chat line (seen in the client's log).
+- [x] A player without the mod (VanillaViewer, Rage upgrade given, charged with `fill`): "Your rage is charged.
+      /morph rage sets it off." in chat; set off, a zombie beside it was drained to death in about 4 seconds.
+- [ ] Not tried: the Rage key itself, as before (posted keys only reach a test window that has had focus). It sends
+      `C_RAGE`, which runs the same code as `/morph rage`.
+
+### Rage, the user's design (7.2.0-beta.4, 2026-11-11)
+
+MorphTester2 (Client 2, the mod) in Survival with the Rage upgrade (`/morph survival MorphTester2 level rage 1`),
+Resistance III and Regeneration II so it lived through the test; skeletons and zombies summoned around it at night;
+watched by VanillaViewer (no mod) and MorphTester1 (the mod), all three captured without focus:
+
+- [x] Set off by hits: three skeletons 7 to 12 blocks out and two zombies close by. After about 5 seconds of hits, rage
+      started by itself ("Rage!" on the action bar, the ravager roar). With the mod, in first person: red tendrils
+      from in front of and below the view to each creature, wavering, and the meter (RAGE, a bar running down, "6s").
+      Without the mod: wavering red dust lines from the player to each creature. Every creature lost 2.5 health each
+      half second and died; the action bar then read "Rage: absorbed 3 creatures" (the test player's biomass was
+      already full), and the meter showed the wait ("0:20").
+- [x] The first run's reach of 10 blocks missed a skeleton shooting from about 12, and the player died; at 16 every
+      skeleton was caught. A first run had no hits counted at all: the test player had Resistance V, which takes all
+      the damage, and a hit that does nothing doesn't count.
+- [x] One attacker alone (a zombie hitting for 15 seconds): the meter stopped at five of six segments and nothing was
+      drained.
+- [x] With `targets: all` and a 20-second rage (test settings, put back after): a zombie lost 5 health a second, a
+      villager 1.25 (a quarter: the lesser rate), and a player without the mod 1.25 once its food healing ran out.
+      Started again at 6.3 health, the player went down to 2.0 (one heart) and stayed there: not killed.
+- [x] Survival reach: with biomass emptied, a NoAI zombie 10 blocks away (reach 3) was drained and gave its 21 biomass;
+      a chicken beside it, not an enemy, was left alone.
+- [x] Seen by another player with the mod (MorphTester1): tendrils from the raging player to each creature, then, as
+      each died, the usual absorb animation pulling it in.
+- [x] Updating a server: `abilities.yml` 6.6.0 was replaced (backup kept) and has the new `rage` section; `survival.yml`
+      7.0.0 gained `upgrades.rage` with every value kept.
+- [x] Unit tests 31/31.
+- [x] `tools/compat_check.py` with the 7.2.0-beta.4 mod, and again with beta.5, against all 13 released servers, 6.0.0 to
+      7.1.3: every one OK both times.
+
+### Ears and tails for players without the mod (7.2.0-beta.4, 2026-11-11)
+
+A fresh head dump (`MORPHREBORN_DUMPHEADS=1 gradlew runClient`) and `tools/gen_head_pack.py`, then MorphTester2 with
+borrowed forms over RCON (`/morph borrow`), watched by VanillaViewer with the pack installed locally:
+
+- [x] The dump: 91 heads as before, every head's elements unchanged (ears only marked), every mob with a torso box, and
+      ears and a tail for armadillo, axolotl, camel, camel husk, cat, donkey, fox, horse, mule, ocelot, parrot, rabbit,
+      skeleton horse, wolf and zombie horse (the mod's own test picks the same). The generator changed no head model
+      and no head numbers; it added `models/ears`, `models/tail` and their numbers.
+- [x] Own body + wolf: grey wolf ears on the player's head, turning with it, and the tail hanging from the small of the
+      back. Zombie + fox: fox ears and the orange, white-tipped tail at the back. Cow + cat: small ears on the cow's
+      head, the tail at its rear. Zombie + horse: the horse's two ears on top, tilted back as on a horse, and its long
+      tail down the back. Own body + camel: the camel's ears standing out of the sides of the head.
+- [x] Only the ears and tail displays are there (no head display) for these animals.
+- [ ] A grey column above the player in the viewer's screenshots is an invisible entity of Lib's Disguises that only
+      spectators see (the viewer was a spectator); nothing of RE:Morph's.
+
+### Heads for players without the mod (7.2.0-beta.3, 2026-11-11)
+
+MorphTester2 (Client 2) as the subject, `/morph force` and `/morph borrow` over RCON, watched by VanillaViewer
+(`runVanilla`, the mod switched off, RE:Morph's pack installed locally):
+
+- [x] Before: a cow borrowing its own head (`/morph borrow MorphTester2 self`) looked like a plain cow, though the
+      `player_head` display was there (scale 0.616). Scaled to 3 over RCON it appeared, hanging below its anchor. A
+      block ruler beside a test display showed a skull item at scale 1 is half a block (real size), its top at the
+      display's origin, its face to the back. The viewer's log also had "Failed to verify signature on property ...
+      textures" from the offline account's empty skin; the game still draws a default skin for it, so that wasn't it.
+- [x] After: the player head sits on the cow's neck facing forward and covers the cow's head (front, side and back
+      views); with `vanilla-heads: auto` and no pack loaded, the player head still shows and a lent zombie's skull sits
+      the same way.
+- [x] Ghast on a cow: the body on the cow's head with the tentacles hanging under it (before: spread in a wide ring
+      on the ground). Villager on a cow: upright, its back on the cow's neck. Giant on a cow: a big zombie head, 1.5
+      times the cow's (as designed). A giant wearing a cow's head: on the giant's neck (before: floating above it).
+- [x] Fresh head dump (`MORPHREBORN_DUMPHEADS=1 gradlew runClient`) against the 2026-11-07 one: 91 heads both times,
+      19 changed, each only by its root scale (same parts, sizes times 4.5 for the ghast, 6 for the giant, 0.9375 for
+      illagers and villagers...). The generator then changed those 19 models and plugin entries, and the brim rule
+      four entries (villager, wandering trader, witch, zombie villager); nothing else.
 
 ## 7.1.3, your own body in multimorphs (2026-11-11)
 

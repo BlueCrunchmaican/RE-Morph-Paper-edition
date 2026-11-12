@@ -19,6 +19,9 @@ Assets reused unmodified from Morph (LGPL-3.0, (c) iChun):
 - `textures/skin/morphskin.png`
 - `sounds/morph1.ogg` ... `morph6.ogg`
 
+Modified from Morph (LGPL-3.0, (c) iChun):
+- `textures/skin/morphskin_red.png`: `morphskin.png` tinted dark red, for the red tendril and wisp effects.
+
 Not derived from, and containing no code or assets of:
 - "Morph"/"Morphy" Spigot plugin by BumbleBee (no licence published). Server features with similar
   names (e.g. creeper explosion, enderman teleport) were implemented independently.

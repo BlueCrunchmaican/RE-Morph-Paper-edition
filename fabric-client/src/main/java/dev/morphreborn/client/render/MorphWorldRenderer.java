@@ -271,6 +271,7 @@ public final class MorphWorldRenderer {
 	}
 
 	public static void tickEffects() {
+		RageTethers.tick();
 		for (Iterator<AcquisitionEffect> it = EFFECTS.iterator(); it.hasNext(); ) {
 			AcquisitionEffect e = it.next();
 			e.tick();
@@ -284,12 +285,14 @@ public final class MorphWorldRenderer {
 	}
 
 	public static void clearEffects() {
+		RageTethers.clear();
 		EFFECTS.clear();
 		WISPS.clear();
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public static void collectSubmits(LevelRenderContext ctx) {
+		RageTethers.collectSubmits(ctx);
 		if (EFFECTS.isEmpty()) return;
 		Minecraft mc = Minecraft.getInstance();
 		float partialTick = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);

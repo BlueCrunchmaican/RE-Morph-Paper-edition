@@ -2,8 +2,11 @@
 
 RE:Morph has two gameplay modes, chosen by the server in `config.yml`:
 
-- **Classic** (default): the original Morph. Kill a creature to unlock it as a morph.
-- **Survival**: iChun's planned "Default Mode" for Morph, finished. Morphing is earned through biomass.
+- **Survival** (the default since 7.2.0): iChun's planned "Default Mode" for Morph, finished. Morphing is earned
+  through biomass.
+- **Classic** (the default before 7.2.0): the original Morph. Kill a creature to unlock it as a morph.
+
+Updating never changes a server's mode: every release's `config.yml` names it, and that value is kept.
 
 Both run on the same plugin and the same morph, ability and disguise systems. Survival only adds rules on top.
 
@@ -26,8 +29,8 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    advancement screen's style: each upgrade a framed status effect icon, details on hover, click to buy, a red glow on
    what you can afford. It has three sections: **Biomass** (Capacity, with Efficiency, Reach and Absorbable Mass under
    it), the **Morph Ability** on its own as a lump of biomass with tendrils, the **Morph** section it opens (Morph
-   Capacity with Variant Capacity under it, Morph Efficiency, Morph Abilities), and the **Abilities** below them.
-   Letting go of the favourites key with the mouse in the middle just closes the wheel. Without the mod,
+   Capacity with Variant Capacity under it, Morph Efficiency, Morph Abilities, Multimorph, Rage), and the **Abilities**
+   below them. Letting go of the favourites key with the mouse in the middle just closes the wheel. Without the mod,
    `/morph upgrades` opens a chest menu with the same sections. The first goal is the **Morph Ability**.
 5. **Morphing.** Once bought, the selector opens and kills also unlock morphs, as long as the collection has room
    (Morph Capacity kinds, Variant Capacity looks per kind). Morphs collected before, including a whole Classic
@@ -36,6 +39,15 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    zombie 8, a cow 12, an iron golem 53, a ghast 640. The selector shows each price after the name (red: affordable,
    grey: not); without the mod, `/morph use` names the price when you're short. `survival.yml` `morph-cost` (or
    `/morph cost`) turns it off, changes the rate and minimum, or fixes a price per mob.
+   - **Room in the collection.** With the mod, the selected row in the selector has a second line: *Morphs 4/6*
+     (kinds of creature against Morph Capacity) and, for a creature that comes in more than one look, *Looks 2/3*
+     (against Variant Capacity, or config.yml's `max-variants-per-type` when that is lower). Each turns gold with
+     "full" once a kill can't add another. A creature with one look (an iron golem, a blaze) gets no look count; what
+     has looks is worked out from `variants.yml` (a look key in the mob's save data, a per-type key, or babies when
+     they're allowed and the mob has them; custom names don't count). Every kill's action bar says what it did after
+     the biomass: *+21 biomass (140 / 400) · Morphs 5/6*, *· Sheep looks 3/3 full*, *· No room for Cow: morphs full
+     (6/6)* or *· No room for this Sheep look (3/3)*. Without the mod, `/morph list` starts with the same room. A kill
+     that can't fit isn't counted toward `required-kills`.
 6. **More.** Transformations start slow, 6.5 seconds, and Morph Efficiency brings them down to 3.5. Ability
    cooldowns start at ×1.3 their length in `abilities.yml`, and Morph Abilities brings them down to ×0.7. (Classic Mode
    transforms in 5 seconds with cooldowns at ×1, the middle of both.) Morph
@@ -46,6 +58,12 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    fish suffocate on land, golems sink, giants are slow. Creatures that can't live out of water (fish, squid,
    axolotls, nautiluses) always breathe underwater, or they'd have nowhere to breathe. Flying morphs glide down
    slowly until Morph Flight, and never take fall damage.
+
+8. **Rage.** With the Rage upgrade, taking 6 hits within 6 seconds from at least two attackers charges your rage, and
+   it waits until you set it off (the Rage key, or `/morph rage`): for 8 seconds, tendrils drain the creatures within 16 blocks while they live, and each one that dies is a kill of
+   yours, absorbed wherever it is (biomass, and a morph if there's room). Bosses, villagers, named creatures, others'
+   pets and players are drained at a quarter of the rate, and players never below one heart. Then hits don't count for
+   20 seconds. `abilities.yml` → `rage` sets the numbers; the [guide](GUIDE.md) has the details.
 
 Dying costs no biomass. Upgrades are never lost.
 
@@ -64,6 +82,8 @@ Dying costs no biomass. Upgrades are never lost.
 | Variant Capacity | 1 | 16 | 1 … 16 looks per creature | 50 … 1,137 | Morph Capacity |
 | Morph Efficiency | 1 | 6 | 6.5, 5.8, 5, 4.5, 4, 3.5 seconds per transformation | 80, 128, 205, 328, 524 | Morph Ability |
 | Morph Abilities | 0 | 6 | unlocks abilities; ability cooldowns ×1.3, ×1.15, ×1, ×0.9, ×0.8, ×0.7 | 100, 170, 289, 491, 835, 1,420 | Morph Ability |
+| Multimorph | 0 | 1 | combine two morphs | 1,200 | Morph Ability, Morph Capacity level 4 |
+| Rage | 0 | 1 | rage: many hits from several attackers charge it; set off, it drains the creatures around you and absorbs what dies | 1,500 | Morph Ability, Morph Abilities level 1 |
 
 The **Abilities** section: one-time unlocks, each needing Morph Abilities.
 
@@ -159,7 +179,8 @@ in both modes.
 Classic. Progress lives in each player's file under `survival`, which Classic never reads or clears.
 
 Client protocol 3: the handshake carries the mode; `S_SURVIVAL` sends biomass, capacity, unlocked and can-morph for
-the bar and the selector; `C_OPEN_UPGRADES` asks for the upgrades, answered with `S_UPGRADES` (the tree with each
+the bar and the selector; `S_COLLECTION` ends with the kind and look limits and which creatures have looks (7.2.0,
+resent when a capacity changes); `C_OPEN_UPGRADES` asks for the upgrades, answered with `S_UPGRADES` (the tree with each
 upgrade's level, values, cost and what it still needs); `C_BUY_UPGRADE` buys one. The client only displays; every
 rule and purchase is checked on the server.
 

@@ -32,6 +32,14 @@ loom {
 			vmArgs "-Xmx2G"
 			runDir "run-client2"
 		}
+		// Client 2 opening the single-player world "RE-Morph test" in run-client2/saves (no server, so no RE:Morph).
+		singleplayer {
+			client()
+			name = "Client 2, single-player"
+			programArgs "--username", "MorphTester2", "--quickPlaySingleplayer", "RE-Morph test"
+			vmArgs "-Xmx2G"
+			runDir "run-client2"
+		}
 		// Stand-in for an unmodded player: the mod is switched off, so the server treats this client as vanilla.
 		vanilla {
 			client()

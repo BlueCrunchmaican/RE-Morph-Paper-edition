@@ -115,7 +115,7 @@ public final class ClientConfig {
 	public boolean dollHideThirdPerson = true;
 	/** Hide while the F3 debug screen is open. */
 	public boolean dollHideDebug = true;
-	/** Ask GitHub once per game start whether a newer RE:Morph is out, and say so in chat (see UpdateCheck). */
+	/** On each join, say in chat if a newer RE:Morph is out or the server's is older than this mod (see UpdateCheck). */
 	public boolean updateCheck = true;
 
 	/** The vignette slider's top, in screen pixels. */

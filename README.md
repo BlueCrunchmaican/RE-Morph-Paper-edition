@@ -18,13 +18,13 @@ Nobody is kicked for not having the mod.
 
 ## Features
 
+- **Survival mode** (the default since 7.2.0): iChun's unfinished "Default Mode", completed. Unlock the Biomass
+  ability, absorb biomass from kills, and spend it in an upgrade tree on the ability to morph, more storage, reach,
+  faster transformations and cooldowns, and each kind of morph trait: night vision, fire immunity, flight, climbing,
+  camouflage and more. Each morph costs biomass too, scaled by the creature's size.
+  See [docs/SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md).
 - **Classic mode:** kill a creature to unlock it. Variants unlock separately: sheep colours, villager jobs, cat
   breeds, babies and so on. Killing a player unlocks their form.
-- **Survival mode:** iChun's unfinished "Default Mode", completed. Unlock the Biomass ability, absorb biomass from
-  kills, and spend it in an upgrade tree on the ability to morph, more storage, reach, faster transformations and
-  cooldowns, and each kind of morph trait: night vision, fire immunity, flight, climbing, camouflage and more.
-  Each morph costs biomass too, scaled by the creature's size.
-  See [docs/SURVIVAL-MODE.md](docs/SURVIVAL-MODE.md).
 - **Abilities and traits for 89 of the 90 mobs in 26.3:** flight, swimming, fire immunity, creeper explosions
   (charged by lightning, too), enderman teleporting and block carrying, witch potions, bat perching, rabbit hops,
   skeleton and baby zombie jockeys, trading with villager players, spiders climbing cobwebs, and more. Full table: [docs/ABILITIES.md](docs/ABILITIES.md).
@@ -35,10 +35,15 @@ Nobody is kicked for not having the mod.
 - **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
   becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
   outside the Nether, lightning turns a pig into a zombified piglin. Only that body changes; your saved morph doesn't.
+- **Rage (7.2.0):** evens the odds against a crowd. Take hits from several attackers in quick succession and tendrils
+  latch onto the creatures around you, draining them while they live; what dies is absorbed as your kill. Players are
+  hurt but never killed, bosses drained more slowly. Hits charge it, and you set it off when you choose: the Rage key
+  or `/morph rage`. In Survival it's an upgrade. See
+  [docs/GUIDE.md](docs/GUIDE.md).
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
   head, pose and auto-hide settings), an advancement-style upgrade
-  tree, a biomass bar, and a settings screen (`/morphclient`).
+  tree, a biomass bar with the rage meter, the room left in your collection, and a settings screen (`/morphclient`).
 - **Admin control:** the gameplay mode, every ability, cooldowns and limits are in the plugin's config files. A newer
   release updates the config files by itself and keeps a backup: new settings appear in `config.yml` and `survival.yml`
   with their defaults, and every value you set stays.
@@ -85,8 +90,8 @@ The [server and player guide](docs/GUIDE.md) covers updating, settings, commands
 ## Credits
 
 - **iChun**: [Morph](https://github.com/iChun/Morph) and [iChunUtil](https://github.com/iChun/iChunUtil). RE:Morph
-  ports their design and algorithms and reuses Morph's textures and sounds unmodified. Survival Mode follows his plans
-  for Morph's Default Mode. [NOTICE.md](NOTICE.md) lists exactly what was taken.
+  ports their design and algorithms and includes Morph's textures and sounds as they were, plus a red-tinted copy
+  of its morph skin texture. Survival Mode follows his plans for Morph's Default Mode. [NOTICE.md](NOTICE.md) lists exactly what was taken.
 - **libraryaddict**: [Lib's Disguises](https://github.com/libraryaddict/LibsDisguises), which shows morphs to players
   without the mod. Not bundled; server admins install it.
 - **retrooper and contributors**: [PacketEvents](https://github.com/retrooper/packetevents). Not bundled.

@@ -7,7 +7,7 @@
 # The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
 # replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
 # changes you made.
-config-version: 6.6.0
+config-version: 7.2.0
 
 enabled: true
 
@@ -529,3 +529,36 @@ jockeys:
   cave_spider: [skeleton, stray, wither_skeleton, bogged, parched]
   chicken: [baby zombie, baby husk, baby drowned, baby zombie_villager, baby zombified_piglin, baby piglin]
   hoglin: [baby piglin]
+
+# Rage evens the odds when a crowd turns on you: take enough hits in a short time from more than one attacker and it is
+# charged; set off (the Rage key with the client mod, /morph rage without), tendrils latch onto the creatures around
+# you, draining their health while they live. Each one that dies is a kill by
+# you, absorbed as usual (biomass and morphs under the usual rules). The idea comes from a picture on Morph's old page of
+# a pig absorbing many mobs at once. Needs morphreborn.rage (everyone by default) and, in Survival, the Rage upgrade.
+rage:
+  enabled: true
+  # What charges it: this many hits taken within `window` seconds, from at least `attackers` different creatures or
+  # players. Charged, it waits for the player to set it off, as long as they like.
+  hits: 6
+  window: 6
+  attackers: 2
+  # The rage: how long it lasts (seconds), how far its tendrils reach (blocks; a skeleton shoots from up to 15), how
+  # many creatures they hold at once (whoever hit you first, then the nearest, in sight), and how much health they drain
+  # from each one a second (a zombie has 20).
+  duration: 8
+  radius: 16
+  max-targets: 8
+  drain: 5
+  # What it drains: "enemies" (hostile creatures, anything after you, and whoever hit you) or "all" (every creature
+  # around, and every player in survival or adventure). Your own pets never.
+  targets: enemies
+  # These are drained at `lesser` times the rate: these kinds, name-tagged creatures, other players' pets, and players.
+  lesser: 0.25
+  lesser-types: [ender_dragon, wither, warden, elder_guardian, villager, wandering_trader]
+  lesser-named: true
+  lesser-pets: true
+  # Players are drained too (true), but never below `player-floor` health (2 is one heart).
+  players: true
+  player-floor: 2
+  # Seconds after a rage before hits count toward the next one.
+  cooldown: 20

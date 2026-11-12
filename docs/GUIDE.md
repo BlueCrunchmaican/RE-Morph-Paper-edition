@@ -100,9 +100,10 @@ Older clients still work, fakeout included; update the client mod for the enderm
 
 The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead, and see
 a multimorph's borrowed head only where the game has a skull for it. `resourcepack/RE-Morph-pack.zip` gives them the real
-sound and every borrowed head: add it to your server resource pack (or use it as the server resource pack), then set
+sound, every borrowed head, and the ears and tails that animals like wolves, foxes, cats and horses lend: add it to your server resource pack (or use it as the server resource pack), then set
 `appearance.vanilla-clients-have-sound-pack: true` in `config.yml`. `multimorph.vanilla-heads` decides who is sent the
-pack's heads (`auto`: players whose game loaded the server's pack; `pack`: everyone, when the pack is required).
+pack's heads (`auto`: players whose game loaded the server's pack; `pack`: everyone, when the pack is required). A
+player's head lent to a creature is a vanilla skull either way, so every player without the mod sees it.
 
 ## Client install (Java players, optional)
 
@@ -121,6 +122,8 @@ same protocol version, the player is told to update and is treated as a player w
 
 **Unlocking:** kill a mob to unlock it as a morph. Different looks (sheep colours, villager jobs, babies, cat breeds and
 so on) unlock separately. Killing a player unlocks their form; killing a morphed player unlocks the morph they're using.
+A server keeps at most `max-variants-per-type` looks of one creature (64 by default); a kill that can't add one says
+so on the action bar.
 
 ### With the client mod
 
@@ -135,9 +138,15 @@ so on) unlock separately. Killing a player unlocks their form; killing a morphed
 | Hold `` ` `` | Favourites wheel: point at a favourite and let go |
 | `R` | Use the morph's ability |
 | Biomass Menu (unbound at first) | Survival Mode: the upgrade tree. Also a click on the Biomass button in the middle of the favourites wheel, or `/morph upgrades` |
+| Rage (unbound at first) | Set off your rage once it is charged (see Rage below). Also `/morph rage` |
 
 Keys can be changed in **Options → Controls → Key Binds**, under RE:Morph (mouse side buttons work too). "Return to player form" has no key by
 default. You can also pick your own player form in the selector.
+
+**Room in your collection:** where a limit applies, the selected row in the selector has a second line under its name:
+*Looks 2/3* for a creature that comes in more than one look, and in Survival *Morphs 4/6* for kinds of creature. Each
+turns gold with "full" once a kill can't add another. Creatures with only one look (an iron golem, a blaze) never get
+a look count. In Classic the line only appears when a creature has reached the server's look limit.
 
 **Client settings:** type `/morphclient` (or bind the "RE:Morph Settings" key). Only your own screen changes:
 
@@ -147,7 +156,7 @@ default. You can also pick your own player form in the selector.
 | Biomass Gain | Survival Mode: what a kill that only gives biomass looks like. Same choices; **Red Tendrils** by default, so it can't be mistaken for a new morph. |
 | Transforming | **Morph**: the body turns black and melts into the new shape. **Plain**: the old body shrinks into dark smoke and the new one grows back, as players without the mod see it. |
 | Unlock toasts, Name tags, Mouse in selector, Invert scroll | On / off |
-| Update Check | On (default): once per game start the mod asks GitHub whether a newer RE:Morph is out and says so in chat when you join a RE:Morph server (6.6.0) |
+| Update Check | On (default): each time you join a server or a world, the mod says in chat if a newer RE:Morph release is out, and if the server runs an older RE:Morph than the mod (7.2.0). It asks GitHub at game start and every 6 hours |
 | Biomass Bar | Survival Mode: **When It Changes** (default), **Always** or **Off** |
 | Paper Doll... | Opens the paper doll's own settings (below) |
 
@@ -190,6 +199,15 @@ multimorphs.
 everything on, and keeps your values. In First-person Model's view a multimorph's borrowed parts now show on your
 body (never its borrowed head). Older clients still work and see conversions too.
 
+**7.2.0** adds rage (see Rage below), the room left in your collection (see Room in your collection), version notices
+on every join, and makes Survival the gameplay mode of new servers (an updated server keeps the mode it has). On first
+start `abilities.yml` is replaced (it gains the `rage` section; copy back any changes from the backup), `survival.yml`
+gains the Rage upgrade and keeps your values, and `config.yml` keeps your values. Players without the mod see borrowed
+skulls and player heads properly, better heads for some creatures, and the ears and tail an animal like a wolf or a fox
+lends (they used to see its whole head), so swap in the 7.2.0 `RE-Morph-pack.zip` if you serve it. Older clients keep
+working, without the room counts, the Rage key, the rage meter and its tendrils (they rage with `/morph rage`, and see
+the particles players without the mod see).
+
 **First-person Model (optional compatible mod):** with [First-person Model](https://modrinth.com/mod/first-person-model)
 installed, your body in its first-person view is your morph. Its head is left out and the camera sits just in front of its body, so the view ahead stays clear
 and looking down shows its front legs and back (a spider sees its legs on both sides). Humanoid morphs such as zombies
@@ -231,7 +249,9 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
 - Picking your body again (normally) drops what it borrows. The combination is saved with you and comes back when you
   log in.
 - `/morphclient preview [main] [borrowed]` shows any two creatures combined, without owning or becoming them.
-- Players without the mod see the body with the borrowed head on it (see the resource pack above).
+- Players without the mod see the body with the borrowed head on it, or an animal's ears on its head and its tail at
+  its back, as the mod draws them (see the resource pack above). Wings, fins and rods are shown only with the mod;
+  without it a creature known by them lends its head.
 
 ### Conversions
 
@@ -269,9 +289,41 @@ with the cure's length.
 | `/morph off` | Back to your own body |
 | `/morph fav <id>` | Favourite / unfavourite |
 | `/morph combine <main> <borrowed>`, `/morph combine <borrowed>`, `/morph combine off` | Multimorph (see above) |
+| `/morph rage` | Set off your rage once it is charged (see Rage below); otherwise it says how far along it is |
 | Sneak + swap hands (`F`) | Use the morph's ability (`abilities.yml` → `activation.vanilla-trigger`) |
 
 `/morph ability` also works for everyone.
+
+### Rage
+
+Rage evens the odds when a crowd turns on you. Take 6 hits within 6 seconds from at least two attackers (three
+skeletons juggling you with arrows, a ring of zombies) and your rage is charged. It doesn't go off by itself: you choose
+when, with the Rage key (unbound at first, set it in Controls) or `/morph rage`, and it stays charged until you do,
+even through death. You're told when it is charged: READY on the meter with the mod, a chat line without it (or with
+a mod older than 7.2.0).
+
+Set off, for 8 seconds, tendrils latch onto the creatures within 16 blocks that you can see (up to 8 at once, whoever
+hit you first) and drain their health while they live: 5 health a second each, so a zombie lasts about 4 seconds. Each one that dies counts as
+your kill and is absorbed with the usual animation, giving biomass and a morph under the usual rules (room in your
+collection, Absorbable Mass in Survival; reach doesn't apply, the tendrils reach them). When it ends, the action bar
+sums it up ("Rage: absorbed 4 creatures, +86.2 biomass, 1 new morph"), and hits don't count toward the next one for
+20 seconds.
+
+- **What it drains:** hostile creatures, anything that is after you, and whoever hit you (players too). Endermen,
+  zombified piglins, piglins and spiders only when they're after you. Your own pets never.
+- **Less:** the ender dragon, the wither, the warden, the elder guardian, villagers, wandering traders, name-tagged
+  creatures, other players' pets and players are drained at a quarter of the rate. Players are never brought below
+  one heart: rage hurts them but never kills them.
+- **Survival:** buy the Rage upgrade (in the Morph section, after Morph Abilities). **Classic:** everyone has it.
+
+With the mod, you see the tendrils (red, like the red tendrils absorb style), and a meter in the biomass bar's corner
+and style: *RAGE* with a segment for each hit, lit as hits come in and going out as they get old (it stops one short
+while they all came from one attacker); charged, the segments glow and it says *READY*; while raging, a bar running
+down with the seconds left; afterwards, a bar filling back up and the time left. It shows when it changes, while it is
+charged, or always, following the biomass bar setting in `/morphclient`. Players without the mod see the tendrils as wavering red lines of particles. Servers set it all up in
+`abilities.yml` → `rage`: the hits, the window and the attackers it takes, how long it lasts, its reach, how many
+creatures it holds, the drain, what it drains (`targets: all` drains every creature and player around), the lesser
+rate and who gets it, the floor for players, and the wait.
 
 ### Survival Mode
 
@@ -293,7 +345,10 @@ If the server plays Survival Mode, morphing has to be earned:
      to buy.
    - Anyone: `/morph upgrade <name>` buys directly, `/morph biomass` lists your progress.
 4. Buy the **Morph Ability** to start morphing. Morphs you already had open up, and new kills unlock morphs while
-   your collection has room (Morph Capacity, Variant Capacity).
+   your collection has room (Morph Capacity, Variant Capacity). The selector shows the room (*Morphs 4/6*,
+   *Looks 2/3*), and each kill's action bar says what it did after the biomass: *Morphs 5/6* for a new creature,
+   *Sheep looks 2/3* for a new look, or *No room for Cow: morphs full (6/6)*. Without the mod, `/morph list` shows
+   the room at the top.
 5. **Morphing costs biomass**, paid when the transformation starts; going back to your own body is free. The price
    grows with the creature's size: by default a chicken costs 2, a zombie 8, a cow 12, an iron golem 53. With the
    mod, the selector shows each price after the name and the favourites wheel under it, red when you can afford it
@@ -377,6 +432,8 @@ All need `morphreborn.admin` (ops by default).
 | `/morph info <player>` | Their form, collection size, and whether they have the mod |
 | `/morph clients` | Who online has the mod |
 | `/morph ability <player>` | Fire someone's ability |
+| `/morph rage <player> [go\|fill]` | For testing: what their Rage key would do, or set their rage off now, charged or not (`go`), or charge it (`fill`) |
+| `/morph upgrades <player>` | Open the upgrade tree (or chest menu) for someone |
 | `/morph carry <player> <block or none>` | Set the block an enderman morph is holding |
 | `/morph setting [name] [value]` | Show or change the world-effect settings below |
 | `/morph cost [on\|off \| rate <per-kg> \| minimum <n> \| price <mob> <biomass\|formula> \| gain <multiplier>]` | Survival: show or change morph prices and the biomass gain (saved to `survival.yml`). `price` fixes one mob's price and `formula` puts it back on the size formula; `gain 2` doubles biomass from kills |
@@ -399,16 +456,17 @@ All need `morphreborn.admin` (ops by default).
 | `morphreborn.acquire` | everyone | Unlocking morphs by killing |
 | `morphreborn.ability` | everyone | Abilities and traits |
 | `morphreborn.multimorph` | everyone | Combining two morphs (when `multimorph.enabled` is on) |
+| `morphreborn.rage` | everyone | Rage (when `abilities.yml` `rage.enabled` is on) |
 | `morphreborn.admin` | ops | Admin commands |
 | `morphreborn.type.<namespace>.<mob>` | — | Only checked when `morphs.per-type-permissions: true`, e.g. `morphreborn.type.minecraft.ender_dragon` |
 
 ## Settings
 
 **Gameplay mode** (`config.yml`, `gameplay-mode`; or switch in game with `/morph mode classic` or `/morph mode survival`):
-- `classic` (default): the original Morph. Kill a creature to unlock it.
-- `survival`: morphing is earned with biomass. Its rules and upgrade tree are in **`survival.yml`**: the unlock
+- `survival` (the default since 7.2.0; servers that had `classic` keep it): morphing is earned with biomass. Its rules and upgrade tree are in **`survival.yml`**: the unlock
   effects, the biomass formula and gain multiplier, per-creature multipliers or fixed masses, creatures that give
   nothing, morph prices, and each upgrade's cost and values.
+- `classic`: the original Morph. Kill a creature to unlock it.
 
 Switching never deletes anything. Collections and Survival progress are both kept in each player's file. Going to
 Survival locks existing collections until the player buys the Morph Ability; going back to Classic opens them again.
@@ -447,8 +505,14 @@ file is out of date (see Updating).
 **Update checks** (6.6.0): the plugin asks GitHub at startup and every 12 hours whether a newer RE:Morph release is out.
 If one is, the console says so and players with `morphreborn.admin` are told when they join (`update-check.enabled`
 in `config.yml`). Players whose client mod is older than the plugin are told when they join, with short [Modrinth] and
-[GitHub] links (`client.old-client-message`, `""` turns it off). The client mod has its own Update Check setting. Only
-GitHub's public "latest release" page is requested; nothing about the server or its players is sent.
+[GitHub] links (`client.old-client-message`, `""` turns it off). When a player's client mod is newer than the plugin,
+the console says so once per version, since a newer plugin is probably out too (7.2.0).
+
+The client mod tells its player itself, each time they join a server or a world (its Update Check setting, 7.2.0): that
+a newer release is out, on any server, with RE:Morph or without (except one whose plugin is newer, which already told
+them), and that the server runs an older RE:Morph than the mod. A newer client mod works on an older server; it only
+lacks the features the server doesn't have yet. Only GitHub's public "latest release" page is requested; nothing about
+the server or its players is sent.
 
 **Multimorph** (`config.yml`, `multimorph`): `enabled` (on by default) and `vanilla-heads` (see the resource pack
 above). In Survival, the Multimorph upgrade and `morph-cost.multimorph-extra` are in `survival.yml`.

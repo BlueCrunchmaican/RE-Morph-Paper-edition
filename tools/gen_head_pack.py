@@ -6,9 +6,11 @@ it: an item display showing that head as an item model from RE:Morph's resource 
 - resourcepack/assets/morphreborn/models/head/<mob>.json and items/head/<mob>.json: one head model per mob, made
   from the game's own model geometry and textures (nothing of Mojang's is copied into the pack; the models only
   point at the game's textures);
+- models/ears/<mob>.json and models/tail/<mob>.json (and their items): for the animals that lend their ears and tail
+  instead of their head (wolf, fox, cat...), the ears alone and the tail alone;
 - resourcepack/assets/minecraft/atlases/items.json: adds those textures to the item atlas, so item models can use them;
 - paper-plugin/src/main/resources/morph-heads.json: for the plugin, where each body's neck and passenger seat are,
-  and how big each head is drawn.
+  and how big each head is drawn, each body's torso (where a borrowed tail goes), and where ears and tails sit.
 
 The input is the client's dump: run the dev client with MORPHREBORN_DUMPHEADS=1 (or /morphclient dumpheads in a dev
 client), which writes fabric-client/run/morph-heads.json.
@@ -59,15 +61,36 @@ def fit(elements):
     return k, scaled
 
 
+def clamp_uv(elements):
+    """Mob models may sample past their texture's edge (the game wraps around); item models refuse that."""
+    for e in elements:
+        for face in e["faces"].values():
+            face["uv"] = [min(16.0, max(0.0, v)) for v in face["uv"]]
+
+
+def write_model(models_dir, items_dir, kind, name, texture, elements):
+    model = {"textures": {"t": texture, "particle": texture}, "elements": elements}
+    json.dump(model, open(os.path.join(models_dir, name + ".json"), "w", encoding="utf-8", newline="\n"), separators=(",", ":"))
+    item = {"model": {"type": "minecraft:model", "model": "morphreborn:" + kind + "/" + name}}
+    json.dump(item, open(os.path.join(items_dir, name + ".json"), "w", encoding="utf-8", newline="\n"), indent=1)
+
+
+def blocks(box, scale):
+    """Item pixels {lo, hi} (model point (8, 8, 8) at the origin) to blocks at the mob's real size."""
+    return [[round((v - 8) / 16 * scale, 4) for v in corner] for corner in box]
+
+
 def main():
     dump_path = sys.argv[1] if len(sys.argv) > 1 else DUMP
     dump = json.load(open(dump_path, encoding="utf-8"))
-    models_dir = os.path.join(PACK, "assets", "morphreborn", "models", "head")
-    items_dir = os.path.join(PACK, "assets", "morphreborn", "items", "head")
-    for d in (models_dir, items_dir):
-        if os.path.isdir(d):
-            shutil.rmtree(d)
-        os.makedirs(d)
+    dirs = {}
+    for kind in ("head", "ears", "tail"):
+        dirs[kind] = (os.path.join(PACK, "assets", "morphreborn", "models", kind), os.path.join(PACK, "assets", "morphreborn", "items", kind))
+        for d in dirs[kind]:
+            if os.path.isdir(d):
+                shutil.rmtree(d)
+            os.makedirs(d)
+    models_dir, items_dir = dirs["head"]
     textures = set()
     plugin = {}
     missing = []
@@ -77,23 +100,23 @@ def main():
             missing.append(mob)
             continue
         name = mob.split(":", 1)[1]
-        k, elements = fit(head["elements"])
-        # Mob models may sample past their texture's edge (the game wraps around); item models refuse that.
-        for e in elements:
-            for face in e["faces"].values():
-                face["uv"] = [min(16.0, max(0.0, v)) for v in face["uv"]]
+        raw = [{key: v for key, v in e.items() if key != "ear"} for e in head["elements"]]
+        k, elements = fit(raw)
+        clamp_uv(elements)
         texture = head["texture"]
         textures.add(texture)
-        model = {"textures": {"t": texture, "particle": texture}, "elements": elements}
-        json.dump(model, open(os.path.join(models_dir, name + ".json"), "w", encoding="utf-8", newline="\n"), separators=(",", ":"))
-        item = {"model": {"type": "minecraft:model", "model": "morphreborn:head/" + name}}
-        json.dump(item, open(os.path.join(items_dir, name + ".json"), "w", encoding="utf-8", newline="\n"), indent=1)
+        write_model(models_dir, items_dir, "head", name, texture, elements)
         # where the head meets its neck, in the model's blocks from its pivot: the middle of its bottom, at the back
         # (item space faces -z), or the middle for a whole body; the plugin lines these up instead of the pivots
         whole = bool(head.get("whole", False))
         # a body lent whole is measured by its big blocks, as the client mod does: a ghast's tentacles and a squid's
         # hang below its body, and lined up by their ends the body sat over the head instead of on it
         core = elements
+        if not whole:
+            # a hat's brim (villagers, witches: a flat sheet wider than the head) is drawn but doesn't decide where the
+            # head meets the neck or how big it is; counted in, its overhang pushed a villager's head forward
+            brim = lambda e: e["to"][1] - e["from"][1] < 1.5 * k and min(e["to"][0] - e["from"][0], e["to"][2] - e["from"][2]) >= 12 * k
+            core = [e for e in elements if not brim(e)] or elements
         if whole:
             volume = lambda e: (e["to"][0] - e["from"][0]) * (e["to"][1] - e["from"][1]) * (e["to"][2] - e["from"][2])
             biggest = max(volume(e) for e in elements)
@@ -106,12 +129,31 @@ def main():
                        # the head's size (model blocks): a borrowed head smaller than the body's own is drawn big
                        # enough to cover it for players without the mod, whose disguise always draws the body's head
                        "size": [round((hi[i] - lo[i]) / 16, 4) for i in range(3)]}
+        if "torso" in head:
+            # the torso a borrowed tail is grafted onto (item space, blocks from the feet, real size)
+            plugin[mob]["torso"] = head["torso"]
+        if "ears" in head and "tail" in head:
+            # an animal that lends its ears and tail, not its head: both as models of their own. Ear and core boxes are
+            # blocks from the head's pivot; the tail's from where it joins the body. "scale" is the display's scale at the
+            # mob's real size (the renderer's, over the model's shrink to fit)
+            renderer = head["scale"]
+            ears = [{key: v for key, v in e.items() if key != "ear"} for e in head["elements"] if e.get("ear")]
+            ke, ears = fit(ears)
+            clamp_uv(ears)
+            write_model(*dirs["ears"], "ears", name, texture, ears)
+            tk, tail = fit(head["tail"]["elements"])
+            clamp_uv(tail)
+            write_model(*dirs["tail"], "tail", name, texture, tail)
+            plugin[mob]["ears"] = {"box": blocks(head["ears"]["box"], renderer), "core": blocks(head["ears"]["core"], renderer),
+                                   "scale": round(renderer / ke, 4)}
+            plugin[mob]["tail"] = {"joint": head["tail"]["joint"], "box": blocks(head["tail"]["box"], renderer), "scale": round(renderer / tk, 4)}
     atlas_dir = os.path.join(PACK, "assets", "minecraft", "atlases")
     os.makedirs(atlas_dir, exist_ok=True)
     atlas = {"sources": [{"type": "minecraft:single", "resource": t} for t in sorted(textures)]}
     json.dump(atlas, open(os.path.join(atlas_dir, "items.json"), "w", encoding="utf-8", newline="\n"), indent=1)
     json.dump(plugin, open(PLUGIN_DATA, "w", encoding="utf-8", newline="\n"), indent=1, sort_keys=True)
-    print(len(plugin), "heads;", len(textures), "textures;", "no head for:", missing)
+    lending = sorted(m.split(":", 1)[1] for m in plugin if "ears" in plugin[m])
+    print(len(plugin), "heads;", len(textures), "textures;", "ears and tails:", lending, "no head for:", missing)
 
 
 if __name__ == "__main__":

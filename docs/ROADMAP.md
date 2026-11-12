@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **7.1.3** (2026-11-11). Two gameplay modes: Classic (default) and Survival. (5.1.0 and 5.2.0 were
+Current version: **7.2.0** (2026-11-11). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
 ## 6.6.1 (released 2026-11-07)
@@ -65,6 +65,133 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
+## 7.2.0, rage, room in the collection, ears and tails, version notices
+
+The user asked for players to hear about versions wherever they join: an outdated client mod told on joining a server,
+a client mod newer than the server still working and saying so, the mod's own "newer release" line on any server with
+RE:Morph or without, and the server finding out about updates at some point. Before, the mod's line came once per game
+start and only on RE:Morph servers, and nothing told a player their mod was newer than the server.
+
+- [x] Client mod: on every join (a server, a world, a proxy switch), the "RE:Morph X is out" line when GitHub has a
+      newer release. Not on a RE:Morph server newer than the mod, which already tells the player (old-client message).
+      GitHub is asked at game start and again on a join once the answer is 6 hours old (10 minutes after a failure).
+- [x] Client mod: "This server runs RE:Morph X; your client mod is Y. Everything works, but features added after X
+      aren't on this server" on a server older than the mod (servers before 6.6.0 don't send their version, so that
+      one says "from before 6.6.0"). An older server can't say this itself; only the mod knows it's newer.
+- [x] Plugin: a client mod newer than the plugin is logged to the console once per version, with the download links.
+      The existing check (GitHub at startup and every 12 hours, console and admins on join) is unchanged.
+- [x] The admin line and the mod's line now say "this server's plugin is" and "your client mod is", so an admin with an
+      old mod on an old server can tell the two apart.
+- [x] Backwards compatibility, asked for "for sure" from here on: a new client mod must work on every older server.
+      Checked by reading every packet change since 6.0.0 (all additive; the client reads each added field only when
+      it's there; old servers skip unknown packets and extra bytes) and written down as rules in
+      [PROTOCOL.md](PROTOCOL.md), which `Wire.java` already pointed to but didn't exist. `tools/compat_check.py` runs
+      the client against every released server jar and drives each server packet over RCON; run it before every
+      release.
+- [x] Test hooks for the GitHub re-check: `-Dmorphreborn.updateCheck.refreshSeconds` / `retrySeconds`; the mod logs
+      each answer ("the latest release is X") and each failure.
+- [x] A `runSingleplayer` dev run (Client 2 opening the world "RE-Morph test").
+- [x] Survival is the default gameplay mode for new servers (the user, 2026-11-09): `gameplay-mode: survival` in
+      config.yml (config-version 7.2.0), and a missing or unknown value means Survival. Every released config.yml
+      names its mode, so an updated server keeps the one it had.
+- [x] Credits corrected: Morph's textures and sounds ship unchanged (checked byte for byte against the original), but
+      `morphskin_red.png` is our red tint of `morphskin.png` and NOTICE.md didn't list it. NOTICE.md and the README
+      say so now.
+- [x] The Modrinth description rewritten to read like a person wrote it (`docs/MODRINTH.md` is its source): shorter
+      sections like other mod pages, a "Do players need the mod?" answer, a step-by-step "How Survival works", the
+      paper doll cut down to one line, and the credits above.
+- [x] Posted on Modrinth 2026-11-09 (the saved description matches `docs/MODRINTH.md` exactly). Change the page by
+      editing that file and pasting it into the project's Description settings.
+- [ ] The [Modrinth] link in every notice only works once the Modrinth project is approved (still not public on
+      2026-11-08); the [GitHub] link works now.
+
+Next for 7.2.0, asked for by the user on 2026-11-11:
+
+- [x] A clear sign whether a kill can still give you a new morph (Survival's Morph Capacity, kinds of creature) and a
+      new look of one you have (Variant Capacity, looks per kind) (7.2.0-beta.3):
+      - Selector: the selected row gets a second line under its name, *Looks 2/3* (creatures with more than one look
+        only) and *Morphs 4/6* (Survival), each gold with "full" at the limit. Collapsed rows and one-look creatures
+        (iron golem, blaze) stay as they were. Classic shows the line only when a creature has reached
+        `max-variants-per-type`.
+      - Which creatures have looks: worked out on the server from `variants.yml` and a default mob's save data (a kept
+        look key, a per-type key, or babies when allowed; custom names ignored; wandering traders are never babies),
+        plus any row that already holds more than one. `single-variant-types` collapses a creature to one look.
+      - `max-variants-per-type` is now part of the look limit (the lower of it and Variant Capacity): checked before
+        `required-kills` counts the kill, and said on the action bar (it used to refuse silently after counting).
+      - Kill messages: Survival's biomass line now carries what the kill did to the collection, *+21 biomass (140 /
+        400) · Morphs 5/6* / *· Sheep looks 3/3 full* / *· No room for Cow: morphs full (6/6)* / *· No room for this
+        Sheep look (3/3)*. Before, the "collection full" line was replaced by the biomass line at once and never seen.
+        Classic says the refusals with a short hint. `/morph list` shows the room in Survival.
+      - Protocol: `S_COLLECTION` ends with the kind limit, the look limit and a has-looks flag per row (PROTOCOL.md);
+        the collection is resent when a capacity changes. Older servers send none of it and the selector shows nothing.
+      - Tried in game at full and not full for both counts, in Survival and Classic; compat_check OK on all 13
+        released servers; the 7.1.3 mod on this server without warnings ([TESTING.md](TESTING.md)). Counts stay on the
+        selected row only (a count on every row was offered as the alternative).
+- [x] Rage, evening the odds against a crowd (7.2.0-beta.4, the user's design, 2026-11-11). Beta.3 had a first design
+      (charged by absorbed kills or a wait, lifting the player and pulling in every absorbable creature at once); the
+      user then described what they wanted and it was rebuilt:
+      - Charged by hits: 6 within 6 seconds from at least 2 attackers (the user's example: three skeletons juggling you
+        with arrows). A hit counts when it hurt (blocked or fully resisted ones don't) and came from a creature or
+        another player (projectiles count for their shooter). A wait of 20 seconds after each rage.
+      - Set off when the player chooses (beta.5; the user: "a choice not automatic, when it sets off and starts doing
+        damage"; beta.4 set it off by itself): the Rage key (`C_RAGE`, unbound at first, a one-time chat hint when it
+        is first charged) or `/morph rage`. It stays charged until used, through death and logging out
+        (`PlayerMorphData.rageCharged`). Charged: READY on the meter, or a chat line for players without the mod.
+      - For 8 seconds, tendrils latch onto up to 8 creatures within 16 blocks in sight (whoever hit you first, then the
+        nearest) and drain 5 health a second each while they live (`GENERIC` damage from the player every half second,
+        so protection plugins and team rules still apply; the last of it a `GENERIC_KILL`, so the kill is the player's).
+        Each that dies goes through the usual kill handling (biomass, morphs, room, the absorb animation); Survival's
+        reach doesn't apply to rage kills. The action bar sums it up at the end.
+      - What it drains (`targets: enemies`): hostile creatures, anything after you, and whoever hit you; neutral hostiles
+        (endermen, zombified piglins, piglins, spiders) only when after you. `targets: all` drains everything around.
+        Never your own pets. At a quarter of the rate (the user: the creatures first proposed as never taken may be
+        affected, "just to a lesser extent"): the dragon, the wither, the warden, the elder guardian, villagers,
+        wandering traders, name-tagged creatures, other players' pets, and players. Players never below one heart (the
+        user: hurt players, never outright kill them). No hover.
+      - Radius 10 at first; a skeleton shooting from 12 blocks was never caught and the player died, so 16 (a
+        skeleton shoots from up to 15).
+      - With the mod: red morph-skin tendrils from the raging player to each drained creature, wavering, with swellings
+        running into the player (`render/RageTethers`, `S_RAGE_DRAIN` 13, sent to players with the mod within 96
+        blocks); in first person your own start in front of you and below the view (from the chest they filled the
+        screen). The meter: a segment per hit (one short while all from one attacker), a bar running down while
+        raging, a bar filling back up for the wait. `S_RAGE` now carries hits and the rage's time left.
+      - Without the mod: wavering lines of red dust from the player to each creature, red motes running back, a red
+        burst when it starts.
+      - A player whose client mod is older than 7.2.0 has no meter (it skips `S_RAGE`), so they get the "charged" chat
+        line too (found at release). Their client draws no tendrils either, and isn't sent the dust lines; left as is.
+      - Survival: the Rage upgrade (Morph section, 1,500 biomass, needs Morph Abilities 1). Classic: everyone. Settings
+        in `abilities.yml` → `rage`; permission `morphreborn.rage`. `/morph rage` sets it off or says why not;
+        `/morph rage <player> [go|fill]` for testing (their key press, set it off now, charge it);
+        `/morph upgrades <player>` opens someone's tree.
+      - Tried in game (TESTING.md).
+- [x] For players without the mod (found in the 7.1.3 run), fixed in 7.2.0-beta.3:
+      - A player's head lent to a creature wasn't seen: every vanilla skull on a head display was drawn at half size and
+        centred on the neck, inside the body's own head. Measured in game, a skull item (26.3, transform NONE) is drawn at
+        real size, hanging down from the display's origin and facing backwards; `BorrowedHeads` now uses that (scale 1,
+        anchor at the back of the hat's bottom, turned round). This also fixes every skull players without the pack get
+        (zombie, creeper, piglin... heads). A skull with no pack model beside it (player forms, the dragon) is now shown
+        to every viewer without the mod; with `vanilla-heads: auto` it went only to viewers with the pack.
+      - A borrowed ghast's tentacles lay spread around the feet, and the giant's head was a zombie's floating above its
+        neck: `HeadDump` wrote models enlarged by their root part (ghast 4.5, giant 6, happy ghast 4, elder guardian,
+        and slightly scaled ones: illagers, villagers, witch, husk, wither skeleton, polar bear, cat, cave spider, horse
+        family) with cubes at their unscaled size, and as upside-down boxes the generator measured below the neck. It
+        now takes the scale out first. A fresh dump changed exactly those 19 heads, each by its own scale.
+      - `gen_head_pack.py`: a hat's brim (villager, wandering trader, witch, zombie villager) no longer decides where the
+        head meets the neck or how big it is; its overhang pushed those heads forward.
+      - The resource pack's head models changed: servers that send RE-Morph-pack.zip should send the 7.2.0 one.
+- [x] Ears and tails for players without the mod (7.2.0-beta.4): an animal that lends its ears and tail with the mod
+      (wolf, fox, cat, ocelot, rabbit, armadillo, camel and camel husk, the horse family, and by the same test the
+      axolotl's gills and the parrot's crest) now lends those to players without it too, from the pack, instead of its
+      whole head. `HeadDump` marks the ears among the head's elements (the client's own `HybridMorph.lentEars`) and
+      writes the tail as a model of its own, plus every mob's torso box; `gen_head_pack.py` writes `models/ears/<mob>`
+      and `models/tail/<mob>` and their numbers. `BorrowedHeads` places them as the mod does: ears on the body's own
+      head at the size its width asks for (half to twice), their middle over it and their lowest third in it, turning
+      with the head; the tail at the same share of the body's torso as on its own (a lying animal's rear to the small of
+      a standing body's back), just reaching into it, turning with the body. The head models are unchanged. Wings, fins
+      and rods are still shown only with the mod.
+- [ ] Still open: in offline mode a lent own head shows a default skin (offline accounts have no skin data; online
+      servers are fine).
+
 ## Released: 7.1.3, your own body in multimorphs
 
 The user found that multimorph refused your own body ("Your own body can't be combined"), a restriction they hadn't
@@ -96,11 +223,11 @@ combinations with anything that looked wrong fixed.
 - [x] Players without the mod: a creature lent whole stands on the middle of the head (it sat behind it) and is
       measured by its body, not its tentacles (`tools/gen_head_pack.py`; a ghast sat above the head); a player's head
       lent to a creature is scaled to cover the creature's head.
-- [ ] Known, for players without the mod (7.2.0): a player's head lent to a creature isn't seen although its display is
+- [x] Known, for players without the mod (7.2.0): a player's head lent to a creature isn't seen although its display is
       there (the same path as another player's head in 7.1.2); a borrowed ghast's tentacles show down by the feet;
       the giant's head data (`morph-heads.json`) treats its head as a zombie's and floats it above the head; an
-      ears-and-tail animal shows its whole head (the pack has heads only, as for wing creatures); in offline mode (no
-      skins) a self-body disguise shows a default skin.
+      ears-and-tail animal shows its whole head (the pack has heads only, as for wing creatures). All fixed in 7.2.0.
+- [ ] Still open: in offline mode (no skins) a self-body disguise shows a default skin.
 - [x] Released 2026-11-11: tag `v7.1.3`, GitHub release `RE:Morph 7.1.3`, Modrinth `7.1.3+paper` / `7.1.3+fabric`
       (the resource pack is 7.1.2's, unchanged).
 
@@ -382,6 +509,10 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | Date | Decision | Why |
 |---|---|---|
 | 2026-11-03 | Server templates don't set NoAI | Unmodded clients froze dragon wings and copper golems |
+| 2026-11-11 | Rage is charged by many hits from several attackers and drains the creatures around while they live; what dies is absorbed | The user's design, replacing beta.3's (charged by kills or a wait, lifting the player and taking everything at once) |
+| 2026-11-11 | A charged rage waits for the player (Rage key or /morph rage) and stays charged until used | The user: setting it off is a choice, not automatic (beta.4 went off by itself) |
+| 2026-11-11 | Rage drains bosses, villagers, named creatures, others' pets and players at a quarter of the rate; players never below one heart; never your own pets | The user: those may be affected "just to a lesser extent"; hurt players but never kill them |
+| 2026-11-11 | Room counts only on the selected selector row | Keeps the other rows as they were; offered the alternative, no change asked |
 | 2026-11-03 | abilities.yml / variants.yml carry `config-version` and are replaced (with a backup) when older | Old files silently broke renamed abilities (the witch) |
 | 2026-11-05 | Piglin/hoglin shake fixed with zombification immunity, not NoAI | NoAI breaks other mobs' animations |
 | 2026-11-05 | Transition captures make the renderer choose its model through a throwaway submit, not per-renderer code | Covers every multi-model renderer, including future ones |

@@ -72,10 +72,12 @@ public final class ClientNet {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			reset();
 			ticksSinceJoin = 0;
+			dev.morphreborn.client.UpdateCheck.onConnect();
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			reset();
 			ticksSinceJoin = -1;
+			dev.morphreborn.client.UpdateCheck.onDisconnect();
 		});
 	}
 
@@ -95,6 +97,10 @@ public final class ClientNet {
 		biomassCapacity = 0;
 		morphCosts.clear();
 		survivalCanMorph = false;
+		rageOffered = rageAvailable = raging = rageWasWaiting = false;
+		rageHits = rageHitsNeeded = rageWait = rageLength = 0;
+		rageWaitEndsAt = rageEndsAt = 0;
+		dev.morphreborn.client.render.RageTethers.clear();
 	}
 
 	/** Called every client tick: sends HELLO once Paper has advertised our channel. */
@@ -109,6 +115,7 @@ public final class ClientNet {
 		} else if (ticksSinceJoin > HELLO_TIMEOUT_TICKS) {
 			ticksSinceJoin = -1;
 			MorphClient.LOGGER.info("Server does not run RE:Morph; the selector stays disabled.");
+			dev.morphreborn.client.UpdateCheck.onOtherServer();
 		}
 	}
 
@@ -223,6 +230,102 @@ public final class ClientNet {
 	/** When this player last pressed the ability key (System.currentTimeMillis), for the paper doll's "While Active". */
 	public static long lastAbilityAt;
 
+	// ------------------------------------------------------------------ rage (servers from 7.2.0)
+
+	/** The server has rage (its hello said so); older servers don't: no meter, and the key only says so. */
+	private static boolean rageOffered;
+	/** The rage meter, from S_RAGE. */
+	private static boolean rageAvailable;
+	private static int rageHits;
+	private static int rageHitsNeeded;
+	private static int rageWait;
+	private static boolean raging;
+	private static int rageLength;
+	/** Client ticks the wait and the rage end at (counted down here between packets). */
+	private static long rageWaitEndsAt;
+	private static long rageEndsAt;
+	/** Client tick of the last change to the meter, for the "when it changes" display. */
+	private static long rageChangedAt = -1000;
+	private static boolean rageWasWaiting;
+
+	/** The Rage key: set off a charged rage (the server says why not otherwise), and bring up the meter. */
+	public static void rage() {
+		rageChangedAt = tick;
+		if (rageOffered) send(new Wire.Out(Wire.C_RAGE));
+		else message(Component.translatable("morphreborn.rage.not_here").withStyle(net.minecraft.ChatFormatting.GRAY));
+	}
+
+	/** Charged and waiting to be set off. */
+	public static boolean rageReady() {
+		return rageAvailable() && !raging && rageWaitLeft() == 0 && rageHitsNeeded > 0 && rageHits >= rageHitsNeeded;
+	}
+
+	private static void handleRage(Wire.In in) {
+		boolean available = in.bool();
+		int hits = in.varInt();
+		int needed = in.varInt();
+		int waitLeft = in.varInt();
+		int wait = in.varInt();
+		boolean now = in.bool();
+		int left = in.hasMore() ? in.varInt() : 0;
+		int length = in.hasMore() ? in.varInt() : 0;
+		if (available != rageAvailable || hits != rageHits || needed != rageHitsNeeded || now != raging || Math.abs(tick + waitLeft - rageWaitEndsAt) > 20) {
+			rageChangedAt = tick;
+		}
+		rageAvailable = available;
+		rageHits = hits;
+		rageHitsNeeded = needed;
+		rageWait = wait;
+		rageWaitEndsAt = tick + waitLeft;
+		raging = now;
+		rageEndsAt = tick + left;
+		rageLength = length;
+	}
+
+	/** Whether to show the rage meter at all: the server has rage and this player may use it. */
+	public static boolean rageAvailable() {
+		return active && rageOffered && rageAvailable;
+	}
+
+	/** Hits taken within the server's window, and how many set it off. */
+	public static int rageHits() {
+		return rageHits;
+	}
+
+	public static int rageHitsNeeded() {
+		return rageHitsNeeded;
+	}
+
+	/** Ticks left of the wait after a rage, and the whole wait (0: none). */
+	public static int rageWaitLeft() {
+		return (int) Math.max(0, rageWaitEndsAt - tick);
+	}
+
+	public static int rageWait() {
+		return rageWait;
+	}
+
+	public static boolean raging() {
+		return raging;
+	}
+
+	/** Ticks left of the rage in progress, and its whole length. */
+	public static int rageLeft() {
+		return (int) Math.max(0, rageEndsAt - tick);
+	}
+
+	public static int rageLength() {
+		return rageLength;
+	}
+
+	/** Ticks since the meter last changed (a wait running out counts). */
+	public static long ticksSinceRageChange() {
+		boolean waiting = rageWaitLeft() > 0;
+		if (!waiting && rageWasWaiting) rageChangedAt = tick;
+		rageWasWaiting = waiting;
+		return tick - rageChangedAt;
+	}
+
 	public static void ability() {
 		lastAbilityAt = System.currentTimeMillis();
 		if (abilitiesAvailable) send(new Wire.Out(Wire.C_ABILITY));
@@ -259,6 +362,14 @@ public final class ClientNet {
 					for (int i = 0; i < count; i++) morphCosts.put(in.string(), in.varInt());
 					multimorphExtraPercent = in.hasMore() ? in.varInt() : 0;
 				}
+				case Wire.S_RAGE -> handleRage(in);
+				case Wire.S_RAGE_DRAIN -> {
+					int origin = in.varInt();
+					int count = in.count();
+					int[] targets = new int[count];
+					for (int i = 0; i < count; i++) targets[i] = in.varInt();
+					dev.morphreborn.client.render.RageTethers.set(origin, targets);
+				}
 				case Wire.S_FORGET -> {
 					UUID who = in.uuid();
 					MorphClient.STATES.remove(who);
@@ -283,13 +394,14 @@ public final class ClientNet {
 		gameplayMode = in.hasMore() ? in.string() : "classic";
 		serverVersion = in.hasMore() ? in.string() : ""; // since 6.6.0
 		multimorphAllowed = in.hasMore() && in.bool(); // since 7.0.0
+		rageOffered = in.hasMore() && in.bool(); // since 7.2.0; older servers have no rage
 		active = accepted && protocol == Wire.PROTOCOL_VERSION;
 		if (!active) {
 			MorphClient.LOGGER.warn("RE:Morph server speaks protocol {} (this mod: {}); {}", protocol, Wire.PROTOCOL_VERSION, message);
 		} else {
 			MorphClient.LOGGER.info("Connected to a RE:Morph server (protocol {}{}).", protocol, serverVersion.isEmpty() ? "" : ", plugin " + serverVersion);
-			dev.morphreborn.client.UpdateCheck.onJoin(serverVersion);
 		}
+		dev.morphreborn.client.UpdateCheck.onRemorphServer(serverVersion, active);
 	}
 
 	/** The upgrade tree: open its screen, or refresh the one that is open. */
@@ -341,7 +453,7 @@ public final class ClientNet {
 
 	private static void handleCollection(Wire.In in) {
 		int rows = in.count();
-		List<Collection.Row> out = new ArrayList<>(rows);
+		List<Collection.Row> all = new ArrayList<>(rows);
 		for (int i = 0; i < rows; i++) {
 			String type = in.string();
 			Collection.Row row = Collection.newRow(type);
@@ -350,9 +462,20 @@ public final class ClientNet {
 				MorphRef ref = in.ref();
 				row.variants.add(Collection.newVariant(ref, in.bool()));
 			}
-			if (!row.variants.isEmpty()) out.add(row);
+			all.add(row);
 		}
-		MorphClient.COLLECTION.replace(out);
+		// Since 7.2.0: the collection's limits (each + 1, 0 for none), then per row whether its creature has looks.
+		// Older servers send neither: no limits, no counters.
+		int kindLimit = -1;
+		int lookLimit = -1;
+		if (in.hasMore()) {
+			kindLimit = in.varInt() - 1;
+			lookLimit = in.varInt() - 1;
+			for (Collection.Row row : all) row.hasLooks = in.bool();
+		}
+		List<Collection.Row> out = new ArrayList<>(rows);
+		for (Collection.Row row : all) if (!row.variants.isEmpty()) out.add(row);
+		MorphClient.COLLECTION.replace(out, rows, kindLimit, lookLimit);
 	}
 
 	private static void handleState(Wire.In in) {
@@ -431,7 +554,7 @@ public final class ClientNet {
 		if (mc.level == null) return;
 		Entity origin = mc.level.getEntity(originId);
 		Entity acquired = mc.level.getEntity(acquiredId);
-		boolean newMorph = !in.hasMore() || in.bool(); // servers before 6.1.6 don't say: treat as a new morph, as before
+		boolean newMorph = !in.hasMore() || in.bool(); // servers before 6.3.0 don't say: treat as a new morph, as before
 		if (origin instanceof LivingEntity o && acquired instanceof LivingEntity a) MorphWorldRenderer.startAcquisition(o, a, newMorph);
 	}
 

@@ -4,16 +4,17 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 7.1.0
+config-version: 7.2.0
 
+# survival: (the default since 7.2.0) iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability
+#           (Wither and Regeneration at the same time), absorb creatures' biomass and spend it on upgrades, including
+#           the ability to morph. Settings in survival.yml.
 # classic:  the original Morph. Kill a creature to unlock it as a morph.
-# survival: iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability (Wither and Regeneration at
-#           the same time), absorb creatures' biomass and spend it on upgrades, including the ability to morph.
-#           Settings in survival.yml.
 # Change it in game with /morph mode classic|survival (takes effect at once and is saved here), or edit it here and
 # run /morph reload. Switching never deletes anything: collections and Survival progress are kept in both modes.
-# Switching to survival keeps collections but locks them until the player buys the Morph Ability.
-gameplay-mode: classic
+# Switching to survival keeps collections but locks them until the player buys the Morph Ability. Updating never
+# changes the mode a server already has.
+gameplay-mode: survival
 
 morphs:
   # Length of a transformation in ticks (20 ticks = 1 second). The original Morph mod uses 100 (5 seconds).
