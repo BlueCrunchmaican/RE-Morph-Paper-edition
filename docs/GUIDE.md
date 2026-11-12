@@ -138,7 +138,7 @@ so on the action bar.
 | Hold `` ` `` | Favourites wheel: point at a favourite and let go |
 | `R` | Use the morph's ability |
 | Biomass Menu (unbound at first) | Survival Mode: the upgrade tree. Also a click on the Biomass button in the middle of the favourites wheel, or `/morph upgrades` |
-| Rage (unbound at first) | Set off your rage once it is charged (see Rage below). Also `/morph rage` |
+| Devouring Frenzy (unbound at first) | Set off your frenzy once it is charged (see Devouring Frenzy below). Also `/morph frenzy` |
 
 Keys can be changed in **Options → Controls → Key Binds**, under RE:Morph (mouse side buttons work too). "Return to player form" has no key by
 default. You can also pick your own player form in the selector.
@@ -207,6 +207,13 @@ skulls and player heads properly, better heads for some creatures, and the ears 
 lends (they used to see its whole head), so swap in the 7.2.0 `RE-Morph-pack.zip` if you serve it. Older clients keep
 working, without the room counts, the Rage key, the rage meter and its tendrils (they rage with `/morph rage`, and see
 the particles players without the mod see).
+
+**7.3.0** renames rage to Devouring Frenzy and gives it three levels (see Devouring Frenzy below). `/morph frenzy` is
+the new command; `/morph rage` still works. Its settings, its permission (`morphreborn.rage`) and its Survival upgrade's
+id (`rage`) keep the old name. On first start `abilities.yml` is replaced (its `rage` section now has `levels` and
+`classic-level`; copy back any changes from the backup), and `survival.yml` gets the new three-level upgrade in place of
+the old one (your other values are kept). A player who bought Rage has level 1. Older client mods keep working; they
+call it Rage.
 
 **First-person Model (optional compatible mod):** with [First-person Model](https://modrinth.com/mod/first-person-model)
 installed, your body in its first-person view is your morph. Its head is left out and the camera sits just in front of its body, so the view ahead stays clear
@@ -289,41 +296,52 @@ with the cure's length.
 | `/morph off` | Back to your own body |
 | `/morph fav <id>` | Favourite / unfavourite |
 | `/morph combine <main> <borrowed>`, `/morph combine <borrowed>`, `/morph combine off` | Multimorph (see above) |
-| `/morph rage` | Set off your rage once it is charged (see Rage below); otherwise it says how far along it is |
+| `/morph frenzy` | Set off your frenzy once it is charged (see Devouring Frenzy below); otherwise it says how far along it is. `/morph rage` does the same |
 | Sneak + swap hands (`F`) | Use the morph's ability (`abilities.yml` → `activation.vanilla-trigger`) |
 
 `/morph ability` also works for everyone.
 
-### Rage
+### Devouring Frenzy
 
-Rage evens the odds when a crowd turns on you. Take 6 hits within 6 seconds from at least two attackers (three
-skeletons juggling you with arrows, a ring of zombies) and your rage is charged. It doesn't go off by itself: you choose
-when, with the Rage key (unbound at first, set it in Controls) or `/morph rage`, and it stays charged until you do,
-even through death. You're told when it is charged: READY on the meter with the mod, a chat line without it (or with
-a mod older than 7.2.0).
+Devouring Frenzy (called Rage in 7.2.0) evens the odds when a crowd turns on you. Take 6 hits within 6 seconds from at
+least two attackers (three skeletons juggling you with arrows, a ring of zombies) and your frenzy is charged. It doesn't
+go off by itself: you choose when, with the Devouring Frenzy key (unbound at first, set it in Controls) or
+`/morph frenzy`, and it stays charged until you do, even through death. You're told when it is charged: READY on the
+meter with the mod, a chat line without it (or with a mod older than 7.2.0).
 
-Set off, for 8 seconds, tendrils latch onto the creatures within 16 blocks that you can see (up to 8 at once, whoever
-hit you first) and drain their health while they live: 5 health a second each, so a zombie lasts about 4 seconds. Each one that dies counts as
-your kill and is absorbed with the usual animation, giving biomass and a morph under the usual rules (room in your
-collection, Absorbable Mass in Survival; reach doesn't apply, the tendrils reach them). When it ends, the action bar
-sums it up ("Rage: absorbed 4 creatures, +86.2 biomass, 1 new morph"), and hits don't count toward the next one for
-20 seconds.
+Set off, tendrils latch onto the creatures you can see within its reach (up to 8 at once, whoever hit you first) and
+hit each one every half second while it lives, for as long as the frenzy lasts. Each one that dies counts as your kill
+and is absorbed with the usual animation, giving biomass and a morph under the usual rules (room in your collection,
+Absorbable Mass in Survival; reach doesn't apply, the tendrils reach them), and its tendril moves on to the next. Armour
+doesn't lessen the hits (Protection and Resistance do). When it ends, the action bar sums it up ("Devouring Frenzy:
+absorbed 4 creatures, +86.2 biomass, 1 new morph"), and hits don't count toward the next one for 20 seconds.
+
+| Level | Reach | Damage a hit | Lasts | A zombie (20 health) lasts | Survival cost |
+|---|---|---|---|---|---|
+| 1 | 10 blocks | 2 | 5 seconds | 5 seconds | 1,500 |
+| 2 (Classic) | 16 blocks | 2.5 | 8 seconds | 4 seconds | 4,000 |
+| 3 | 20 blocks | 3.5 | 10 seconds | 3 seconds | 10,000 |
 
 - **What it drains:** hostile creatures, anything that is after you, and whoever hit you (players too). Endermen,
-  zombified piglins, piglins and spiders only when they're after you. Your own pets never.
+  zombified piglins, piglins and spiders only when they're after you.
+- **Never:** your own pets, and anything wearing a saddle, a harness or armour (a saddled pig or horse, an armoured
+  wolf, a harnessed happy ghast), whoever put it on.
 - **Less:** the ender dragon, the wither, the warden, the elder guardian, villagers, wandering traders, name-tagged
   creatures, other players' pets and players are drained at a quarter of the rate. Players are never brought below
-  one heart: rage hurts them but never kills them.
-- **Survival:** buy the Rage upgrade (in the Morph section, after Morph Abilities). **Classic:** everyone has it.
+  one heart: a frenzy hurts them but never kills them.
+- **Survival:** buy the Devouring Frenzy upgrade (in the Morph section, after Morph Abilities), one level at a time.
+  **Classic:** everyone has level 2.
 
 With the mod, you see the tendrils (red, like the red tendrils absorb style), and a meter in the biomass bar's corner
-and style: *RAGE* with a segment for each hit, lit as hits come in and going out as they get old (it stops one short
+and style: *FRENZY* with a segment for each hit, lit as hits come in and going out as they get old (it stops one short
 while they all came from one attacker); charged, the segments glow and it says *READY*; while raging, a bar running
 down with the seconds left; afterwards, a bar filling back up and the time left. It shows when it changes, while it is
 charged, or always, following the biomass bar setting in `/morphclient`. Players without the mod see the tendrils as wavering red lines of particles. Servers set it all up in
-`abilities.yml` → `rage`: the hits, the window and the attackers it takes, how long it lasts, its reach, how many
-creatures it holds, the drain, what it drains (`targets: all` drains every creature and player around), the lesser
-rate and who gets it, the floor for players, and the wait.
+`abilities.yml` → `rage`: the hits, the window and the attackers it takes, each level's reach, damage a hit and length
+(`levels`), the level everyone has in Classic (`classic-level`), how many creatures it holds, what it drains
+(`targets: all` drains every creature and player around), the lesser rate and who gets it, the floor for players, and
+the wait. `report: true` tells the console and the player, for each frenzy, when each creature was absorbed and how much
+health it drained in all, for balancing.
 
 ### Survival Mode
 
@@ -432,7 +450,7 @@ All need `morphreborn.admin` (ops by default).
 | `/morph info <player>` | Their form, collection size, and whether they have the mod |
 | `/morph clients` | Who online has the mod |
 | `/morph ability <player>` | Fire someone's ability |
-| `/morph rage <player> [go\|fill]` | For testing: what their Rage key would do, or set their rage off now, charged or not (`go`), or charge it (`fill`) |
+| `/morph frenzy <player> [go [level]\|fill]` | For testing: what their Devouring Frenzy key would do, or set their frenzy off now, charged or not, at their level or the one given (`go`), or charge it (`fill`) |
 | `/morph upgrades <player>` | Open the upgrade tree (or chest menu) for someone |
 | `/morph carry <player> <block or none>` | Set the block an enderman morph is holding |
 | `/morph setting [name] [value]` | Show or change the world-effect settings below |
@@ -456,7 +474,7 @@ All need `morphreborn.admin` (ops by default).
 | `morphreborn.acquire` | everyone | Unlocking morphs by killing |
 | `morphreborn.ability` | everyone | Abilities and traits |
 | `morphreborn.multimorph` | everyone | Combining two morphs (when `multimorph.enabled` is on) |
-| `morphreborn.rage` | everyone | Rage (when `abilities.yml` `rage.enabled` is on) |
+| `morphreborn.rage` | everyone | Devouring Frenzy (when `abilities.yml` `rage.enabled` is on) |
 | `morphreborn.admin` | ops | Admin commands |
 | `morphreborn.type.<namespace>.<mob>` | — | Only checked when `morphs.per-type-permissions: true`, e.g. `morphreborn.type.minecraft.ender_dragon` |
 

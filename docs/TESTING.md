@@ -250,6 +250,43 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.3.0 release (2026-11-12)
+
+- [x] The 7.3.0 jars are the tested 7.3.0-beta.1 code with only the version changed (the user kept the beta's numbers).
+- [x] `tools/compat_check.py` with the 7.3.0 client mod against all 14 released servers, 6.0.0 to 7.2.0: every one OK.
+- [x] Unit tests 31/31.
+
+## 7.3.0-beta.1, Devouring Frenzy levels (2026-11-11)
+
+The test server with the 7.3.0-beta.1 plugin and MorphTester2 (the 7.3.0-beta.1 mod), a cleared flat arena at night,
+creatures summoned without AI at set distances, each frenzy set off with `/morph frenzy MorphTester2 go <level>` and
+timed by `report: true` (scratchpad script `frenzytest.py`):
+
+- [x] Update from 7.2.0: a 7.2.0 `survival.yml` got the three-level `upgrades.rage` ("the 'upgrades.rage' section
+      changed its layout in 7.3.0, so it was replaced"), every other value kept; `abilities.yml` replaced with a backup.
+- [x] Kill speed, 8 creatures 4 to 5.5 blocks out (zombie, skeleton, creeper, witch, vindicator, pillager, piglin
+      brute, ravager):
+
+      | Level | Zombie, skeleton, creeper (20) | Vindicator, pillager (24) | Witch (26) | Piglin brute (50) | Ravager (100) | Absorbed | Drained |
+      |---|---|---|---|---|---|---|---|
+      | 1 | 5 s | left at 4 | left at 14 | left at 30 | left at 80 | 3 of 8 | 160 |
+      | 2 | 4 s | 5 s | 8 s | left at 10 | left at 60 | 6 of 8 | 226 |
+      | 3 | 3 s | 3.5 s | 4.5 s | 7.5 s | left at 30 | 7 of 8 | 258 |
+
+      The witch heals itself with potions, so it outlasts its health (vanilla witch behaviour).
+- [x] Reach, zombies in a line at 8, 11, 14, 17, 19, 21 and 23 blocks: level 1 took the one at 8; level 2 those up to
+      14; level 3 those up to 19. Nothing past the reach was touched.
+- [x] A crowd of 20 zombies in a ring 5 blocks out (8 held at once, the next caught as one dies): level 1 absorbed 8,
+      level 2 16, level 3 all 20 (it had time for 24). At 10% Biomass Efficiency that was +168.5, +337 and +421.2
+      biomass.
+- [x] With `targets: all` at level 2: a plain pig, a cow and a wild horse were drained (pig and cow absorbed in 2 s;
+      the 53-health horse left at 13); another player's wolf at a quarter of the rate (absorbed after 6.5 s). Untouched:
+      a saddled pig, a tamed horse in iron armour, another player's wolf in wolf armour, the player's own wolf and a
+      happy ghast in a harness.
+- [x] The client mod's meter reads FRENZY with the bar and seconds left; the tendrils as before. `/morph survival
+      info` shows "Devouring Frenzy: 3/3 (20 blocks, 3.5 damage a hit, 10 seconds)".
+- [x] Unit tests 31/31.
+
 ## 7.2.0 release (2026-11-11)
 
 - [x] The 7.2.0 client jar is the 7.2.0-beta.5 one but for its version in `fabric.mod.json` (every other entry compared

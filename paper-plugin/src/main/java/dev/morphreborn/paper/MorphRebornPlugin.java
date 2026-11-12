@@ -287,8 +287,9 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	/**
 	 * survival.yml sections replaced on update. 6.6.0: the upgrade tree's levels changed meaning (Morph Efficiency and
 	 * Morph Abilities became "% of Classic", reach and absorbable mass got new levels) and the ability unlocks were added.
+	 * 7.3.0: Rage became Devouring Frenzy, with three levels.
 	 */
-	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0");
+	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0", "upgrades.rage", "7.3.0");
 
 	/**
 	 * Write the bundled file if it's missing, or replace it when it comes from an older release (its config-version,

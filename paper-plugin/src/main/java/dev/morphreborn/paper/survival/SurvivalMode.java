@@ -494,11 +494,13 @@ public final class SurvivalMode implements GameplayMode {
 	/**
 	 * The upgrade's format with {value} filled in; a negative value means "no limit". For a value that is a percentage
 	 * of the normal length (130 = 30% longer), {seconds} is a transformation's length in seconds at that percentage
-	 * (config.yml's transition length) and {factor} the multiplier ("×1.3").
+	 * (config.yml's transition length) and {factor} the multiplier ("×1.3"). {frenzy}: that Devouring Frenzy level's
+	 * reach, damage and length (abilities.yml rage.levels).
 	 */
 	public String formatValue(Upgrade u, double value) {
 		if (value < 0) return "no limit";
 		String text = u.format().replace("{value}", number(value));
+		if (text.contains("{frenzy}")) text = text.replace("{frenzy}", plugin.rage().describe((int) Math.round(value)));
 		if (text.contains("{seconds}")) text = text.replace("{seconds}", transformSeconds(plugin.settings().transitionTicks, value));
 		return text.replace("{factor}", factor(value));
 	}

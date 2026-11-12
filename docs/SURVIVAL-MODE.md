@@ -29,7 +29,7 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    advancement screen's style: each upgrade a framed status effect icon, details on hover, click to buy, a red glow on
    what you can afford. It has three sections: **Biomass** (Capacity, with Efficiency, Reach and Absorbable Mass under
    it), the **Morph Ability** on its own as a lump of biomass with tendrils, the **Morph** section it opens (Morph
-   Capacity with Variant Capacity under it, Morph Efficiency, Morph Abilities, Multimorph, Rage), and the **Abilities**
+   Capacity with Variant Capacity under it, Morph Efficiency, Morph Abilities, Multimorph, Devouring Frenzy), and the **Abilities**
    below them. Letting go of the favourites key with the mouse in the middle just closes the wheel. Without the mod,
    `/morph upgrades` opens a chest menu with the same sections. The first goal is the **Morph Ability**.
 5. **Morphing.** Once bought, the selector opens and kills also unlock morphs, as long as the collection has room
@@ -59,11 +59,14 @@ Both run on the same plugin and the same morph, ability and disguise systems. Su
    axolotls, nautiluses) always breathe underwater, or they'd have nowhere to breathe. Flying morphs glide down
    slowly until Morph Flight, and never take fall damage.
 
-8. **Rage.** With the Rage upgrade, taking 6 hits within 6 seconds from at least two attackers charges your rage, and
-   it waits until you set it off (the Rage key, or `/morph rage`): for 8 seconds, tendrils drain the creatures within 16 blocks while they live, and each one that dies is a kill of
-   yours, absorbed wherever it is (biomass, and a morph if there's room). Bosses, villagers, named creatures, others'
-   pets and players are drained at a quarter of the rate, and players never below one heart. Then hits don't count for
-   20 seconds. `abilities.yml` → `rage` sets the numbers; the [guide](GUIDE.md) has the details.
+8. **Devouring Frenzy.** With the Devouring Frenzy upgrade, taking 6 hits within 6 seconds from at least two
+   attackers charges a frenzy, and it waits until you set it off (the Devouring Frenzy key, or `/morph frenzy`):
+   tendrils hit the creatures in reach every half second while they live, and each one that dies is a kill of yours,
+   absorbed wherever it is (biomass, and a morph if there's room). Level 1 reaches 10 blocks, hits for 2 and lasts 5
+   seconds; level 2, 16 blocks, 2.5 and 8 seconds; level 3, 20 blocks, 3.5 and 10 seconds. Bosses, villagers, named
+   creatures, others' pets and players are drained at a quarter of the rate, and players never below one heart; your
+   pets and anything saddled or armoured never. Then hits don't count for 20 seconds. `abilities.yml` → `rage` sets
+   the numbers; the [guide](GUIDE.md) has the details.
 
 Dying costs no biomass. Upgrades are never lost.
 
@@ -83,7 +86,7 @@ Dying costs no biomass. Upgrades are never lost.
 | Morph Efficiency | 1 | 6 | 6.5, 5.8, 5, 4.5, 4, 3.5 seconds per transformation | 80, 128, 205, 328, 524 | Morph Ability |
 | Morph Abilities | 0 | 6 | unlocks abilities; ability cooldowns ×1.3, ×1.15, ×1, ×0.9, ×0.8, ×0.7 | 100, 170, 289, 491, 835, 1,420 | Morph Ability |
 | Multimorph | 0 | 1 | combine two morphs | 1,200 | Morph Ability, Morph Capacity level 4 |
-| Rage | 0 | 1 | rage: many hits from several attackers charge it; set off, it drains the creatures around you and absorbs what dies | 1,500 | Morph Ability, Morph Abilities level 1 |
+| Devouring Frenzy | 0 | 3 | 10, 16, 20 blocks; 2, 2.5, 3.5 damage a hit; 5, 8, 10 seconds | 1,500, 4,000, 10,000 | Morph Ability, Morph Abilities level 1 |
 
 The **Abilities** section: one-time unlocks, each needing Morph Abilities.
 

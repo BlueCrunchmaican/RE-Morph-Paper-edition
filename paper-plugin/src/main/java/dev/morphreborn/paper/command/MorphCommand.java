@@ -31,7 +31,7 @@ import org.jspecify.annotations.Nullable;
 
 /** /morph: player selection for unmodded clients plus admin management. */
 public final class MorphCommand implements TabExecutor {
-	private static final List<String> PLAYER_SUBS = List.of("list", "use", "combine", "off", "ability", "fav", "upgrades", "upgrade", "biomass", "rage");
+	private static final List<String> PLAYER_SUBS = List.of("list", "use", "combine", "off", "ability", "fav", "upgrades", "upgrade", "biomass", "frenzy");
 	private static final List<String> ADMIN_SUBS = List.of("grant", "revoke", "reset", "force", "borrow", "info", "clients", "carry", "setting", "reload", "survival", "mode", "cost");
 	private static final List<String> SURVIVAL_ACTIONS = List.of("info", "unlock", "lock", "give", "take", "set", "level", "buy", "reset");
 
@@ -72,7 +72,7 @@ public final class MorphCommand implements TabExecutor {
 				case "upgrade" -> upgrade(sender, args);
 				case "biomass" -> biomass(sender, args.length > 1 && sender.hasPermission("morphreborn.admin") ? player(args[1]) : self(sender));
 				case "survival" -> survival(sender, args);
-				case "rage" -> rage(sender, args);
+				case "frenzy", "rage" -> frenzy(sender, args); // called /morph rage in 7.2.0
 				case "grant" -> grant(sender, args);
 				case "revoke" -> revoke(sender, args);
 				case "reset" -> reset(sender, args);
@@ -231,24 +231,38 @@ public final class MorphCommand implements TabExecutor {
 	}
 
 	/**
-	 * /morph rage: set off your charged rage (or hear why not). Admins, for testing: /morph rage <player> as their own key
-	 * press would, {@code go} to set it off charged or not, {@code fill} to charge it.
+	 * /morph frenzy: set off your charged Devouring Frenzy (or hear why not). Admins, for testing: /morph frenzy <player>
+	 * as their own key press would, {@code go [level]} to set it off charged or not (at that level, or theirs), {@code
+	 * fill} to charge it.
 	 */
-	private void rage(CommandSender sender, String[] args) {
+	private void frenzy(CommandSender sender, String[] args) {
 		if (args.length >= 2 && sender.hasPermission("morphreborn.admin")) {
 			Player target = player(args[1]);
 			String action = args.length >= 3 ? args[2].toLowerCase(Locale.ROOT) : "";
 			switch (action) {
 				case "" -> plugin.rage().trigger(target);
 				case "go" -> {
-					String why = plugin.rage().start(target);
-					sender.sendMessage(why == null ? Component.text(target.getName() + " is raging.", NamedTextColor.GREEN) : Component.text(why, NamedTextColor.RED));
+					int level = 0;
+					if (args.length >= 4) {
+						try {
+							level = Integer.parseInt(args[3]);
+						} catch (NumberFormatException e) {
+							level = -1;
+						}
+						if (level < 1 || level > plugin.rage().levels()) {
+							throw new IllegalArgumentException("The level is 1 to " + plugin.rage().levels() + ".");
+						}
+					}
+					String why = plugin.rage().start(target, level);
+					sender.sendMessage(why == null ? Component.text(target.getName() + " is in a frenzy (level " + (level > 0 ? level : plugin.rage().level(target))
+							+ ": " + plugin.rage().describe(level > 0 ? level : plugin.rage().level(target)) + ").", NamedTextColor.GREEN)
+							: Component.text(why, NamedTextColor.RED));
 				}
 				case "fill" -> {
 					plugin.rage().fill(target);
-					sender.sendMessage(Component.text(target.getName() + "'s rage is charged.", NamedTextColor.GREEN));
+					sender.sendMessage(Component.text(target.getName() + "'s frenzy is charged.", NamedTextColor.GREEN));
 				}
-				default -> throw new IllegalArgumentException("Usage: /morph rage <player> [go|fill]");
+				default -> throw new IllegalArgumentException("Usage: /morph frenzy <player> [go [level]|fill]");
 			}
 			return;
 		}
@@ -689,9 +703,15 @@ public final class MorphCommand implements TabExecutor {
 			if (args.length == 4 && args[1].equalsIgnoreCase("price")) return filter(List.of("formula"), args[3]);
 			return List.of();
 		}
-		if (sub.equals("rage") && sender.hasPermission("morphreborn.admin")) {
+		if ((sub.equals("frenzy") || sub.equals("rage")) && sender.hasPermission("morphreborn.admin")) {
 			if (args.length == 2) return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[1]);
-			return args.length == 3 ? filter(List.of("go", "fill"), args[2]) : List.of();
+			if (args.length == 3) return filter(List.of("go", "fill"), args[2]);
+			if (args.length == 4 && args[2].equalsIgnoreCase("go")) {
+				List<String> levels = new ArrayList<>();
+				for (int i = 1; i <= plugin.rage().levels(); i++) levels.add(String.valueOf(i));
+				return filter(levels, args[3]);
+			}
+			return List.of();
 		}
 		if (sub.equals("mode") && sender.hasPermission("morphreborn.admin")) {
 			return args.length == 2 ? filter(List.of("classic", "survival"), args[1]) : List.of();

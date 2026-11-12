@@ -212,7 +212,12 @@ public final class ClientNet {
 
 	/** Servers from 7.1.3 take your own body as part of a multimorph; older ones would just turn you back into it. */
 	public static boolean serverCombinesOwnBody() {
-		return !serverVersion.isEmpty() && dev.morphreborn.client.SemVer.compare(serverVersion, "7.1.3") >= 0;
+		return serverAtLeast("7.1.3");
+	}
+
+	/** The server's plugin is this version or newer (false when it didn't say: servers before 6.6.0). */
+	public static boolean serverAtLeast(String version) {
+		return !serverVersion.isEmpty() && dev.morphreborn.client.SemVer.compare(serverVersion, version) >= 0;
 	}
 
 	public static boolean multimorphAllowed() {

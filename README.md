@@ -35,15 +35,16 @@ Nobody is kicked for not having the mod.
 - **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
   becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
   outside the Nether, lightning turns a pig into a zombified piglin. Only that body changes; your saved morph doesn't.
-- **Rage (7.2.0):** evens the odds against a crowd. Take hits from several attackers in quick succession and tendrils
-  latch onto the creatures around you, draining them while they live; what dies is absorbed as your kill. Players are
-  hurt but never killed, bosses drained more slowly. Hits charge it, and you set it off when you choose: the Rage key
-  or `/morph rage`. In Survival it's an upgrade. See
-  [docs/GUIDE.md](docs/GUIDE.md).
+- **Devouring Frenzy (7.2.0 as Rage; three levels from 7.3.0):** evens the odds against a crowd. Take hits from
+  several attackers in quick succession and tendrils latch onto the creatures around you, draining them while they
+  live; what dies is absorbed as your kill. Players are hurt but never killed, bosses drained more slowly, your pets
+  and anything saddled or armoured left alone. Hits charge it, and you set it off when you choose: the Devouring
+  Frenzy key or `/morph frenzy`. Each level reaches further, hits harder and lasts longer; in Survival they're bought
+  as an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
   head, pose and auto-hide settings), an advancement-style upgrade
-  tree, a biomass bar with the rage meter, the room left in your collection, and a settings screen (`/morphclient`).
+  tree, a biomass bar with the frenzy meter, the room left in your collection, and a settings screen (`/morphclient`).
 - **Admin control:** the gameplay mode, every ability, cooldowns and limits are in the plugin's config files. A newer
   release updates the config files by itself and keeps a backup: new settings appear in `config.yml` and `survival.yml`
   with their defaults, and every value you set stays.
@@ -58,7 +59,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.5.0 to 7.2.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.5.0 to 7.3.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 

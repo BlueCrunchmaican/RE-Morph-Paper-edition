@@ -12,7 +12,7 @@ provides: [MorphReborn]
 commands:
   morph:
     description: Pick, list and manage morphs.
-    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id> | rage | mode [classic|survival]
+    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id> | frenzy | mode [classic|survival]
     aliases: [remorph, morphreborn]
 permissions:
   morphreborn.use:
@@ -28,7 +28,7 @@ permissions:
     description: Combine two morphs (multimorph), when multimorph.enabled is on.
     default: true
   morphreborn.rage:
-    description: Rage (many hits in quick succession charge it; set off, it drains the creatures around you), when abilities.yml rage.enabled is on.
+    description: Devouring Frenzy (many hits in quick succession charge it; set off, it drains the creatures around you), when abilities.yml rage.enabled is on.
     default: true
   morphreborn.admin:
     description: Grant, revoke, reset and force morphs; switch the gameplay mode; reload the plugin.

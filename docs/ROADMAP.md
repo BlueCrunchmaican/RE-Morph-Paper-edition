@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **7.2.0** (2026-11-11). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
+Current version: **7.3.0** (2026-11-12). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
 ## 6.6.1 (released 2026-11-07)
@@ -64,6 +64,32 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       approved, the update notices' [Modrinth] link only opens for project members. Once it is public, point the
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
+
+## Released: 7.3.0, Devouring Frenzy
+
+The user: "Rage" was only a placeholder name; it should combine devour and frenzy, so **Devouring Frenzy**. Mobs made
+friendly by taming or by putting a saddle or armour on them must not be affected; it should cut off at a radius, give
+new morphs while it runs, be expensive, do damage over time until kills happen or it stops; and have three levels for
+the radius, the damage per hit and how long it lasts, with tests to find a balance (the user didn't know the numbers).
+User calls: one upgrade with three levels (each raises all three), Classic gets level 2.
+
+- [x] Name: Devouring Frenzy wherever players see it (upgrade, key, meter label FRENZY, messages, `/morph frenzy` with
+      `/morph rage` kept as an alias). Internal ids keep "rage", as the RE:Morph rename kept `morphreborn`: the
+      `abilities.yml` section, the permission `morphreborn.rage`, the upgrade id, saved data, packets, class names.
+      The new client's bind hint says `/morph rage` on servers before 7.3.0.
+- [x] Levels: `abilities.yml` `rage.levels` (radius, damage a hit, duration) and `classic-level` (2); `survival.yml`
+      `upgrades.rage` has three levels at 1,500 / 4,000 / 10,000, shown in the tree and `/morph survival info` as
+      "20 blocks, 3.5 damage a hit, 10 seconds". Level 2 is 7.2.0's numbers, so Classic plays as before. A 7.2.0-style
+      section without `levels` still loads as one level. `survival.yml` from before 7.3.0 gets the new
+      `upgrades.rage` (the section is replaced on update; a player who bought Rage keeps level 1).
+- [x] Never drained: anything wearing a saddle, harness or armour (the game doesn't record who put it on), besides
+      your own pets. Other players' unarmoured pets stay at the lesser rate.
+- [x] The reach is a real circle (the creature search is a box; its corners used to latch and be let go at once).
+- [x] `rage.report` (off by default): console and chat lines per kill and per frenzy, for balancing.
+- [x] `/morph frenzy <player> go [level]` sets one off at a chosen level, for testing.
+- [x] Balance: the starting numbers above were measured (TESTING, 7.3.0-beta.1) and the user kept them as they are
+      (2026-11-12).
+- [x] compat_check: the 7.3.0 client mod against all 14 released servers, 6.0.0 to 7.2.0: every one OK.
 
 ## Released: 7.2.0, rage, room in the collection, ears and tails, version notices
 
@@ -514,6 +540,9 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-11 | Rage is charged by many hits from several attackers and drains the creatures around while they live; what dies is absorbed | The user's design, replacing beta.3's (charged by kills or a wait, lifting the player and taking everything at once) |
 | 2026-11-11 | A charged rage waits for the player (Rage key or /morph rage) and stays charged until used | The user: setting it off is a choice, not automatic (beta.4 went off by itself) |
 | 2026-11-11 | Rage drains bosses, villagers, named creatures, others' pets and players at a quarter of the rate; players never below one heart; never your own pets | The user: those may be affected "just to a lesser extent"; hurt players but never kill them |
+| 2026-11-12 | Frenzy levels kept at 10/16/20 blocks, 2/2.5/3.5 a hit, 5/8/10 s, costing 1,500/4,000/10,000 | The user kept the measured starting numbers |
+| 2026-11-11 | Rage renamed Devouring Frenzy; one upgrade with three levels (reach, damage a hit, length), Classic level 2 | The user's calls; internal ids keep "rage" so no settings, permissions or saved data move |
+| 2026-11-11 | Frenzy never touches anything wearing a saddle, harness or armour | The user: friended mobs (tamed, saddled or armoured) aren't affected; the game doesn't record who saddled a mob, so it applies to all |
 | 2026-11-11 | Room counts only on the selected selector row | Keeps the other rows as they were; offered the alternative, no change asked |
 | 2026-11-03 | abilities.yml / variants.yml carry `config-version` and are replaced (with a backup) when older | Old files silently broke renamed abilities (the witch) |
 | 2026-11-05 | Piglin/hoglin shake fixed with zombification immunity, not NoAI | NoAI breaks other mobs' animations |

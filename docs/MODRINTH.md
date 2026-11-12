@@ -26,9 +26,9 @@ You can switch with `/morph mode` whenever you like. Collections and Survival pr
 
 You can be two creatures at once. Your main body borrows a second one's head, or its wings, tail, fins or rods, and you get both creatures' abilities. So you can be a zombie with bat wings, a cow with a wolf's head, or a ghast that blows up like a creeper. Hold Shift when you pick in the selector (a preview shows what you'll get) or use `/morph combine`. In Survival it's one of the upgrades.
 
-### Rage
+### Devouring Frenzy
 
-For when a crowd turns on you. Get hit by several mobs in quick succession (three skeletons juggling you with arrows, say) and your rage charges up. When you set it off (the Rage key, or `/morph rage` without the mod), tendrils latch onto the creatures around you and drain them while they're still alive, and whatever dies gets absorbed like any other kill, morph included. It hurts other players but never kills them, and bosses only lose health slowly. In Survival it's an upgrade.
+For when a crowd turns on you. Get hit by several mobs in quick succession (three skeletons juggling you with arrows, say) and a frenzy charges up. When you set it off (the Devouring Frenzy key, or `/morph frenzy` without the mod), tendrils latch onto the creatures around you and drain them while they're still alive, and whatever dies gets absorbed like any other kill, morph included. It hurts other players but never kills them, bosses only lose health slowly, and your pets and anything saddled or armoured are left alone. It has three levels, each reaching further, hitting harder and lasting longer; in Survival they're an upgrade.
 
 ### Conversions
 
