@@ -39,7 +39,9 @@ public final class RageHud {
 		long since = ClientNet.ticksSinceRageChange();
 		if (ready && Keys.RAGE.isUnbound() && !hintShown) {
 			hintShown = true; // once a game: the key starts unbound. In chat: on the action bar the server's lines hid it
-			mc.player.sendSystemMessage(Component.translatable("morphreborn.rage.bind_hint").withStyle(ChatFormatting.GRAY));
+			// servers before 7.3.0 have /morph rage only
+			String hint = ClientNet.serverAtLeast("7.3.0-beta.1") ? "morphreborn.rage.bind_hint" : "morphreborn.rage.bind_hint_old";
+			mc.player.sendSystemMessage(Component.translatable(hint).withStyle(ChatFormatting.GRAY));
 		}
 		float alpha = 1F;
 		boolean withBar = BiomassHud.shownAlpha > 8;
