@@ -65,7 +65,7 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
 
-## 7.2.0, rage, room in the collection, ears and tails, version notices
+## Released: 7.2.0, rage, room in the collection, ears and tails, version notices
 
 The user asked for players to hear about versions wherever they join: an outdated client mod told on joining a server,
 a client mod newer than the server still working and saying so, the mod's own "newer release" line on any server with
@@ -191,6 +191,8 @@ Next for 7.2.0, asked for by the user on 2026-11-11:
       and rods are still shown only with the mod.
 - [ ] Still open: in offline mode a lent own head shows a default skin (offline accounts have no skin data; online
       servers are fine).
+- [x] Released 2026-11-11: tag `v7.2.0`, GitHub release `RE:Morph 7.2.0`, Modrinth `7.2.0+paper` / `7.2.0+fabric`
+      (with the 7.2.0 resource pack).
 
 ## Released: 7.1.3, your own body in multimorphs
 
