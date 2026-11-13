@@ -31,15 +31,17 @@ Nobody is kicked for not having the mod.
 - **Multimorph (7.0.0):** be two morphs at once. A main body borrows a second creature's head, or its wings, tail,
   fins or rods, and gets both creatures' traits and abilities: a zombie with bat wings, a cow with a wolf's head, a
   ghast with a creeper's blast. Shift-pick in the selector or wheel (a preview panel shows the result), or
-  `/morph combine`. In Survival it's an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
+  `/morph combine`. In Survival it's an upgrade. Players without the mod see the borrowed head, ears, tail, wings, fins
+  or rods too, flapping (with the resource pack). See [docs/GUIDE.md](docs/GUIDE.md).
 - **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
   becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
   outside the Nether, lightning turns a pig into a zombified piglin. Only that body changes; your saved morph doesn't.
 - **Devouring Frenzy (7.2.0 as Rage; three levels from 7.3.0):** evens the odds against a crowd. Take hits from
-  several attackers in quick succession and tendrils latch onto the creatures around you, draining them while they
-  live; what dies is absorbed as your kill. Players are hurt but never killed, bosses drained more slowly, your pets
+  several attackers in quick succession and tendrils latch onto every creature around you, draining them while they
+  live; what dies is absorbed as your kill. Jump while it runs to rise on its tendrils and walk over the ground on them
+  (7.4.0). Players are hurt but never killed, bosses drained more slowly, your pets
   and anything saddled or armoured left alone. Hits charge it, and you set it off when you choose: the Devouring
-  Frenzy key or `/morph frenzy`. Each level reaches further, hits harder and lasts longer; in Survival they're bought
+  Frenzy key or `/morph frenzy`. Each level reaches further, hits harder, lasts longer and lifts you higher; in Survival they're bought
   as an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
@@ -59,7 +61,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.5.0 to 7.3.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.5.0 to 7.4.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 

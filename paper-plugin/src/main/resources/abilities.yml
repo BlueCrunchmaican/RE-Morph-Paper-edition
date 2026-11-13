@@ -7,7 +7,7 @@
 # The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
 # replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
 # changes you made.
-config-version: 7.3.0
+config-version: 7.4.0
 
 enabled: true
 
@@ -548,13 +548,13 @@ rage:
   # and Resistance do) and how long it lasts (duration, in seconds). In Survival a player has the level they bought
   # (survival.yml upgrades.rage: give it as many levels as there are here); in Classic everyone has `classic-level`.
   levels:
-    - { radius: 10, damage: 2, duration: 5 }
-    - { radius: 16, damage: 2.5, duration: 8 }
-    - { radius: 20, damage: 3.5, duration: 10 }
+    - { radius: 10, damage: 2, duration: 5, hover: 4 }
+    - { radius: 16, damage: 2.5, duration: 8, hover: 6 }
+    - { radius: 20, damage: 3.5, duration: 10, hover: 8 }
   classic-level: 2
-  # How many creatures the tendrils hold at once (whoever hit you first, then the nearest, in sight). One that dies
-  # frees its tendril for the next.
-  max-targets: 8
+  # How many creatures the tendrils hold at once: 0 for every one in reach and in sight (the default), or a number to
+  # take only that many (whoever hit you first, then the nearest), one that dies freeing its tendril for the next.
+  max-targets: 0
   # What it drains: "enemies" (hostile creatures, anything after you, and whoever hit you) or "all" (every creature
   # around, and every player in survival or adventure). Never your own pets, nor anything wearing a saddle, a harness
   # or armour.
@@ -569,6 +569,11 @@ rage:
   player-floor: 2
   # Seconds after a frenzy before hits count toward the next one.
   cooldown: 20
+  # In a frenzy, Space lifts the player on the tendrils up to its level's "hover" blocks above the ground (0: none;
+  # a level without one gets two fifths of its radius), crouching lets them down, and they go over the terrain on the
+  # tendrils' legs; when the frenzy ends they drift down unhurt. How fast they move while hovering (the game's flying
+  # speed: 0.1 is creative flight):
+  hover-speed: 0.05
   # For balancing: true tells the console and the player when each creature was absorbed and, when it ends, how many it
   # held and absorbed, how much health it drained, and what was left of the ones that lived.
   report: false

@@ -13,7 +13,7 @@
 # old file stays next to it (named like survival-old-6.1.6.yml). One exception: when a release changes what the
 # upgrade levels mean (6.6.0 did), the whole upgrades section is replaced with the new one; copy back your changes from
 # the old file.
-config-version: 7.3.0
+config-version: 7.4.0
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
@@ -202,7 +202,7 @@ upgrades:
     cost: [1200]
   rage:
     name: Devouring Frenzy
-    description: Taking hits from several attackers in quick succession charges a frenzy. Set it off (the Devouring Frenzy key, or /morph frenzy) and tendrils latch onto the creatures around you and drain them, a hit every half second, and you absorb what dies. Each level reaches further, hits harder and lasts longer.
+    description: Taking hits from several attackers in quick succession charges a frenzy. Set it off (the Devouring Frenzy key, or /morph frenzy) and tendrils latch onto the creatures around you and drain them, a hit every half second, and you absorb what dies. Jump while it runs to rise on its tendrils, crouch to come down. Each level reaches further, hits harder, lasts longer and lifts you higher.
     icon: minecraft:rotten_flesh
     effect-icon: minecraft:hunger
     parent: morph_ability

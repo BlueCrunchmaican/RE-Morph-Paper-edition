@@ -16,7 +16,7 @@ The client mod is optional. Nobody is ever kicked for not having it.
 |---|---|
 | `server/RE-Morph-paper-6.5.0.jar` | The Paper plugin |
 | `client/RE-Morph-fabric-6.5.0+26.3.jar` | The Fabric client mod (optional, Java players only) |
-| `resourcepack/RE-Morph-pack.zip` | Optional server resource pack for players without the mod: the original morph sound, and the heads multimorphs borrow (until 6.6.1 called `RE-Morph-sounds.zip`) |
+| `resourcepack/RE-Morph-pack.zip` | Optional server resource pack for players without the mod: the original morph sound, and the heads, ears, tails, wings, fins and rods multimorphs borrow (until 6.6.1 called `RE-Morph-sounds.zip`) |
 | `default-configs/` | The config files the plugin writes on first start, for reference |
 | `ABILITIES.md` | Every mob's traits and abilities |
 | `MOB-MASSES.md` | Survival Mode: every mob's mass, biomass and morph cost |
@@ -100,9 +100,15 @@ Older clients still work, fakeout included; update the client mod for the enderm
 
 The original Morph sound is built into the client mod. Players without the mod hear a vanilla stand-in instead, and see
 a multimorph's borrowed head only where the game has a skull for it. `resourcepack/RE-Morph-pack.zip` gives them the real
-sound, every borrowed head, and the ears and tails that animals like wolves, foxes, cats and horses lend: add it to your server resource pack (or use it as the server resource pack), then set
+sound, every borrowed head, the ears and tails that animals like wolves, foxes, cats and horses lend, and the wings,
+fins and rods of the creatures known by them (bats, phantoms, parrots, bees, chickens, allays, vexes, blazes, breezes,
+fish, dolphins, the ender dragon), flapping as they do, and the morph skin: with it they see a transformation as the
+old body melting into the new one, an absorbed creature covered in the skin and pulled in by tendrils, and Devouring
+Frenzy's tendrils, as the mod draws them (players without the pack see particles; `appearance.vanilla-skin-effects`
+in `config.yml` switches it off). Add it to your server resource pack (or use it as the server resource pack), then
+set
 `appearance.vanilla-clients-have-sound-pack: true` in `config.yml`. `multimorph.vanilla-heads` decides who is sent the
-pack's heads (`auto`: players whose game loaded the server's pack; `pack`: everyone, when the pack is required). A
+pack's models (`auto`: players whose game loaded the server's pack; `pack`: everyone, when the pack is required). A
 player's head lent to a creature is a vanilla skull either way, so every player without the mod sees it.
 
 ## Client install (Java players, optional)
@@ -158,6 +164,7 @@ a look count. In Classic the line only appears when a creature has reached the s
 | Unlock toasts, Name tags, Mouse in selector, Invert scroll | On / off |
 | Update Check | On (default): each time you join a server or a world, the mod says in chat if a newer RE:Morph release is out, and if the server runs an older RE:Morph than the mod (7.2.0). It asks GitHub at game start and every 6 hours |
 | Biomass Bar | Survival Mode: **When It Changes** (default), **Always** or **Off** |
+| Frenzy Meter | Servers with Devouring Frenzy: **When It Changes** (and while charged or running), **Always** or **Off**. Until 7.4.0 it followed the biomass bar, so it starts with that setting |
 | Paper Doll... | Opens the paper doll's own settings (below) |
 
 Unlocking and transforming work the same either way, and other players see their own setting, not yours. The
@@ -215,7 +222,18 @@ id (`rage`) keep the old name. On first start `abilities.yml` is replaced (its `
 the old one (your other values are kept). A player who bought Rage has level 1. Older client mods keep working; they
 call it Rage.
 
-**First-person Model (optional compatible mod):** with [First-person Model](https://modrinth.com/mod/first-person-model)
+**7.4.0** shows players without the mod the wings, fins and rods a multimorph borrows (see Playing), flapping, and,
+with the pack, transformations, absorbing and Devouring Frenzy's tendrils in the morph skin as the mod draws them.
+Devouring Frenzy takes every creature in reach and lets you hover on its tendrils (see Devouring Frenzy). Swap in the
+7.4.0 `RE-Morph-pack.zip` if you serve it (with an older pack, players whose game loaded it see placeholder cubes). On
+first start `abilities.yml` is replaced (its `rage` levels gain `hover`, `max-targets` becomes 0 and `hover-speed` is
+new; copy back any changes from the backup), `survival.yml` gets the Devouring Frenzy upgrade's new description in place
+of the old one (your other values are kept), and `config.yml` gains `appearance.vanilla-skin-effects`. The mod's frenzy
+meter has a setting of its own now.
+
+**First-person Model (optional compatible mod):** it works with the RE:Morph client mod, not without it: a player on
+Fabric without the client mod is told a few seconds after joining that it gives the full experience
+(`client.no-client-message` in `config.yml`, "" turns it off). With [First-person Model](https://modrinth.com/mod/first-person-model)
 installed, your body in its first-person view is your morph. Its head is left out and the camera sits just in front of its body, so the view ahead stays clear
 and looking down shows its front legs and back (a spider sees its legs on both sides). Humanoid morphs such as zombies
 look like a player's body does. First-person Model's own toggle stays in charge: switch its view off and first person
@@ -256,9 +274,10 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
 - Picking your body again (normally) drops what it borrows. The combination is saved with you and comes back when you
   log in.
 - `/morphclient preview [main] [borrowed]` shows any two creatures combined, without owning or becoming them.
-- Players without the mod see the body with the borrowed head on it, or an animal's ears on its head and its tail at
-  its back, as the mod draws them (see the resource pack above). Wings, fins and rods are shown only with the mod;
-  without it a creature known by them lends its head.
+- Players without the mod see the body with the borrowed head on it, an animal's ears on its head and its tail at its
+  back, or a creature's wings, fins or rods where the mod puts them, beating as that creature's do (see the resource
+  pack above). Each part moves as one piece: a wing's tip doesn't fold on its own as it does with the mod. Without the
+  pack they see only the borrowed heads the game has a skull for (the dragon's, a player's).
 
 ### Conversions
 
@@ -309,18 +328,24 @@ go off by itself: you choose when, with the Devouring Frenzy key (unbound at fir
 `/morph frenzy`, and it stays charged until you do, even through death. You're told when it is charged: READY on the
 meter with the mod, a chat line without it (or with a mod older than 7.2.0).
 
-Set off, tendrils latch onto the creatures you can see within its reach (up to 8 at once, whoever hit you first) and
+Set off, tendrils latch onto every creature you can see within its reach (`max-targets` in `abilities.yml` can cap it) and
 hit each one every half second while it lives, for as long as the frenzy lasts. Each one that dies counts as your kill
 and is absorbed with the usual animation, giving biomass and a morph under the usual rules (room in your collection,
 Absorbable Mass in Survival; reach doesn't apply, the tendrils reach them), and its tendril moves on to the next. Armour
 doesn't lessen the hits (Protection and Resistance do). When it ends, the action bar sums it up ("Devouring Frenzy:
 absorbed 4 creatures, +86.2 biomass, 1 new morph"), and hits don't count toward the next one for 20 seconds.
 
-| Level | Reach | Damage a hit | Lasts | A zombie (20 health) lasts | Survival cost |
-|---|---|---|---|---|---|
-| 1 | 10 blocks | 2 | 5 seconds | 5 seconds | 1,500 |
-| 2 (Classic) | 16 blocks | 2.5 | 8 seconds | 4 seconds | 4,000 |
-| 3 | 20 blocks | 3.5 | 10 seconds | 3 seconds | 10,000 |
+While it runs you can rise on its tendrils: jump, and keep Space held to climb, up to the level's height above the
+ground; let go and you stay there, walking over the ground on six writhing tendril legs that spread wider the higher you
+stand and step as you go; crouch to come down, and crouch on the ground to walk again. The upgrade's description says
+how; nothing on screen reminds you. It's up to you: nothing lifts you unless you jump. When the frenzy ends in the air you drift down
+and take no fall damage. A flying morph flies as usual instead, and creative and spectator players aren't lifted.
+
+| Level | Reach | Damage a hit | Lasts | Hover | A zombie (20 health) lasts | Survival cost |
+|---|---|---|---|---|---|---|
+| 1 | 10 blocks | 2 | 5 seconds | 4 blocks | 5 seconds | 1,500 |
+| 2 (Classic) | 16 blocks | 2.5 | 8 seconds | 6 blocks | 4 seconds | 4,000 |
+| 3 | 20 blocks | 3.5 | 10 seconds | 8 blocks | 3 seconds | 10,000 |
 
 - **What it drains:** hostile creatures, anything that is after you, and whoever hit you (players too). Endermen,
   zombified piglins, piglins and spiders only when they're after you.
@@ -335,10 +360,12 @@ absorbed 4 creatures, +86.2 biomass, 1 new morph"), and hits don't count toward 
 With the mod, you see the tendrils (red, like the red tendrils absorb style), and a meter in the biomass bar's corner
 and style: *FRENZY* with a segment for each hit, lit as hits come in and going out as they get old (it stops one short
 while they all came from one attacker); charged, the segments glow and it says *READY*; while raging, a bar running
-down with the seconds left; afterwards, a bar filling back up and the time left. It shows when it changes, while it is
-charged, or always, following the biomass bar setting in `/morphclient`. Players without the mod see the tendrils as wavering red lines of particles. Servers set it all up in
-`abilities.yml` → `rage`: the hits, the window and the attackers it takes, each level's reach, damage a hit and length
-(`levels`), the level everyone has in Classic (`classic-level`), how many creatures it holds, what it drains
+down with the seconds left; afterwards, a bar filling back up and the time left. Frenzy Meter in `/morphclient` shows it
+when it changes (and while it is charged or running), always, or never. Players without the mod see the tendrils and
+the hover's legs in the morph skin with the resource pack, and as wavering red lines of particles without it. Servers
+set it all up in `abilities.yml` → `rage`: the hits, the window and the attackers it takes, each level's reach, damage a
+hit, length and hover height (`levels`), how fast a hovering player moves (`hover-speed`), the level everyone has in
+Classic (`classic-level`), how many creatures it holds (`max-targets`, 0 for all), what it drains
 (`targets: all` drains every creature and player around), the lesser rate and who gets it, the floor for players, and
 the wait. `report: true` tells the console and the player, for each frenzy, when each creature was absorbed and how much
 health it drained in all, for balancing.

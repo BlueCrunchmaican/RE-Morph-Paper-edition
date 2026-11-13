@@ -16,11 +16,13 @@ Ported from Morph / iChunUtil (re-implemented for Minecraft 26.3, Paper and Fabr
 Assets reused unmodified from Morph (LGPL-3.0, (c) iChun):
 - `textures/gui/gui_selected.png`, `gui_unselected.png`, `gui_unselected_side.png`, `fav.png`
   (`gui_selected.png` is also the mod icon, `icon.png`, and the resource pack icon, `pack.png`)
-- `textures/skin/morphskin.png`
+- `textures/skin/morphskin.png` (in the mod, and since 7.4.0 in the resource pack too, for the morph skin players
+  without the mod see)
 - `sounds/morph1.ogg` ... `morph6.ogg`
 
 Modified from Morph (LGPL-3.0, (c) iChun):
-- `textures/skin/morphskin_red.png`: `morphskin.png` tinted dark red, for the red tendril and wisp effects.
+- `textures/skin/morphskin_red.png`: `morphskin.png` tinted dark red, for the red tendril and wisp effects (in the mod
+  and the resource pack).
 
 Not derived from, and containing no code or assets of:
 - "Morph"/"Morphy" Spigot plugin by BumbleBee (no licence published). Server features with similar

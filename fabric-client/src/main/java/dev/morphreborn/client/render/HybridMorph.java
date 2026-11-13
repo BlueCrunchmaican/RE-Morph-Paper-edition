@@ -73,12 +73,12 @@ public final class HybridMorph {
 	 * A phantom's own flap is slow (a beat every 2.4 seconds) and reads as a stutter on a body that isn't gliding;
 	 * borrowed phantom wings beat this many times faster.
 	 */
-	private static final float PHANTOM_FLAP_SPEED = 4.5F;
+	public static final float PHANTOM_FLAP_SPEED = 4.5F;
 	/**
 	 * A dragon that isn't flying anywhere beats its wings about four times a second (EnderDragon.aiStep), which on wings
 	 * scaled down to a body looked frantic; a borrowed dragon's wings and tail (both timed by flapTime) go at this share.
 	 */
-	private static final float DRAGON_FLAP_SPEED = 0.4F;
+	public static final float DRAGON_FLAP_SPEED = 0.4F;
 
 	private HybridMorph() {}
 
@@ -143,7 +143,7 @@ public final class HybridMorph {
 	 * dolphin, the ender dragon) lends only those, with its tail and stinger: a zombie with a bat's wings keeps its own
 	 * head, which looks like a creature that could exist. Everything else lends its head (and any tail).
 	 */
-	private static boolean hasDefiningParts(ModelPart part) {
+	public static boolean hasDefiningParts(ModelPart part) {
 		for (Map.Entry<String, ModelPart> child : ((ModelPartAccessor) (Object) part).morph$children().entrySet()) {
 			String name = child.getKey();
 			if (name.contains("wing") || name.contains("fin") || name.equals("rods") || name.matches("part\\d+")) return true;
@@ -182,11 +182,6 @@ public final class HybridMorph {
 	/** For the head dump: the torso's box {lo, hi} as borrowed parts are grafted onto it, in {@code base}'s frame. */
 	public static float @Nullable [][] torsoBox(ModelPart root, PoseStack base) {
 		return torso(root, base);
-	}
-
-	/** For the head dump: the name of a part that is a tail, as the graft treats tails. */
-	public static boolean isTail(String name) {
-		return name.contains("tail") && !name.contains("fin");
 	}
 
 	/**
@@ -623,12 +618,13 @@ public final class HybridMorph {
 		return lo[0] > hi[0] ? null : new float[][] {lo, hi};
 	}
 
-	private static boolean headName(String name) {
+	/** For the head dump too: a part that belongs to the head (the head, or a face part beside it). */
+	public static boolean headName(String name) {
 		return name.contains("head") || FACE_PARTS.contains(name);
 	}
 
 	/** Wings, tails, fins, a blaze's rods ("part0".."part11"), a breeze's rods, a bee's stinger. */
-	private static boolean appendageName(String name) {
+	public static boolean appendageName(String name) {
 		return name.contains("wing") || name.contains("tail") || name.contains("fin") || name.equals("rods") || name.equals("stinger")
 				|| name.matches("part\\d+");
 	}

@@ -78,6 +78,10 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/enderdragon/dragon"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/enderman/enderman"
   },
   {
@@ -347,6 +351,14 @@
   {
    "type": "minecraft:single",
    "resource": "minecraft:entity/zombie_villager/zombie_villager"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "morphreborn:skin/morphskin"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "morphreborn:skin/morphskin_red"
   }
  ]
 }

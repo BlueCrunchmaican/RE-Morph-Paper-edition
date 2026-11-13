@@ -34,9 +34,15 @@ public final class VanillaEffects {
 	}
 
 	private List<Player> vanillaViewers(Location at, Player subject, boolean includeSubject) {
+		return vanillaViewers(at, subject, includeSubject, false);
+	}
+
+	/** {@code skinShown}: leave out the players who see it drawn in the morph skin instead (SkinEffects). */
+	private List<Player> vanillaViewers(Location at, Player subject, boolean includeSubject, boolean skinShown) {
 		List<Player> out = new ArrayList<>();
 		for (Player p : at.getWorld().getPlayers()) {
 			if (plugin.channel().isModded(p)) continue;
+			if (skinShown && plugin.skin().drawsFor(p)) continue;
 			if (p == subject && !includeSubject) continue;
 			if (p.getLocation().distanceSquared(at) <= VIEW_RANGE_SQ) out.add(p);
 		}
@@ -47,10 +53,10 @@ public final class VanillaEffects {
 	 * One tick of the transformation cocoon. {@code skinAlpha} follows the original's skin curve
 	 * (fades in over the first 12.5%, full during the box transition, fades out over the last 12.5%).
 	 */
-	public void transitionTick(Player subject, float skinAlpha, double width, double height) {
+	public void transitionTick(Player subject, float skinAlpha, double width, double height, boolean skinShown) {
 		if (skinAlpha <= 0.02F) return;
 		Location base = subject.getLocation();
-		List<Player> viewers = vanillaViewers(base, subject, true);
+		List<Player> viewers = vanillaViewers(base, subject, true, skinShown);
 		if (viewers.isEmpty()) return;
 		ThreadLocalRandom r = ThreadLocalRandom.current();
 		int count = Math.max(1, Math.round(10 * skinAlpha));
@@ -68,20 +74,20 @@ public final class VanillaEffects {
 	}
 
 	/** The instant the vanilla disguise swaps (transition midpoint). */
-	public void swapBurst(Player subject, double width, double height) {
+	public void swapBurst(Player subject, double width, double height, boolean skinShown) {
 		Location mid = subject.getLocation().add(0, height / 2, 0);
-		for (Player v : vanillaViewers(mid, subject, true)) {
+		for (Player v : vanillaViewers(mid, subject, true, skinShown)) {
 			v.spawnParticle(Particle.SQUID_INK, mid, 25, width * 0.4, height * 0.4, width * 0.4, 0.05);
 			v.spawnParticle(Particle.LARGE_SMOKE, mid, 8, width * 0.3, height * 0.3, width * 0.3, 0.02);
 		}
 	}
 
 	/** A new morph: dark trails and a cloud of morph-skin dust. Biomass only: a few red sparks, no cloud. */
-	public void acquisition(Player origin, LivingEntity acquired, boolean newMorph) {
+	public void acquisition(Player origin, LivingEntity acquired, boolean newMorph, boolean skinShown) {
 		if (!plugin.settings().vanillaAcquisitionEffects) return;
 		Location from = acquired.getLocation().add(0, acquired.getHeight() / 2, 0);
 		Location to = origin.getLocation().add(0, origin.getHeight() / 2, 0);
-		List<Player> viewers = vanillaViewers(from, origin, true);
+		List<Player> viewers = vanillaViewers(from, origin, true, skinShown);
 		if (viewers.isEmpty()) return;
 		ThreadLocalRandom r = ThreadLocalRandom.current();
 		if (!newMorph) {
@@ -103,26 +109,14 @@ public final class VanillaEffects {
 		}
 	}
 
-	/** A rage starting: a burst of red and morph-skin dust around the player. */
-	public void rageStart(Player subject) {
-		Location mid = subject.getLocation().add(0, subject.getHeight() / 2, 0);
-		Particle.DustOptions red = new Particle.DustOptions(RAGE, 1.8F);
-		Particle.DustOptions dark = new Particle.DustOptions(SKIN[1], 1.6F);
-		double w = subject.getWidth();
-		for (Player v : vanillaViewers(mid, subject, true)) {
-			v.spawnParticle(Particle.DUST, mid, 40, w * 0.9, subject.getHeight() * 0.4, w * 0.9, 0, red);
-			v.spawnParticle(Particle.DUST, mid, 20, w * 0.7, subject.getHeight() * 0.3, w * 0.7, 0, dark);
-		}
-	}
-
 	/**
 	 * One frame of a rage's tendril: a wavering line of dark red from the player's chest to {@code target}, with red
 	 * motes now and then running back along it into the player (the drain).
 	 */
-	public void rageTether(Player origin, LivingEntity target, int tick) {
+	public void rageTether(Player origin, LivingEntity target, int tick, boolean skinShown) {
 		Location from = origin.getLocation().add(0, origin.getHeight() * 0.6, 0);
 		Location to = target.getLocation().add(0, target.getHeight() / 2, 0);
-		List<Player> viewers = vanillaViewers(from, origin, true);
+		List<Player> viewers = vanillaViewers(from, origin, true, skinShown);
 		if (viewers.isEmpty()) return;
 		Vector line = to.toVector().subtract(from.toVector());
 		double length = line.length();
@@ -145,6 +139,25 @@ public final class VanillaEffects {
 		if (tick % 6 == 0) {
 			Particle.Trail trail = new Particle.Trail(from, BIOMASS, 10 + ThreadLocalRandom.current().nextInt(5));
 			for (Player v : viewers) v.spawnParticle(Particle.TRAIL, to, 3, 0.1, 0.1, 0.1, 0, trail, true);
+		}
+	}
+
+	/**
+	 * The legs of a frenzy's hover as particle lines (players without the pack): {@code segments} are pairs of world
+	 * points, hip to knee and knee to foot.
+	 */
+	public void legs(Player origin, List<Vector[]> segments, boolean skinShown) {
+		Location at = origin.getLocation();
+		List<Player> viewers = vanillaViewers(at, origin, true, skinShown);
+		if (viewers.isEmpty()) return;
+		Particle.DustOptions dust = new Particle.DustOptions(RAGE, 0.8F);
+		for (Vector[] s : segments) {
+			Vector d = s[1].clone().subtract(s[0]);
+			int points = Math.max(2, (int) Math.ceil(d.length() * 4));
+			for (int i = 0; i <= points; i++) {
+				Location p = s[0].clone().add(d.clone().multiply(i / (double) points)).toLocation(at.getWorld());
+				for (Player v : viewers) v.spawnParticle(Particle.DUST, p, 1, 0, 0, 0, 0, dust, true);
+			}
 		}
 	}
 

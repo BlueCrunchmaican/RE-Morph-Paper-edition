@@ -25,7 +25,19 @@ public final class MorphListener implements Listener {
 
 	@EventHandler(priority = EventPriority.MONITOR)
 	public void onJoin(PlayerJoinEvent event) {
-		plugin.morphs().onJoin(event.getPlayer());
+		Player player = event.getPlayer();
+		plugin.morphs().onJoin(player);
+		// a Fabric player without the client mod could have it (and its look in First-person Model's view): told once, a
+		// few seconds in, when the mod would long have answered
+		String message = plugin.settings().noClientMessage;
+		if (!message.isEmpty()) {
+			plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+				String brand = player.getClientBrandName();
+				if (player.isOnline() && !plugin.channel().isModded(player) && brand != null && brand.toLowerCase(java.util.Locale.ROOT).contains("fabric")) {
+					player.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(message));
+				}
+			}, 100L);
+		}
 	}
 
 	@EventHandler(priority = EventPriority.MONITOR)

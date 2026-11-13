@@ -53,6 +53,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	private dev.morphreborn.paper.disguise.BorrowedHeads borrowedHeads;
 	private ClientChannel channel;
 	private VanillaEffects effects;
+	private dev.morphreborn.paper.effects.SkinEffects skin;
 	private AbilityManager abilities;
 	private MorphManager morphs;
 	private SurvivalMode survival;
@@ -121,6 +122,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(borrowedHeads, this);
 		channel = new ClientChannel(this);
 		effects = new VanillaEffects(this);
+		skin = new dev.morphreborn.paper.effects.SkinEffects(this);
+		getServer().getPluginManager().registerEvents(skin, this);
 		abilities = new AbilityManager(this);
 		abilities.load(yaml("abilities.yml"));
 		jockeys = new dev.morphreborn.paper.ability.Jockeys(this);
@@ -154,6 +157,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			jockeys.tick();
 			rage.tick();
 			borrowedHeads.tick();
+			skin.tick();
 			conversions.tick();
 		}, 1L, 1L);
 		scheduleAutosave();
@@ -169,6 +173,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		if (rage != null) rage.releaseAll();
 		if (trading != null) trading.releaseAll();
 		if (borrowedHeads != null) borrowedHeads.removeAll();
+		if (skin != null) skin.removeAll();
 		if (morphs != null) morphs.shutdown();
 		if (channel != null) channel.unregister();
 		if (store != null) store.shutdown();
@@ -289,7 +294,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	 * Morph Abilities became "% of Classic", reach and absorbable mass got new levels) and the ability unlocks were added.
 	 * 7.3.0: Rage became Devouring Frenzy, with three levels.
 	 */
-	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0", "upgrades.rage", "7.3.0");
+	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0", "upgrades.rage", "7.4.0");
 
 	/**
 	 * Write the bundled file if it's missing, or replace it when it comes from an older release (its config-version,
@@ -399,6 +404,11 @@ public final class MorphRebornPlugin extends JavaPlugin {
 
 	public VanillaEffects effects() {
 		return effects;
+	}
+
+	/** The mod's morph-skin animations for players without the mod who have the pack; null until enabled. */
+	public dev.morphreborn.paper.effects.SkinEffects skin() {
+		return skin;
 	}
 
 	public dev.morphreborn.paper.ability.Rage rage() {

@@ -41,6 +41,7 @@ public final class MorphSettingsScreen extends OptionsSubScreen {
 						.tooltip(Tooltip.create(Component.translatable("morphreborn.settings.doll.open.tooltip")))
 						.width(150)
 						.build());
+		this.list.addSmall(choice("frenzyMeter", c.frenzyMeter, List.of("CHANGES", "ALWAYS", "OFF"), v -> c.frenzyMeter = v), null);
 	}
 
 	/** RE:Morph's own animation, or what players without the mod see. */

@@ -28,7 +28,7 @@ You can be two creatures at once. Your main body borrows a second one's head, or
 
 ### Devouring Frenzy
 
-For when a crowd turns on you. Get hit by several mobs in quick succession (three skeletons juggling you with arrows, say) and a frenzy charges up. When you set it off (the Devouring Frenzy key, or `/morph frenzy` without the mod), tendrils latch onto the creatures around you and drain them while they're still alive, and whatever dies gets absorbed like any other kill, morph included. It hurts other players but never kills them, bosses only lose health slowly, and your pets and anything saddled or armoured are left alone. It has three levels, each reaching further, hitting harder and lasting longer; in Survival they're an upgrade.
+For when a crowd turns on you. Get hit by several mobs in quick succession (three skeletons juggling you with arrows, say) and a frenzy charges up. When you set it off (the Devouring Frenzy key, or `/morph frenzy` without the mod), tendrils latch onto the creatures around you and drain them while they're still alive, and whatever dies gets absorbed like any other kill, morph included. It hurts other players but never kills them, bosses only lose health slowly, and your pets and anything saddled or armoured are left alone. While it runs you can jump to rise on its tendrils and walk over the ground on them, then crouch to come back down. It has three levels, each reaching further, hitting harder, lasting longer and lifting you higher; in Survival they're an upgrade.
 
 ### Conversions
 
@@ -60,7 +60,7 @@ Dying doesn't cost you biomass or upgrades. If you want a faster or slower pace,
 |---|---|---|
 | `RE-Morph-paper-<version>.jar` | The server's `plugins` folder | Paper 26.3 on Java 25 or newer, [Lib's Disguises](https://www.spigotmc.org/resources/libs-disguises-free.81/) 26.10.24 or newer (the Free build is fine) and [PacketEvents](https://modrinth.com/plugin/packetevents) 2.14.0 or newer |
 | `RE-Morph-fabric-<version>+26.3.jar` | Each player's `mods` folder, if they want it | [Fabric Loader](https://fabricmc.net/use/installer/) 0.20.1 or newer and [Fabric API](https://modrinth.com/mod/fabric-api) 0.165.0+26.3 |
-| `RE-Morph-pack.zip` ([on GitHub](https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest)) | Your server resource pack, if you want it | Nothing. It gives players without the mod the original morph sound and the heads, ears and tails that multimorphs borrow |
+| `RE-Morph-pack.zip` ([on GitHub](https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest)) | Your server resource pack, if you want it | Nothing. It gives players without the mod the original morph sound, the heads, ears, tails, wings, fins and rods that multimorphs borrow, and the morph skin, so transformations, absorbing and the frenzy look the way the mod draws them |
 
 The mod only does something on a server running the plugin, so it won't change singleplayer.
 
