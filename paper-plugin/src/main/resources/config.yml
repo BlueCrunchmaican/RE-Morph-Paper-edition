@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 7.2.0
+config-version: 7.4.0
 
 # survival: (the default since 7.2.0) iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability
 #           (Wither and Regeneration at the same time), absorb creatures' biomass and spend it on upgrades, including
@@ -93,6 +93,10 @@ appearance:
   vanilla-transition: true
   # Particles and trails unmodded clients see when someone unlocks a morph.
   vanilla-acquisition-effects: true
+  # Players without the mod whose game has RE:Morph's resource pack (multimorph.vanilla-heads decides who that is) see
+  # transformations, absorbing and Devouring Frenzy's tendrils drawn in the morph skin, as the mod draws them, instead
+  # of the particles above. The two settings above still switch transformations and absorbing off for everyone.
+  vanilla-skin-effects: true
   # Sound played half-way through a transformation. "morphreborn:morph" comes from the optional resource
   # pack (resourcepack/ in the download) and from the Fabric mod; unmodded clients without the pack hear
   # the fallback instead.
@@ -155,6 +159,9 @@ client:
   unlock-chat-message: true
   # Told to players whose client mod is older than this plugin when they join (it still works, it just misses the
   # newest features). {client} and {server} are the two versions. "" turns it off.
+  # Told to players on Fabric without the client mod, a few seconds after they join (players with First-person Model,
+  # say, who would see their morph in its body view with the client mod). "" turns it off.
+  no-client-message: "<yellow>This server runs RE:Morph. You're on Fabric without its client mod: install it for the full experience (the morph selector, the original animations, and your morph in First-person Model's body view): <click:open_url:'https://modrinth.com/plugin/re-morph'><hover:show_text:'https://modrinth.com/plugin/re-morph'><aqua>[Modrinth]</aqua></hover></click> <click:open_url:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><hover:show_text:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><aqua>[GitHub]</aqua></hover></click>"
   old-client-message: "<yellow>Your RE:Morph client mod is {client}; this server runs {server}. Get the newest client mod for everything the server offers: <click:open_url:'https://modrinth.com/plugin/re-morph'><hover:show_text:'https://modrinth.com/plugin/re-morph'><aqua>[Modrinth]</aqua></hover></click> <click:open_url:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><hover:show_text:'https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/releases/latest'><aqua>[GitHub]</aqua></hover></click>"
 
 multimorph:

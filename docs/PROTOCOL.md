@@ -72,7 +72,7 @@ The server ignores every packet but `C_HELLO` until the handshake succeeded.
 | 10 | `S_UPGRADES` | bool open, string message, bool unlocked, varInt biomass, varInt capacity, varInt count, then per upgrade: string id, name, description, icon item, parent; varInt level, max level; string value now, value next; varInt cost + 1 (0 when maxed); string missing requirement; bool affordable | 6.0.0 |
 | 11 | `S_COSTS` | varInt count, then per variant: string variant id, varInt biomass cost (empty: morphing is free); then varInt multimorph extra percent | 6.3.0; extra 7.0.0 |
 | 12 | `S_RAGE` | bool available, varInt hits (within the window), varInt hits needed, varInt wait ticks left, varInt wait ticks in all (0: none), bool raging now, varInt rage ticks left, varInt rage ticks in all | 7.2.0 |
-| 13 | `S_RAGE_DRAIN` | varInt the raging player's entity id, varInt count, varInt entity id per drained creature (empty: the tendrils end) | 7.2.0 |
+| 13 | `S_RAGE_DRAIN` | varInt the raging player's entity id, varInt count, varInt entity id per drained creature (empty: the tendrils end); bool the player hovers on the tendrils' legs (7.4.0) | 7.2.0 |
 
 A repeated `S_HELLO` (the gameplay mode changed) is an update of the server's settings, not a new connection.
 

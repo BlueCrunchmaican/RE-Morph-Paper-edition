@@ -74,11 +74,14 @@ public final class Rage implements Listener {
 	private static final Set<String> NEUTRAL = Set.of("minecraft:enderman", "minecraft:zombified_piglin", "minecraft:piglin", "minecraft:spider",
 			"minecraft:cave_spider");
 
-	/** One level: how far the tendrils reach (blocks), how much health each drain hit takes, and how long it lasts (ticks). */
-	public record Level(double radius, double damage, int ticks) {}
+	/**
+	 * One level: how far the tendrils reach (blocks), how much health each drain hit takes, how long it lasts (ticks), and
+	 * how high its tendrils lift the player (blocks above the ground, 0: no hover).
+	 */
+	public record Level(double radius, double damage, int ticks, double hover) {}
 
 	/** The levels when abilities.yml has none. */
-	private static final List<Level> DEFAULT_LEVELS = List.of(new Level(10, 2, 100), new Level(16, 2.5, 160), new Level(20, 3.5, 200));
+	private static final List<Level> DEFAULT_LEVELS = List.of(new Level(10, 2, 100, 4), new Level(16, 2.5, 160, 6), new Level(20, 3.5, 200, 8));
 
 	private final MorphRebornPlugin plugin;
 
@@ -137,8 +140,24 @@ public final class Rage implements Listener {
 	private @Nullable Raging absorbingFor;
 	private int tick;
 
+	/** The hover a frenzy allows (Space to rise on the tendrils, crouch to sink). */
+	private final FrenzyHover hover;
+
 	public Rage(MorphRebornPlugin plugin) {
 		this.plugin = plugin;
+		this.hover = new FrenzyHover(plugin);
+		plugin.getServer().getPluginManager().registerEvents(hover, plugin);
+	}
+
+	/** abilities.yml rage.report: the hover's starts and stops too. */
+	void reportHover(Player p, String what) {
+		if (report) report(p, what);
+	}
+
+	/** A hover started or ended: players with the mod draw its legs. */
+	void hoverChanged(Player p) {
+		Raging r = raging.get(p.getUniqueId());
+		plugin.channel().broadcastRageDrain(p, r == null ? List.of() : ids(p, r), hover.hovering(p));
 	}
 
 	public void load(@Nullable ConfigurationSection c) {
@@ -149,16 +168,19 @@ public final class Rage implements Listener {
 		levels.clear();
 		if (c != null) {
 			for (Map<?, ?> m : c.getMapList("levels")) {
-				levels.add(level(number(m.get("radius"), 16), number(m.get("damage"), 2.5), number(m.get("duration"), 8)));
+				double radius = number(m.get("radius"), 16);
+				levels.add(level(radius, number(m.get("damage"), 2.5), number(m.get("duration"), 8), number(m.get("hover"), defaultHover(radius))));
 			}
 			// a file in 7.2.0's layout (one level, drain in health a second)
 			if (levels.isEmpty() && (c.contains("radius") || c.contains("drain") || c.contains("duration"))) {
-				levels.add(level(c.getDouble("radius", 16), c.getDouble("drain", 5) * DRAIN_INTERVAL / 20.0, c.getDouble("duration", 8)));
+				double radius = c.getDouble("radius", 16);
+				levels.add(level(radius, c.getDouble("drain", 5) * DRAIN_INTERVAL / 20.0, c.getDouble("duration", 8), defaultHover(radius)));
 			}
 		}
 		if (levels.isEmpty()) levels.addAll(DEFAULT_LEVELS);
 		classicLevel = Math.clamp(c == null ? 2 : c.getInt("classic-level", 2), 1, levels.size());
-		maxTargets = c == null ? 8 : Math.clamp(c.getInt("max-targets", 8), 1, 32);
+		// 0: every creature in reach (the user: "however many were around you"); any other number caps it
+		maxTargets = c == null ? 0 : Math.max(0, c.getInt("max-targets", 0));
 		enemiesOnly = c == null || !"all".equalsIgnoreCase(c.getString("targets", "enemies"));
 		lesser = c == null ? 0.25 : Math.clamp(c.getDouble("lesser", 0.25), 0, 1);
 		lesserTypes.clear();
@@ -171,11 +193,21 @@ public final class Rage implements Listener {
 		playerFloor = c == null ? 2 : Math.clamp(c.getDouble("player-floor", 2), 0.5, 20);
 		cooldownSeconds = c == null ? 20 : Math.clamp(c.getInt("cooldown", 20), 0, 3600);
 		report = c != null && c.getBoolean("report", false);
+		hover.load(c);
 		if (!enabled) releaseAll();
 	}
 
-	private static Level level(double radius, double damage, double seconds) {
-		return new Level(Math.clamp(radius, 1, 32), Math.clamp(damage, 0.1, 1000), (int) Math.round(Math.clamp(seconds, 1, 60) * 20));
+	private static Level level(double radius, double damage, double seconds, double hover) {
+		return new Level(Math.clamp(radius, 1, 32), Math.clamp(damage, 0.1, 1000), (int) Math.round(Math.clamp(seconds, 1, 60) * 20), Math.clamp(hover, 0, 16));
+	}
+
+	/**
+	 * A level without its own hover height lifts the player two fifths of its reach (the defaults: 4, 6 and 8 blocks with
+	 * 10, 16 and 20; the user: start at 4 and go higher), so a hovering player still reaches most of the ground its
+	 * tendrils would (a frenzy's kills are absorbed anywhere in reach).
+	 */
+	private static double defaultHover(double radius) {
+		return Math.round(radius * 0.4);
 	}
 
 	private static double number(@Nullable Object o, double fallback) {
@@ -210,7 +242,7 @@ public final class Rage implements Listener {
 	public String describe(int level) {
 		Level l = stats(level);
 		return SurvivalMode.number(l.radius()) + " blocks, " + SurvivalMode.number(l.damage()) + " damage a hit, " + SurvivalMode.number(l.ticks() / 20.0)
-				+ " seconds";
+				+ " seconds" + (l.hover() > 0 ? ", hover " + SurvivalMode.number(l.hover()) + " blocks up" : "");
 	}
 
 	/** Why this player can't use the frenzy at all, or null if they can (charged or not). */
@@ -364,9 +396,10 @@ public final class Rage implements Listener {
 		Location at = player.getLocation();
 		player.getWorld().playSound(at, Sound.ENTITY_RAVAGER_ROAR, 1F, 0.8F);
 		player.getWorld().playSound(at, Sound.ENTITY_WARDEN_HEARTBEAT, 1.5F, 0.6F);
-		plugin.effects().rageStart(player);
+		// no burst of particles for players without the mod: the mod has none, and the tendrils growing out show it
+		// how to hover is in the upgrade's description (the user: not on the screen every time)
 		player.sendActionBar(Component.text(NAME + "!", NamedTextColor.RED, TextDecoration.BOLD));
-		if (report) report(player, "level " + lv + " (" + describe(lv) + "), up to " + maxTargets + " at once");
+		if (report) report(player, "level " + lv + " (" + describe(lv) + "), " + (maxTargets > 0 ? "up to " + maxTargets + " at once" : "every creature in reach"));
 		latch(player, r);
 		sync(player);
 		return null;
@@ -387,15 +420,16 @@ public final class Rage implements Listener {
 				continue;
 			}
 			release(p, r);
+			hover.tick(p, tick, r.stats.hover());
 			if ((tick - r.start) % 5 == 0) latch(p, r);
 			if ((tick - r.start) % DRAIN_INTERVAL == DRAIN_INTERVAL - 1) drain(p, r);
 			if (tick % 2 == 0) {
-				for (LivingEntity t : living(p, r)) plugin.effects().rageTether(p, t, tick);
+				for (LivingEntity t : living(p, r)) plugin.effects().rageTether(p, t, tick, plugin.skin().tether(p, t, tick));
 			}
 			// tendrils for players with the mod: on a change, and now and then for anyone who just came in sight
 			if (r.targetsChanged || tick % 20 == 0) {
 				r.targetsChanged = false;
-				plugin.channel().broadcastRageDrain(p, ids(p, r));
+				plugin.channel().broadcastRageDrain(p, ids(p, r), hover.hovering(p));
 			}
 			if ((tick - r.start) % 20 == 0) sync(p);
 		}
@@ -411,9 +445,9 @@ public final class Rage implements Listener {
 		}
 	}
 
-	/** Latch onto the nearest creatures in reach and in sight, up to the most at once. */
+	/** Latch onto the creatures in reach and in sight (up to the most at once, when there is a most). */
 	private void latch(Player player, Raging r) {
-		if (r.targets.size() >= maxTargets) return;
+		if (maxTargets > 0 && r.targets.size() >= maxTargets) return;
 		Location at = player.getLocation();
 		double reach = r.stats.radius() * r.stats.radius();
 		List<LivingEntity> found = new ArrayList<>();
@@ -428,7 +462,7 @@ public final class Rage implements Listener {
 		found.sort(Comparator.comparing((LivingEntity e) -> !r.attackers.contains(e.getUniqueId()))
 				.thenComparingDouble(e -> e.getLocation().distanceSquared(at)));
 		for (LivingEntity e : found) {
-			if (r.targets.size() >= maxTargets) break;
+			if (maxTargets > 0 && r.targets.size() >= maxTargets) break;
 			r.targets.put(e.getUniqueId(), tick);
 			r.caught++;
 			r.targetsChanged = true;
@@ -556,6 +590,7 @@ public final class Rage implements Listener {
 	private void end(Player player, boolean summary) {
 		Raging r = raging.remove(player.getUniqueId());
 		if (r == null) return;
+		hover.stop(player, true);
 		if (report) {
 			StringBuilder line = new StringBuilder("over after " + seconds(tick - r.start) + ": held " + r.caught + ", absorbed " + r.taken + ", drained "
 					+ SurvivalMode.number(r.drained) + " health");
@@ -569,7 +604,7 @@ public final class Rage implements Listener {
 		var data = plugin.store().get(player.getUniqueId());
 		data.rageReadyAt = System.currentTimeMillis() + cooldownSeconds * 1000L;
 		plugin.store().markDirty(player.getUniqueId());
-		plugin.channel().broadcastRageDrain(player, List.of());
+		plugin.channel().broadcastRageDrain(player, List.of(), false);
 		hits.remove(player.getUniqueId());
 		shownHits.remove(player.getUniqueId());
 		sync(player);
@@ -633,6 +668,7 @@ public final class Rage implements Listener {
 
 	/** Shutdown, reload with the frenzy switched off: every frenzy ends. */
 	public void releaseAll() {
+		hover.releaseAll();
 		for (UUID id : List.copyOf(raging.keySet())) {
 			Player p = plugin.getServer().getPlayer(id);
 			if (p != null) end(p, false);

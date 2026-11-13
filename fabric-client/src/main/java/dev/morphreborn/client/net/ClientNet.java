@@ -373,7 +373,8 @@ public final class ClientNet {
 					int count = in.count();
 					int[] targets = new int[count];
 					for (int i = 0; i < count; i++) targets[i] = in.varInt();
-					dev.morphreborn.client.render.RageTethers.set(origin, targets);
+					boolean hovering = in.hasMore() && in.bool(); // servers from 7.4.0
+					dev.morphreborn.client.render.RageTethers.set(origin, targets, hovering);
 				}
 				case Wire.S_FORGET -> {
 					UUID who = in.uuid();

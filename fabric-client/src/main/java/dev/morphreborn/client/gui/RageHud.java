@@ -32,7 +32,7 @@ public final class RageHud {
 	public static void render(GuiGraphicsExtractor g, DeltaTracker deltaTracker) {
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player == null || !ClientNet.rageAvailable()) return;
-		String mode = ClientConfig.INSTANCE.biomassBar;
+		String mode = ClientConfig.INSTANCE.frenzyMeter;
 		if (mode.equals("OFF")) return;
 		boolean raging = ClientNet.raging();
 		boolean ready = ClientNet.rageReady();
@@ -46,9 +46,8 @@ public final class RageHud {
 		float alpha = 1F;
 		boolean withBar = BiomassHud.shownAlpha > 8;
 		if (!mode.equals("ALWAYS") && !raging && !ready) {
-			// shown with the biomass bar, and for a while after the meter changes
-			float own = since > SHOW_TICKS + FADE_TICKS ? 0F : since > SHOW_TICKS ? 1F - (since - SHOW_TICKS) / (float) FADE_TICKS : 1F;
-			alpha = Math.max(own, withBar ? BiomassHud.shownAlpha / 255F : 0F);
+			// for a while after the meter changes (its own setting: not whenever the biomass bar shows)
+			alpha = since > SHOW_TICKS + FADE_TICKS ? 0F : since > SHOW_TICKS ? 1F - (since - SHOW_TICKS) / (float) FADE_TICKS : 1F;
 		}
 		int a = Math.round(alpha * 255);
 		if (a < 8) return;

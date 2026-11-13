@@ -268,9 +268,11 @@ public final class ClientChannel implements PluginMessageListener {
 	}
 
 	/** A rage's tendrils (S_RAGE_DRAIN): the creatures {@code origin} drains now, to players with the mod nearby (empty: none). */
-	public void broadcastRageDrain(Player origin, java.util.List<Integer> targets) {
+	/** {@code hovering} (7.4.0, at the end: older mods stop before it): the raging player hovers on the tendrils' legs. */
+	public void broadcastRageDrain(Player origin, java.util.List<Integer> targets, boolean hovering) {
 		Wire.Out out = new Wire.Out(Wire.S_RAGE_DRAIN).varInt(origin.getEntityId()).varInt(targets.size());
 		for (int id : targets) out.varInt(id);
+		out.bool(hovering);
 		byte[] bytes = out.bytes();
 		for (Player viewer : origin.getWorld().getPlayers()) {
 			if (isModded(viewer) && (viewer == origin || viewer.getLocation().distanceSquared(origin.getLocation()) <= 96 * 96)) send(viewer, bytes);

@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **7.3.0** (2026-11-12). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
+Current version: **7.4.0** (2026-11-12). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
 ## 6.6.1 (released 2026-11-07)
@@ -64,6 +64,78 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       approved, the update notices' [Modrinth] link only opens for project members. Once it is public, point the
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
+
+## Released: 7.4.0, wings and fins, the morph skin and the frenzy's hover for players without the mod
+
+The user asked for the wings and fins of multimorphs to show for players without the mod (until now they saw the head
+of a creature known by them), and for extensive testing from a vanilla client so it looks right. Built as
+7.4.0-beta.1 (not committed); results in [TESTING.md](TESTING.md).
+
+- [x] What each creature lends is what the mod grafts (HybridMorph.findAppendages): a creature known by its wings, rods
+      or fins (bat, phantom, parrot, bee, chicken, allay, vex, blaze, breeze, cod, salmon, tropical fish, dolphin, the
+      ender dragon) lends those, its tail and stinger, and no head; an animal with ears and a tail lends those (the tail
+      is now one of its parts: a cat's and an ocelot's show both segments, as with the mod); a creature that lends its
+      head lends any tail too (the wither's).
+- [x] `HeadDump` writes every part as elements around where it joins its body, posed by the creature's own animation
+      (at rest a vex's and an allay's wings hang edge-on), plus every mob's whole box, and the ender dragon (parts only,
+      from its own renderer). `gen_head_pack.py` writes `models/part/<mob>/<part>` (65 parts) and their numbers;
+      `models/tail` is gone.
+- [x] `BorrowedHeads` places each part as the mod's Graft does (a port of Graft.place: share of the torso, lying onto
+      standing, wings on a standing back at the shoulder blades or a lying body's flanks, rods over the whole height,
+      tails set into the back, the dragon's scaled to the body), one display a part.
+- [x] Flapping: the dump finds the two poses of the creature's animation in which a part is turned furthest apart,
+      a stroke apart (bat, phantom, allay, vex, bee, dragon, the fish's tails, the wither's tail), with the mod's speeds
+      for phantoms and the dragon. The plugin swings each part between them with the display's own interpolation: one
+      update a stroke for each viewer. Parts move as one piece (a wing tip doesn't fold on its own).
+- [x] Flat elements are now drawn from both sides: mobs are drawn without back-face culling, items with it, and a vex's
+      wing is painted on one face only, so from behind it vanished. The generator backs each flat element with the
+      other face's texture (16 head models and 2 ears models gained back faces too).
+- [x] Turning: a disguised creature is drawn facing where the player looks (BodyRotationControl), while the server's
+      body yaw lags up to 50 degrees behind; parts, tails and the neck a borrowed head sits on now follow the drawn
+      body (a player form keeps the body yaw, as it is drawn as a player).
+- [x] A baby body borrows half-size parts from a creature that has babies (a wolf's tail, a chicken's wings), full-size
+      from one that hasn't (an allay's wings), as the mod does.
+- [x] Without the pack (`vanilla-heads: auto`, pack not loaded) nothing changes: the dragon still lends its vanilla
+      skull; the others show nothing.
+- [x] The mod's morph-skin animations for players without the mod who have the pack (the user: bring the client
+      experience's textures and animations to vanilla through the pack, without changing the game's own particles;
+      they chose display entities over a shader keyed on a particle colour). `SkinEffects`, from the mod's own code:
+      - Transformations: the old body's boxes, in the skin, melt into the new body's (paired by index as
+        ModelCapture.interpolate pairs them, the extra ones growing from or shrinking into the middle), in three eased
+        strokes from 12.5% to 87.5%, off at 94%; one display a box, moved by the display's own interpolation. When everyone
+        who can see the player draws the skin, the disguise is invisible while it melts. Never in the player's own view
+        (from inside, its boxes hid everything; the mod draws none around your camera).
+      - Absorbing (AcquisitionEffect): four tendrils reach the creature, the skin covers it (the creature itself goes
+        from sight), and the tendrils pull it into the chest, shrinking and turning; black for a new morph, red for
+        biomass only. The halves nearest the player aren't drawn for them (the mod fades them in first person).
+      - Devouring Frenzy's tendrils (RageTethers): five segments on the mod's wave, every other tick; the player's own
+        start in front of them and below their view, thinner, as the mod's.
+      - `HeadDump` writes every model's boxes and the player's (`morph-boxes.json`, captured last so heads stay as they
+        were); `gen_head_pack.py` copies the mod's skin textures into the pack with box and tendril models.
+      - Players without the pack keep the particles; `appearance.vanilla-skin-effects` (config.yml 7.4.0).
+- [x] The frenzy's start burst of particles is gone for players without the mod (the mod has none; the user asked for
+      one or the other).
+- [x] Frenzy Meter, a setting of its own in `/morphclient` (When It Changes, Always, Off): it followed the biomass bar,
+      and showed whenever the bar did. Starts from the biomass bar's setting.
+- [x] The frenzy takes every creature in reach and in sight (the user: "basically infinite"): `max-targets: 0`.
+- [x] The frenzy's hover (the user's idea): jump to rise on its tendrils up to the level's height (4, 6, 8 blocks: the
+      user's "start at 4 and go higher"), crouch to come down, crouch on the ground to walk; the game's own flight,
+      capped above whatever is below; legs from the hips to the ground, each foot planted until the body moves past it
+      (the mod draws them from S_RAGE_DRAIN's new hover flag; the skin; particles). At the end, slow falling and no fall
+      damage. Not on top of a flight the player has anyway (a flying morph, a resting bat), nor in creative or spectator.
+- [x] The hover's legs (the user: animated, and more than four): six, set evenly round the body, each arched up and out
+      and writhing, stepping (a foot lifts and swings ahead over 4 ticks) when the body has moved on, and spreading half
+      a block for every block above the ground (at 8 blocks the legs had bunched into a cage under the player). Drawn the
+      same by the plugin and the mod.
+- [x] No "Jump to rise" on the action bar at each frenzy (the user: it belongs in the upgrade screen only).
+- [x] Players on Fabric without the client mod are told, a few seconds after joining, to install it for the full
+      experience (`client.no-client-message`); the user doesn't want First-person Model without the client mod tested.
+- [ ] Not yet: a dragon body still gets nothing from a borrowed form for players without the mod (no neck data); blaze
+      rods and breeze rods don't spin (they move without turning); variant textures (one texture per mob); the skin
+      doesn't fade in and out as the mod's does (displays can't fade), so it comes on and off at once.
+- [ ] Seen while testing, not part of this: with the mod, a baby body borrowing a wolf showed neither ears nor tail;
+      `/morph force` without a variant drew a wolf and a horse in different colours for the mod and for Lib's Disguises.
+- [x] compat_check: the 7.4.0 client mod against all 15 released servers, 6.0.0 to 7.3.0: every one OK.
 
 ## Released: 7.3.0, Devouring Frenzy
 
@@ -543,6 +615,17 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-11 | A charged rage waits for the player (Rage key or /morph rage) and stays charged until used | The user: setting it off is a choice, not automatic (beta.4 went off by itself) |
 | 2026-11-11 | Rage drains bosses, villagers, named creatures, others' pets and players at a quarter of the rate; players never below one heart; never your own pets | The user: those may be affected "just to a lesser extent"; hurt players but never kill them |
 | 2026-11-12 | Frenzy levels kept at 10/16/20 blocks, 2/2.5/3.5 a hit, 5/8/10 s, costing 1,500/4,000/10,000 | The user kept the measured starting numbers |
+| 2026-11-12 | Players without the mod get the parts the mod grafts, one item display per part from the pack, placed by a port of Graft.place | The user asked for wings and fins for players without the mod; matching the mod's placement keeps one look for everyone |
+| 2026-11-12 | Parts flap by display interpolation between two poses of the creature's own animation | The user wants the client experience's animations for players without the mod; one update a stroke, no new particles or entities |
+| 2026-11-12 | Flat model elements are backed with the opposite face's texture | Items are drawn with back-face culling and mobs without; a vex's wing vanished from behind |
+| 2026-11-12 | Parts and necks follow the look yaw on creature disguises, the body yaw on player forms | That is how each is drawn; the server's body yaw left wings off a turned creature's back |
+| 2026-11-12 | The mod's skin animations for players without the mod as item displays from the pack | The user chose this over a shader keyed on a particle colour: no change to the game's own particles, works with shader mods |
+| 2026-11-12 | No frenzy start burst for players without the mod | The mod has none; the user asked for one or the other |
+| 2026-11-12 | Frenzy Meter is its own setting | The user asked for it to show always or when it changes, apart from the biomass bar |
+| 2026-11-12 | The frenzy takes every creature in reach | The user: "however many were around you so basically infinite" |
+| 2026-11-12 | The frenzy's hover: jump to rise up to 4, 6 or 8 blocks by level, crouch to come down | The user's idea and numbers ("start at 4 and go higher"); the game's own flight, so moving stays smooth; you have to jump |
+| 2026-11-12 | Six animated hover legs, spreading with the height | The user asked for them animated and more than four |
+| 2026-11-12 | First-person Model without the client mod isn't tested; Fabric players without the client mod are told to install it | The user's call |
 | 2026-11-11 | Rage renamed Devouring Frenzy; one upgrade with three levels (reach, damage a hit, length), Classic level 2 | The user's calls; internal ids keep "rage" so no settings, permissions or saved data move |
 | 2026-11-11 | Frenzy never touches anything wearing a saddle, harness or armour | The user: friended mobs (tamed, saddled or armoured) aren't affected; the game doesn't record who saddled a mob, so it applies to all |
 | 2026-11-11 | Room counts only on the selected selector row | Keeps the other rows as they were; offered the alternative, no change asked |

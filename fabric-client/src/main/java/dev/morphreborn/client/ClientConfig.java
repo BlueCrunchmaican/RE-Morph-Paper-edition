@@ -59,6 +59,11 @@ public final class ClientConfig {
 	public boolean showNameTags = true;
 	/** Survival Mode biomass bar: OFF, CHANGES (a few seconds after it changes) or ALWAYS. */
 	public String biomassBar = "CHANGES";
+	/**
+	 * Devouring Frenzy's meter: OFF, CHANGES (a few seconds after it changes, and while charged or in a frenzy) or ALWAYS.
+	 * Until 7.4.0 it followed the biomass bar; a settings file from before starts it there.
+	 */
+	public String frenzyMeter = null;
 
 	// Paper doll: a live miniature of yourself (your morph, its animations and transformations, your vehicle) on screen.
 	/** Master switch; the Paper Doll key flips it. Off = hidden until the key shows it. */
@@ -156,6 +161,7 @@ public final class ClientConfig {
 		acquisitionTendrilMaxChild = Math.clamp(acquisitionTendrilMaxChild, 3, 100);
 		acquisitionTendrilPartOpacity = Math.clamp(acquisitionTendrilPartOpacity, 0, 100);
 		if (biomassBar == null || !java.util.List.of("OFF", "CHANGES", "ALWAYS").contains(biomassBar)) biomassBar = "CHANGES";
+		if (frenzyMeter == null || !java.util.List.of("OFF", "CHANGES", "ALWAYS").contains(frenzyMeter)) frenzyMeter = biomassBar;
 		if (absorbMorph == null || !java.util.List.of("TENDRILS", "RED_TENDRILS", "WISPS", "PLAIN", "OFF").contains(absorbMorph)) absorbMorph = acquisitionAnimation ? "TENDRILS" : "PLAIN";
 		if (absorbBiomass == null || !java.util.List.of("TENDRILS", "RED_TENDRILS", "WISPS", "PLAIN", "OFF").contains(absorbBiomass)) absorbBiomass = "RED_TENDRILS";
 		if (dollShow == null || !java.util.List.of("ALWAYS", "MORPHED", "ACTIVE").contains(dollShow)) dollShow = "ALWAYS";

@@ -54,6 +54,8 @@ public final class PluginSettings {
 	public final double maxScale;
 	public final boolean vanillaTransition;
 	public final boolean vanillaAcquisitionEffects;
+	/** Transformations, absorbing and Devouring Frenzy's tendrils in the morph skin for players without the mod who have the pack. */
+	public final boolean vanillaSkinEffects;
 	public final String morphSound;
 	public final String morphSoundFallback;
 	public final float morphSoundVolume;
@@ -104,6 +106,8 @@ public final class PluginSettings {
 	public final String outdatedMessage;
 	/** Told to players whose client mod is older than this plugin (same protocol); "" for none. {client}, {server}. */
 	public final String oldClientMessage;
+	/** Told to Fabric players without the client mod a few seconds after they join; "" for none. */
+	public final String noClientMessage;
 	/** Ask GitHub for the latest release (UpdateChecker). */
 	public final boolean updateCheck;
 	public final boolean unlockChatMessage;
@@ -171,6 +175,7 @@ public final class PluginSettings {
 		maxScale = Math.max(minScale, c.getDouble("appearance.max-scale", 2.5));
 		vanillaTransition = c.getBoolean("appearance.vanilla-transition", true);
 		vanillaAcquisitionEffects = c.getBoolean("appearance.vanilla-acquisition-effects", true);
+		vanillaSkinEffects = c.getBoolean("appearance.vanilla-skin-effects", true);
 		morphSound = c.getString("appearance.morph-sound", "morphreborn:morph");
 		morphSoundFallback = c.getString("appearance.morph-sound-fallback", "minecraft:entity.illusioner.mirror_move");
 		morphSoundVolume = (float) c.getDouble("appearance.morph-sound-volume", 1.0);
@@ -194,6 +199,7 @@ public final class PluginSettings {
 		outdatedMessage = c.getString("client.outdated-message", "<yellow>Your RE:Morph client mod is outdated.");
 		unlockChatMessage = c.getBoolean("client.unlock-chat-message", true);
 		oldClientMessage = c.getString("client.old-client-message", "");
+		noClientMessage = c.getString("client.no-client-message", "");
 		updateCheck = c.getBoolean("update-check.enabled", true);
 		debug = c.getBoolean("debug", false);
 		String chosenMode = c.getString("gameplay-mode", "survival").trim().toLowerCase(java.util.Locale.ROOT);

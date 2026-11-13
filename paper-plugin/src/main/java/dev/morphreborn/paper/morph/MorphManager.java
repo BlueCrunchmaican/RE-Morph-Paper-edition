@@ -35,6 +35,10 @@ public final class MorphManager {
 	private static final double PLAYER_HEIGHT = 1.8;
 	/** Smallest size the vanilla shrink/grow animation goes down to before the disguise swaps. */
 	private static final double VANILLA_MIN_DISGUISE_SCALE = 0.15;
+	/** The disguise while the morph skin melts over it for everyone who can see it: as small as the game draws a body. */
+	private static final double HIDDEN_DISGUISE_SCALE = 0.0625;
+	/** Players whose disguise is out of sight while the morph skin melts over it (SkinEffects). */
+	private final java.util.Set<UUID> skinHidden = new java.util.HashSet<>();
 
 	private final MorphRebornPlugin plugin;
 	private final NamespacedKey scaleKey;
@@ -384,7 +388,8 @@ public final class MorphManager {
 	public void playAcquisition(Player killer, LivingEntity victim, boolean newMorph) {
 		plugin.rage().noteAcquisition(victim, newMorph);
 		plugin.channel().sendAcquire(killer, victim, newMorph);
-		plugin.effects().acquisition(killer, victim, newMorph);
+		boolean drawn = plugin.skin().absorb(killer, victim, newMorph);
+		plugin.effects().acquisition(killer, victim, newMorph, drawn);
 	}
 
 	/** Add a variant to the collection and tell the client. Returns the stored ref, or null if already owned. */
@@ -530,20 +535,31 @@ public final class MorphManager {
 		double width = player.getWidth();
 		double height = player.getHeight();
 		if (settings.vanillaTransition) {
+			// players with RE:Morph's pack see the body melt in the morph skin (SkinEffects); the others, the particles
+			boolean skin = plugin.skin().transitionTick(player, s);
 			float skinAlpha = progress < 0.125F ? ActiveMorph.sineify(progress / 0.125F)
 					: progress > 0.875F ? 1F - ActiveMorph.sineify((progress - 0.875F) / 0.125F) : 1F;
-			plugin.effects().transitionTick(player, skinAlpha, width, height);
+			plugin.effects().transitionTick(player, skinAlpha, width, height, skin);
+			// when everyone who would see the disguise sees the skin, the disguise is out of sight while the boxes melt,
+			// rather than shrinking and growing inside them
+			boolean hidden = skin && progress >= 0.125F && progress < 0.875F && plugin.skin().onlySkinViewers(player);
+			if (hidden != skinHidden.contains(player.getUniqueId())) {
+				if (hidden) skinHidden.add(player.getUniqueId());
+				else skinHidden.remove(player.getUniqueId());
+				plugin.disguises().setInvisible(player, hidden);
+			}
 			if (progress < 0.5F) {
 				float shrink = ActiveMorph.clamp((progress - 0.125F) / 0.375F);
-				plugin.disguises().setScale(player, lerp(1.0, VANILLA_MIN_DISGUISE_SCALE, ActiveMorph.sineify(shrink)));
+				plugin.disguises().setScale(player, hidden ? HIDDEN_DISGUISE_SCALE : lerp(1.0, VANILLA_MIN_DISGUISE_SCALE, ActiveMorph.sineify(shrink)));
 			} else {
 				if (!s.swappedDisguise) {
 					s.swappedDisguise = true;
-					showDisguise(player, s.look(), VANILLA_MIN_DISGUISE_SCALE);
-					plugin.effects().swapBurst(player, width, height);
+					showDisguise(player, s.look(), hidden ? HIDDEN_DISGUISE_SCALE : VANILLA_MIN_DISGUISE_SCALE);
+					if (hidden) plugin.disguises().setInvisible(player, true); // a new disguise
+					plugin.effects().swapBurst(player, width, height, skin);
 				}
 				float grow = ActiveMorph.clamp((progress - 0.5F) / 0.375F);
-				plugin.disguises().setScale(player, lerp(VANILLA_MIN_DISGUISE_SCALE, 1.0, ActiveMorph.sineify(grow)));
+				plugin.disguises().setScale(player, hidden ? HIDDEN_DISGUISE_SCALE : lerp(VANILLA_MIN_DISGUISE_SCALE, 1.0, ActiveMorph.sineify(grow)));
 			}
 		} else if (!s.swappedDisguise && progress >= 0.5F) {
 			s.swappedDisguise = true;
@@ -554,6 +570,8 @@ public final class MorphManager {
 	}
 
 	private void finish(Player player, ActiveMorph s) {
+		plugin.skin().endTransition(player);
+		if (skinHidden.remove(player.getUniqueId())) plugin.disguises().setInvisible(player, false);
 		s.prev = null;
 		s.time = s.duration;
 		MorphRef form = s.next;

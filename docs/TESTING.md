@@ -250,6 +250,84 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.4.0 release (2026-11-12)
+
+- [x] The 7.4.0 jars are the tested 7.4.0-beta.1 code with only the version changed.
+- [x] `tools/compat_check.py` with the 7.4.0 client mod against all 15 released servers, 6.0.0 to 7.3.0: every one OK.
+- [x] Unit tests 37/37.
+
+## 7.4.0-beta.1, the skin for players without the mod, and the frenzy's hover (2026-11-12)
+
+The same rig as below (VanillaViewer without the mod but with the pack, MorphTester1 with the mod and First-person
+Model, MorphTester2 as the subject), the three windows tiled so they can be watched; frames captured in a row from both
+viewers. Movement keys can't be posted to the test clients (the game reads the keyboard's state), so Space and crouch
+were real key presses with the window active for a moment.
+
+- [x] Transformations: husk to cow, husk to iron golem, husk to ravager, your own body to a cow and back: the boxes melt
+      as the mod's do, frame for frame; the disguise is invisible meanwhile (a 0.0625 one showed at the feet), and the
+      new body shows at the end. Found and fixed: the skin stayed on to the end; now off at 94%.
+- [x] Absorbing a pig, a goat, sheep: tendrils reach out, the creature is covered in the skin (red for biomass), and
+      is pulled into the chest with the tendrils still on it, as the mod's. Found and fixed: twice as fast as the mod's;
+      the tendrils let go of the body (the far halves jumped to the chest); a frame where they vanished.
+- [x] Devouring Frenzy's tendrils to three husks, the player facing south and turned: wavy red skin to each, as the
+      mod's. Found and fixed: tendrils took the player's facing (their frame is the world's).
+- [x] First person: with the mod, with and without First-person Model, your own frenzy tendrils, absorbing and
+      transformation show (with First-person Model the transformation plays on your body). Without the mod: found and
+      fixed the transformation's boxes around the camera (now not drawn for you), frenzy tendrils from under the camera
+      (now from in front, thinner) and the absorb's near halves (now not drawn for you).
+- [x] Players without the pack (`vanilla-heads: auto`, not loaded) keep the particles; players with the mod see only
+      the mod's drawing.
+- [x] Frenzy Meter: the new row in `/morphclient` (started at Always from the biomass bar), switched to When It Changes:
+      shown during the frenzy and just after, gone 8 seconds later while the biomass bar (Always) stays.
+- [x] The hover, at levels 1 and 3: jumping lifts the player (about 2 blocks in 1.5 seconds), Space held reaches the cap
+      (8 blocks at level 3) and stays there; the frenzy ending in the air: slow falling down, health unchanged. Legs to the
+      ground from both viewers, the mod's and the skin, on a husk, a chicken, a cow and a ravager (feet spread with the
+      body's width since a ravager's stood inside it); frenzy tendrils from each body's chest.
+- [x] Six legs: from the side the two viewers match frame for frame, each leg writhing and the feet stepping as it walks
+      forward; from above, an even star about 4.5 blocks across at 8 blocks up. Found and fixed: at 8 blocks they
+      bunched under the player (feet planted near the ground never stepped out).
+- [x] The Fabric message: VanillaViewer (Fabric, mod switched off) got it 5 seconds after joining; MorphTester1 and
+      MorphTester2 (the mod) didn't.
+- [x] `config.yml` 7.2.0 gained `appearance.vanilla-skin-effects`; `survival.yml` 7.3.0 had `upgrades.rage` replaced;
+      `abilities.yml` replaced (its levels show "hover 4 blocks up" and so on).
+- [x] Plugin unit tests 37 of 37.
+
+## 7.4.0-beta.1, wings, fins and rods for players without the mod (2026-11-12)
+
+The local test server with the 7.4.0-beta.1 plugin, MorphTester2 as the subject (`/morph force`, `/morph borrow` over
+RCON), and VanillaViewer (no mod, the new pack installed locally, `vanilla-heads: pack`) and MorphTester1 (the mod)
+standing at the same spot, captured together from behind, the side and three-quarters behind, so every vanilla shot
+has the mod's beside it. Test clients windowed and captured without focus.
+
+- [x] The dump: 92 entries as before plus the ender dragon; no head model or head numbers changed; 65 parts; the same
+      15 ears-and-tail animals; parts only for allay, bat, bee, blaze, breeze, chicken, cod, dolphin, ender dragon,
+      phantom, salmon, tropical fish, vex; head and tail for the wither.
+- [x] Husk (a zombie burns in daylight and hid everything) with each of the 15 creatures: wings at the shoulder blades,
+      tails and stingers low on the back, fins, rods around the body, as the mod puts them. The bee's, allay's, vex's,
+      dolphin's, parrot's and chicken's matched the mod's shots closely; the bat's and phantom's differed only by the
+      moment of their flap.
+- [x] Found and fixed: a vex's and an allay's wings vanished from behind (one face painted, items culled): backed flat
+      elements; the vex's then matched the mod from every side. At rest a vex's and an allay's wings hung edge-on: parts
+      are now posed by the creature's animation.
+- [x] Other bodies: cow (bat, phantom, ender dragon, blaze, cod, bee: wings on the flanks, high up), wolf (phantom,
+      parrot), horse (ender dragon, vex), your own body (bat, allay, ender dragon), iron golem (phantom, allay), spider
+      (bee, bat), slime (bat, dolphin), chicken (ender dragon, bat): each where the mod puts it.
+- [x] Unchanged: husk with a cat (now both tail segments, as the mod shows), wolf, horse (ears and tails), cow (head);
+      creeper (skull worn), slime (whole), cow and pig heads.
+- [x] Flapping, frame by frame from the vanilla client: the dragon's wings beat from raised to below level, the bat's
+      fold and spread, the phantom's and allay's beat, the bee's buzz, the cod's tail fin and the wither's tail sway.
+- [x] Found and fixed: turned without walking (yaw 90), a creature disguise is drawn facing the look, while the parts
+      followed the server's body yaw (40): wings off the back. After the fix the husk's and cow's wings sit square on
+      the back from behind the look; a cow's borrowed pig head stays on its neck; your own body (drawn as a player, at
+      the body yaw) keeps its wings square from behind the body yaw.
+- [x] Found and fixed: on a baby body, phantom and allay wings stay full size and a wolf's tail and a chicken's wings
+      are half size, as with the mod.
+- [x] `vanilla-heads: auto` with no server pack loaded: the dragon still shows its vanilla skull, a bat nothing; no
+      missing-model cubes.
+- [x] Displays: 4 for a borrowed dragon (3 parts and the skull for players without the pack), 12 for a blaze, none
+      after `/morph borrow off` or during a transformation.
+- [x] Plugin unit tests 37 of 37 (new: placement rules, dragon scaling, every part in the table has a model in the pack).
+
 ## 7.3.0 release (2026-11-12)
 
 - [x] The 7.3.0 jars are the tested 7.3.0-beta.1 code with only the version changed (the user kept the beta's numbers).

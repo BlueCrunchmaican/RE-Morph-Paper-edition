@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.morphreborn.client.MorphClient;
+import dev.morphreborn.client.mixin.EnderDragonRendererAccessor;
 import dev.morphreborn.client.mixin.LivingEntityRendererInvoker;
 import dev.morphreborn.client.mixin.ModelPartAccessor;
 import dev.morphreborn.client.render.HybridMorph;
@@ -21,9 +22,14 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.renderer.entity.EnderDragonRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.model.monster.dragon.EnderDragonModel;
+import net.minecraft.client.renderer.entity.state.BatRenderState;
+import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.entity.state.PhantomRenderState;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -31,6 +37,7 @@ import net.minecraft.world.entity.EntityAttachment;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntitySpawnRequest;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -48,6 +55,11 @@ import org.jspecify.annotations.Nullable;
  * Each head is given as block-model elements in item-model space: pixels, the neck (the head part's pivot) at (8, 8, 8)
  * and the face towards -z, which is how an item display shows it facing the way it's turned. Sizes are the model's own;
  * {@code scale} is how much the mob's renderer enlarges it (a giant's head is a zombie's, six times over).
+ * <p>
+ * Each mob's {@code parts} are what it lends besides (or instead of) a head, as the client mod grafts them
+ * (HybridMorph.findAppendages): wings, tails, fins, rods and stingers, each as elements around the point where it joins
+ * its body. {@code lendsHead} is false for a creature the mod shows by its parts alone (a bat lends its wings, a wolf its
+ * ears and tail). The ender dragon only has parts: its renderer isn't a living-entity one.
  */
 public final class HeadDump {
 	/** Parts drawn as part of the face when they aren't inside the head part (a chicken's beak and wattle). */
@@ -71,6 +83,13 @@ public final class HeadDump {
 				skipped.add(id + " (" + e + ")");
 			}
 		}
+		// the player's model (player forms, and your own body), as the morph-skin boxes only
+		try {
+			JsonObject player = player(mc);
+			if (player != null) out.add("minecraft:player", player);
+		} catch (RuntimeException e) {
+			skipped.add("minecraft:player (" + e + ")");
+		}
 		Path file = mc.gameDirectory.toPath().resolve("morph-heads.json");
 		try {
 			Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(out), StandardCharsets.UTF_8);
@@ -87,6 +106,7 @@ public final class HeadDump {
 		if (!(entity instanceof LivingEntity living) || entity instanceof Player) return null;
 		entity.setId(-1_000_000 - nextId++); // renderers read the id; far below anything the server hands out
 		EntityRenderer<?, ?> renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
+		if (renderer instanceof EnderDragonRenderer dragon) return dragon(dragon, entity);
 		if (!(renderer instanceof LivingEntityRenderer lr)) return null;
 		LivingEntityRenderState state = (LivingEntityRenderState) lr.createRenderState(living, 1F);
 		state.bodyRot = 0F;
@@ -162,7 +182,6 @@ public final class HeadDump {
 			collect(path.getLast(), pose, pivot, rendererScale * state.scale, elements, measure);
 		}
 		if (elements.isEmpty()) return null;
-		JsonObject tail = measure.ears.isEmpty() ? null : tail(root, base, rendererScale * state.scale);
 
 		JsonObject head = new JsonObject();
 		Identifier texture = lr.getTextureLocation(state);
@@ -180,20 +199,384 @@ public final class HeadDump {
 		head.add("elements", elements);
 		// the torso a borrowed tail is grafted onto, as the client mod measures it: item space (the face towards -z),
 		// blocks from the feet, at the mob's real size
-		PoseStack itemBase = new PoseStack();
-		itemBase.last().pose().rotationY((float) Math.PI).mul(base.last().pose());
-		itemBase.last().normal().rotationY((float) Math.PI).mul(base.last().normal());
+		PoseStack itemBase = itemBase(base);
 		float[][] torso = HybridMorph.torsoBox(root, itemBase);
 		if (torso != null) head.add("torso", box(torso));
-		if (tail != null && measure.earLo[0] <= measure.earHi[0]) {
+		float[][] all = all(root, itemBase);
+		if (all != null) head.add("all", box(all));
+		// Parts are posed as the mod draws them, by the creature's own animation (heads and torsos above are at rest: at
+		// rest a vex's and an allay's wings hang edge-on behind them, and from behind they disappeared). Where it flaps,
+		// at one end of the flap, and each part carries its turn to the other end (see flap).
+		Flap flap = null;
+		java.util.function.Consumer<Float> animate = t -> {
+			clock(state, t);
+			model.setupAnim(state);
+		};
+		try {
+			flap = flap(animate, root, base);
+			if (flap != null) {
+				for (ModelPart part : root.getAllParts()) part.resetPose();
+				clock(state, flap.start());
+				model.setupAnim(state);
+			} else {
+				for (ModelPart part : root.getAllParts()) part.resetPose();
+				LivingEntityRenderState fresh = (LivingEntityRenderState) lr.createRenderState(living, 1F);
+				fresh.bodyRot = 0F;
+				fresh.yRot = 0F;
+				fresh.xRot = 0F;
+				ModelCapture.selectModel(lr, fresh);
+				model.setupAnim(fresh);
+			}
+		} catch (RuntimeException e) {
+			flap = null;
+			for (ModelPart part : root.getAllParts()) part.resetPose();
+		}
+		// the mod grafts parts on unless the creature is lent whole as a head (a slime has none to give)
+		JsonArray parts = whole ? new JsonArray() : parts(root, base, rendererScale * state.scale, flap, animate);
+		// ears only with a tail outside the head, as before parts were written (a guardian's spikes stand out of its
+		// head, and its tail is in it: it lends its head)
+		boolean hasTail = false;
+		for (var p : parts) hasTail |= p.getAsJsonObject().get("kind").getAsString().equals("tail");
+		boolean earsAndTail = hasTail && !measure.ears.isEmpty() && measure.earLo[0] <= measure.earHi[0];
+		if (earsAndTail) {
 			// item pixels, as the elements: the ears' box, and the box of the head's big blocks without them
 			JsonObject ears = new JsonObject();
 			ears.add("box", box(new float[][] {measure.earLo, measure.earHi}));
 			ears.add("core", box(measure.core()));
 			head.add("ears", ears);
-			head.add("tail", tail);
 		}
+		// as the client mod decides (HybridMorph.attach): a pufferfish is its puffed body, not its fins
+		boolean partsOnly = type != EntityTypes.PUFFERFISH && (earsAndTail || HybridMorph.hasDefiningParts(root));
+		head.addProperty("lendsHead", !partsOnly);
+		if (partsOnly && whole) parts = parts(root, base, rendererScale * state.scale, flap, animate); // a bee: its wings and stinger
+		if (!parts.isEmpty()) head.add("parts", parts);
+		// last: the capture poses the model by its animation, which shows and hides parts (an armadillo rolling up), and
+		// everything above is measured as the model was
+		LivingEntityRenderState fresh = (LivingEntityRenderState) lr.createRenderState(living, 1F);
+		fresh.bodyRot = 0F;
+		fresh.yRot = 0F;
+		fresh.xRot = 0F;
+		JsonArray boxes = boxes(lr, fresh);
+		if (!boxes.isEmpty()) head.add("boxes", boxes);
 		return head;
+	}
+
+	/**
+	 * The ender dragon, which lends its wings and tail and no head: its parts, torso and whole box, at rest, as
+	 * EnderDragonRenderer draws it, turned to face +z as a living mob's renderer does at yaw 0.
+	 */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static JsonObject dragon(EnderDragonRenderer renderer, Entity entity) {
+		EnderDragonModel model = ((EnderDragonRendererAccessor) renderer).morph$model();
+		ModelPart root = model.root();
+		for (ModelPart part : root.getAllParts()) part.resetPose();
+		EnderDragonRenderState state = (EnderDragonRenderState) ((EntityRenderer) renderer).createRenderState(entity, 1F);
+		PoseStack base = new PoseStack();
+		base.rotateDegrees(Axis.YP, 180F);
+		base.translate(0F, 0F, 1F);
+		base.scale(-1F, -1F, 1F);
+		base.translate(0F, -1.501F, 0F);
+		JsonObject out = new JsonObject();
+		out.addProperty("texture", "minecraft:entity/enderdragon/dragon");
+		out.addProperty("scale", 1F);
+		out.addProperty("width", round(entity.getBbWidth()));
+		out.addProperty("height", round(entity.getBbHeight()));
+		out.addProperty("lendsHead", false);
+		PoseStack itemBase = itemBase(base);
+		float[][] torso = HybridMorph.torsoBox(root, itemBase);
+		if (torso != null) out.add("torso", box(torso));
+		float[][] all = all(root, itemBase);
+		if (all != null) out.add("all", box(all));
+		// its wings and tail as the mod draws them, flapping at the share of a hovering dragon's beat the mod uses
+		// (HybridMorph.DRAGON_FLAP_SPEED): a hovering dragon's flapTime grows by 0.2 a tick (EnderDragon.aiStep)
+		Flap flap = null;
+		java.util.function.Consumer<Float> animate = t -> {
+			state.flapTime = t * 0.2F * HybridMorph.DRAGON_FLAP_SPEED;
+			model.setupAnim(state);
+		};
+		try {
+			flap = flap(animate, root, base);
+			for (ModelPart part : root.getAllParts()) part.resetPose();
+			state.flapTime = (flap == null ? 0F : flap.start()) * 0.2F * HybridMorph.DRAGON_FLAP_SPEED;
+			model.setupAnim(state);
+		} catch (RuntimeException e) {
+			flap = null;
+			for (ModelPart part : root.getAllParts()) part.resetPose();
+		}
+		out.add("parts", parts(root, base, 1F, flap, animate));
+		return out;
+	}
+
+	/**
+	 * A creature's clocks at {@code t} ticks: its age, and the flap clocks that aren't its age (a phantom's, sped up as
+	 * the mod does: HybridMorph.PHANTOM_FLAP_SPEED); a bat flying.
+	 */
+	private static void clock(LivingEntityRenderState state, float t) {
+		state.ageInTicks = t;
+		if (state instanceof PhantomRenderState phantom) phantom.flapTime = t * HybridMorph.PHANTOM_FLAP_SPEED;
+		if (state instanceof BatRenderState bat) {
+			bat.isResting = false;
+			bat.restAnimationState.stop();
+			bat.flyAnimationState.startIfStopped(0);
+		}
+	}
+
+	/** Where a flap starts (ticks into the creature's animation) and how long one stroke takes. */
+	private record Flap(float start, float ticks) {}
+
+	/** Ticks the flap is looked for over, and the step. */
+	private static final float FLAP_SPAN = 40F, FLAP_STEP = 0.25F;
+	/** A flap shorter than this many ticks is drawn at it (each stroke is a display update for every viewer). */
+	private static final float FLAP_MIN_TICKS = 2F;
+
+	/**
+	 * For players without the mod, who see each part as a display that can only turn as a whole: the two poses of the
+	 * creature's animation in which a part is turned furthest apart (the part that moves most: a bee's buzzing wings, not
+	 * its slowly bobbing stinger), a stroke apart; of those within 3% of the furthest, the two closest in time (one stroke,
+	 * not one and a half). Null when no part turns by 5 degrees (a chicken standing, a blaze, whose rods move without
+	 * turning).
+	 */
+	private static @Nullable Flap flap(java.util.function.Consumer<Float> pose, ModelPart root, PoseStack base) {
+		PoseStack itemBase = itemBase(base);
+		int samples = (int) (FLAP_SPAN / FLAP_STEP) + 1;
+		List<List<org.joml.Quaternionf>> turns = new ArrayList<>(samples);
+		for (int k = 0; k < samples; k++) {
+			for (ModelPart part : root.getAllParts()) part.resetPose();
+			pose.accept(k * FLAP_STEP);
+			List<org.joml.Quaternionf> at = new ArrayList<>();
+			for (PartRef ref : partRefs(root, itemBase)) at.add(ref.joint().getUnnormalizedRotation(new org.joml.Quaternionf()).normalize());
+			turns.add(at);
+		}
+		int parts = turns.getFirst().size();
+		if (parts == 0) return null;
+		float[][] apart = new float[samples][samples];
+		float best = 0F;
+		for (int a = 0; a < samples; a++) {
+			for (int b = a + 1; b < samples && (b - a) * FLAP_STEP <= FLAP_SPAN / 2; b++) {
+				float most = 0F;
+				for (int i = 0; i < parts; i++) most = Math.max(most, angle(turns.get(a).get(i), turns.get(b).get(i)));
+				apart[a][b] = most;
+				best = Math.max(best, most);
+			}
+		}
+		if (best < Math.toRadians(5)) return null;
+		int fa = -1, fb = -1;
+		for (int a = 0; a < samples; a++) {
+			for (int b = a + 1; b < samples && (b - a) * FLAP_STEP <= FLAP_SPAN / 2; b++) {
+				if (apart[a][b] >= best * 0.97F && (fa < 0 || b - a < fb - fa)) {
+					fa = a;
+					fb = b;
+				}
+			}
+		}
+		return new Flap(fa * FLAP_STEP, (fb - fa) * FLAP_STEP);
+	}
+
+	private static float angle(org.joml.Quaternionf a, org.joml.Quaternionf b) {
+		float dot = Math.abs(a.dot(b));
+		return 2F * (float) Math.acos(Math.min(1F, dot));
+	}
+
+	/**
+	 * Each part's turn from one end of the flap to the other (item space, about where it joins), with the model posed at
+	 * the start of the flap when this returns.
+	 */
+	private static List<org.joml.Quaternionf> strokes(java.util.function.Consumer<Float> pose, ModelPart root, PoseStack base, Flap flap) {
+		PoseStack itemBase = itemBase(base);
+		List<org.joml.Quaternionf> to = new ArrayList<>();
+		for (ModelPart part : root.getAllParts()) part.resetPose();
+		pose.accept(flap.start() + flap.ticks());
+		for (PartRef ref : partRefs(root, itemBase)) to.add(ref.joint().getUnnormalizedRotation(new org.joml.Quaternionf()).normalize());
+		for (ModelPart part : root.getAllParts()) part.resetPose();
+		pose.accept(flap.start());
+		List<PartRef> from = partRefs(root, itemBase);
+		List<org.joml.Quaternionf> out = new ArrayList<>();
+		for (int i = 0; i < from.size(); i++) {
+			org.joml.Quaternionf a = from.get(i).joint().getUnnormalizedRotation(new org.joml.Quaternionf()).normalize();
+			out.add(new org.joml.Quaternionf(to.get(i)).mul(a.conjugate()).normalize());
+		}
+		return out;
+	}
+
+	/**
+	 * The model as the mod's transformation sees it (ModelCapture.capture: the renderer's transforms and the creature's
+	 * animation, facing +z), each cube as a box: its middle (blocks from the feet), its size along its own axes (blocks,
+	 * an outer layer's inflation included) and its turn, as [x, y, z, width, height, depth, qx, qy, qz, qw]. Players
+	 * without the mod see a transformation, and a creature being absorbed, as these boxes in the morph skin.
+	 */
+	@SuppressWarnings({"rawtypes"})
+	private static JsonArray boxes(LivingEntityRenderer renderer, LivingEntityRenderState state) {
+		JsonArray out = new JsonArray();
+		for (ModelCapture.Box b : ModelCapture.capture(renderer, state)) {
+			Matrix3f pose = b.pose().get3x3(new Matrix3f());
+			Vector3f kx = pose.getColumn(0, new Vector3f()), ky = pose.getColumn(1, new Vector3f()), kz = pose.getColumn(2, new Vector3f());
+			float lx = kx.length(), ly = ky.length(), lz = kz.length();
+			if (lx < 1e-6F || ly < 1e-6F || lz < 1e-6F) continue;
+			float w = (b.w() + 2 * b.gx()) * lx / 16F, h = (b.h() + 2 * b.gy()) * ly / 16F, d = (b.d() + 2 * b.gz()) * lz / 16F;
+			if (w + h + d < 1e-4F) continue;
+			kx.div(lx);
+			ky.div(ly);
+			kz.div(lz);
+			if (new Vector3f(kx).cross(ky).dot(kz) < 0F) kx.negate(); // a mirrored part: the same box
+			org.joml.Quaternionf q = new Matrix3f(kx, ky, kz).getNormalizedRotation(new org.joml.Quaternionf());
+			Vector3f c = b.pose().transformPosition(new Vector3f(b.x() + b.w() / 2F, b.y() + b.h() / 2F, b.z() + b.d() / 2F).div(16F));
+			JsonArray box = new JsonArray();
+			for (float v : new float[] {c.x, c.y, c.z, w, h, d, q.x, q.y, q.z, q.w}) box.add(round(v));
+			out.add(box);
+		}
+		return out;
+	}
+
+	/** The player model's boxes (as the player is drawn: 0.9375 of the model), standing and facing +z. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static @Nullable JsonObject player(Minecraft mc) {
+		if (mc.player == null) return null;
+		EntityRenderer renderer = mc.getEntityRenderDispatcher().getRenderer(mc.player);
+		if (!(renderer instanceof LivingEntityRenderer lr)) return null;
+		LivingEntityRenderState state = (LivingEntityRenderState) lr.createRenderState(mc.player, 1F);
+		state.bodyRot = 0F;
+		state.yRot = 0F;
+		state.xRot = 0F;
+		state.scale = 1F;
+		state.walkAnimationPos = 0F;
+		state.walkAnimationSpeed = 0F;
+		JsonArray boxes = boxes(lr, state);
+		if (boxes.isEmpty()) return null;
+		JsonObject out = new JsonObject();
+		out.addProperty("height", 1.8F);
+		out.add("boxes", boxes);
+		return out;
+	}
+
+	/** {@code base} in item space: turned half way round, as an item display shows its item. */
+	private static PoseStack itemBase(PoseStack base) {
+		PoseStack itemBase = new PoseStack();
+		itemBase.last().pose().rotationY((float) Math.PI).mul(base.last().pose());
+		itemBase.last().normal().rotationY((float) Math.PI).mul(base.last().normal());
+		return itemBase;
+	}
+
+	/** The whole model's box {lo, hi} in {@code base}'s frame (item space: blocks from the feet), or null when empty. */
+	private static float @Nullable [][] all(ModelPart root, PoseStack base) {
+		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
+		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+		PoseStack pose = new PoseStack();
+		pose.last().pose().set(base.last().pose());
+		bounds(root, pose, lo, hi);
+		return lo[0] > hi[0] ? null : new float[][] {lo, hi};
+	}
+
+	/**
+	 * One part the client mod grafts onto a main body (HybridMorph.findAppendages), as posed now: its name, kind, the
+	 * parts drawn with it (a segmented tail's segments) and the pose of what it hangs from.
+	 */
+	private record PartRef(String name, String kind, boolean segment, List<ModelPart> limbs, ModelPart first, Matrix4f parent) {
+		/** Its own pose: where it joins its body, turned as it is. */
+		Matrix4f joint() {
+			PoseStack at = new PoseStack();
+			at.last().pose().set(parent);
+			first.translateAndRotate(at);
+			return new Matrix4f(at.last().pose());
+		}
+	}
+
+	/**
+	 * Every part named as a wing, tail, fin, rods or stinger outside the head, with everything in it (a wing's tip), in
+	 * the model's order. A tail made of numbered segments side by side (the dragon's tail0..tail11) is one part, from its
+	 * first segment, as the mod moves it.
+	 */
+	private static List<PartRef> partRefs(ModelPart root, PoseStack base) {
+		List<PartRef> out = new ArrayList<>();
+		PoseStack pose = new PoseStack();
+		pose.last().pose().set(base.last().pose());
+		findParts(root, pose, out);
+		return out;
+	}
+
+	private static void findParts(ModelPart part, PoseStack pose, List<PartRef> out) {
+		if (!part.visible) return;
+		pose.pushPose();
+		part.translateAndRotate(pose);
+		Map<String, ModelPart> children = ((ModelPartAccessor) (Object) part).morph$children();
+		boolean chained = false;
+		for (Map.Entry<String, ModelPart> child : children.entrySet()) {
+			String name = child.getKey();
+			ModelPart limb = child.getValue();
+			if (HybridMorph.headName(name) || !limb.visible) continue;
+			if (!HybridMorph.appendageName(name)) {
+				findParts(limb, pose, out);
+				continue;
+			}
+			boolean segment = name.matches("tail\\d+");
+			if (segment && chained) continue;
+			List<ModelPart> limbs = new ArrayList<>();
+			ModelPart first = limb;
+			if (segment) {
+				chained = true;
+				int lowest = Integer.MAX_VALUE;
+				for (Map.Entry<String, ModelPart> s : children.entrySet()) {
+					if (!s.getKey().matches("tail\\d+") || !s.getValue().visible) continue;
+					limbs.add(s.getValue());
+					int n = Integer.parseInt(s.getKey().substring(4));
+					if (n < lowest) {
+						lowest = n;
+						first = s.getValue();
+					}
+				}
+			} else {
+				limbs.add(limb);
+			}
+			String kind = name.equals("rods") || name.matches("part\\d+") ? "rods" : name.contains("wing") ? "wing" : name.contains("tail") ? "tail" : "other";
+			out.add(new PartRef(segment ? "tail" : name, kind, segment, limbs, first, new Matrix4f(pose.last().pose())));
+		}
+		pose.popPose();
+	}
+
+	/**
+	 * The parts, as posed now, each written as elements around the point where it joins its body (at (8, 8, 8)); with a
+	 * flap, each part's turn to the flap's other end and the ticks a stroke takes (parts turned by under 3 degrees keep
+	 * still). The model is posed for the flap's start when {@code flap} is given (by the caller).
+	 */
+	private static JsonArray parts(ModelPart root, PoseStack base, float scale, @Nullable Flap flap, java.util.function.Consumer<Float> pose) {
+		JsonArray out = new JsonArray();
+		List<org.joml.Quaternionf> strokes = null;
+		if (flap != null) {
+			// strokes() poses the model at both ends and leaves it at the start, where the parts are written from
+			strokes = strokes(pose, root, base, flap);
+		}
+		List<PartRef> refs = partRefs(root, base);
+		for (int i = 0; i < refs.size(); i++) {
+			PartRef ref = refs.get(i);
+			Vector3f joint = ref.joint().transformPosition(new Vector3f());
+			JsonArray elements = new JsonArray();
+			Measure measure = new Measure(java.util.Collections.emptySet());
+			for (ModelPart l : ref.limbs()) {
+				PoseStack from = new PoseStack();
+				from.last().pose().set(ref.parent());
+				collect(l, from, joint, scale, elements, measure);
+			}
+			if (elements.isEmpty()) continue;
+			JsonObject p = new JsonObject();
+			p.addProperty("name", ref.name());
+			p.addProperty("kind", ref.kind());
+			// a tail joins the back: set into it, or moved out of it (the mod's Graft.touch; not a fin, not a segmented tail)
+			p.addProperty("touch", ref.kind().equals("tail") && !ref.segment() && !ref.name().contains("fin"));
+			p.add("joint", vec(-joint.x, joint.y, -joint.z)); // item space is the body's frame turned half way round
+			p.add("box", box(new float[][] {measure.allLo, measure.allHi}));
+			if (strokes != null && i < strokes.size() && angle(new org.joml.Quaternionf(), strokes.get(i)) > Math.toRadians(3)) {
+				org.joml.Quaternionf q = strokes.get(i);
+				JsonArray turn = new JsonArray();
+				turn.add(round(q.x));
+				turn.add(round(q.y));
+				turn.add(round(q.z));
+				turn.add(round(q.w));
+				p.add("flap", turn);
+				p.addProperty("flapTicks", Math.max(Math.round(FLAP_MIN_TICKS), Math.round(flap.ticks())));
+			}
+			p.add("elements", elements);
+			out.add(p);
+		}
+		return out;
 	}
 
 	/** {lo, hi} as two arrays. */
@@ -202,47 +585,6 @@ public final class HeadDump {
 		out.add(vec(b[0][0], b[0][1], b[0][2]));
 		out.add(vec(b[1][0], b[1][1], b[1][2]));
 		return out;
-	}
-
-	/**
-	 * The first tail part, not inside the head: its elements in item space with its pivot (where it joins the body) at
-	 * (8, 8, 8), its box in item pixels, and that pivot in item space (blocks from the feet, at real size).
-	 */
-	private static @Nullable JsonObject tail(ModelPart root, PoseStack base, float scale) {
-		List<ModelPart> path = findTail(root, new ArrayList<>());
-		if (path == null) return null;
-		PoseStack pose = new PoseStack();
-		pose.last().pose().set(base.last().pose());
-		for (int i = 0; i < path.size() - 1; i++) path.get(i).translateAndRotate(pose);
-		PoseStack at = new PoseStack();
-		at.last().pose().set(pose.last().pose());
-		path.getLast().translateAndRotate(at);
-		Vector3f joint = at.last().pose().transformPosition(new Vector3f());
-		JsonArray elements = new JsonArray();
-		Measure measure = new Measure(java.util.Collections.emptySet());
-		collect(path.getLast(), pose, joint, scale, elements, measure);
-		if (elements.isEmpty()) return null;
-		JsonObject tail = new JsonObject();
-		tail.add("joint", vec(-joint.x, joint.y, -joint.z)); // item space is the body's frame turned half way round
-		tail.add("box", box(new float[][] {measure.allLo, measure.allHi}));
-		tail.add("elements", elements);
-		return tail;
-	}
-
-	/** Depth-first path to the first tail part, not looking inside the head or face parts. */
-	private static @Nullable List<ModelPart> findTail(ModelPart part, List<ModelPart> path) {
-		path.add(part);
-		for (Map.Entry<String, ModelPart> child : ((ModelPartAccessor) (Object) part).morph$children().entrySet()) {
-			String name = child.getKey();
-			if (name.contains("head") || FACE_PARTS.contains(name)) continue;
-			if (HybridMorph.isTail(name)) {
-				path.add(child.getValue());
-				return path;
-			}
-			List<ModelPart> found = findTail(child.getValue(), new ArrayList<>(path));
-			if (found != null) return found;
-		}
-		return null;
 	}
 
 	/** Boxes measured while collecting, in item pixels: the ears', every cube's, and each other cube's with its volume. */

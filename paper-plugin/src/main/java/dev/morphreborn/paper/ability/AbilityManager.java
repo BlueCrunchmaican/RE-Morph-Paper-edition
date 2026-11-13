@@ -434,6 +434,11 @@ public final class AbilityManager {
 		return waterOnlyBreathing.contains(type) || dryOutTicks.containsKey(type) || allowed(player, "water-breathing");
 	}
 
+	/** Whether {@code player}'s flight is a flying morph's (which a frenzy's hover leaves alone). */
+	public boolean grantsFlight(Player player) {
+		return grantedFlight.contains(player.getUniqueId());
+	}
+
 	/** Survival and adventure players morphed into a flyer may fly (creative and spectator fly anyway). */
 	private void grantFlight(Player player, String type) {
 		GameMode mode = player.getGameMode();

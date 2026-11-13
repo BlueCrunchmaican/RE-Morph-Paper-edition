@@ -478,6 +478,15 @@ public final class DisguiseBridge {
 		}
 	}
 
+	/**
+	 * Hide the disguise's body, or show it again (what it holds and wears still shows, as on any invisible creature):
+	 * while the morph skin melts over it for everyone who can see it.
+	 */
+	public void setInvisible(Player player, boolean invisible) {
+		TargetedDisguise disguise = active.get(player.getUniqueId());
+		if (disguise != null && disguise.getWatcher().isInvisible() != invisible) disguise.getWatcher().setInvisible(invisible);
+	}
+
 	public void setScale(Player player, double scale) {
 		TargetedDisguise disguise = active.get(player.getUniqueId());
 		if (disguise != null) setScale(disguise, scale);
