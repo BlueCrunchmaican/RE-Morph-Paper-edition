@@ -137,7 +137,7 @@ of a creature known by them), and for extensive testing from a vanilla client so
       `/morph force` without a variant drew a wolf and a horse in different colours for the mod and for Lib's Disguises.
 - [x] compat_check: the 7.4.0 client mod against all 15 released servers, 6.0.0 to 7.3.0: every one OK.
 - [x] Released 2026-11-12: tag `v7.4.0`, GitHub release `RE:Morph 7.4.0` (with the 7.4.0 resource pack), Modrinth
-      `7.4.0+paper` / `7.4.0+fabric`. The Modrinth project description (docs/MODRINTH.md) isn't posted yet.
+      `7.4.0+paper` / `7.4.0+fabric`; the Modrinth project description is docs/MODRINTH.md as of 7.4.0.
 
 ## Released: 7.3.0, Devouring Frenzy
 
