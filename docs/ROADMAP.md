@@ -3,7 +3,7 @@
 The working plan: what's done, what's open, what's planned, and why things were decided. Update it
 whenever one of those changes.
 
-Current version: **7.4.0** (2026-11-12). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
+Current version: **7.5.0** (2026-11-13). Two gameplay modes: Survival (the default from 7.2.0) and Classic. (5.1.0 and 5.2.0 were
 built and tested but never released; their changes ship in 6.0.0.)
 
 ## 6.6.1 (released 2026-11-07)
@@ -64,6 +64,67 @@ Collected into one release instead of many small ones. Test builds were `6.6.0-b
       approved, the update notices' [Modrinth] link only opens for project members. Once it is public, point the
       README's and guide's download links there too.
 - [x] Released: Modrinth versions `6.6.0+paper` / `6.6.0+fabric`, GitHub release `RE:Morph 6.6.0` on tag `v6.6.0`.
+
+## Released: 7.5.0, babies in multimorphs, and the angry bee
+
+The user asked to fix a baby body borrowing a wolf (with the mod it had neither ears nor tail) and to make sure every
+baby works, and, mid-way, for a bee to get angry with the ability key when nothing is in reach; then to fix the horse's
+ears and the llama's head (both seen while testing), the multimorph piglins and hoglins that shook, and the hoglin with
+horse ears. Built as 7.5.0-beta.1 and released as 7.5.0; results in [TESTING.md](TESTING.md).
+
+- [x] 26.3 draws babies with models and textures of their own (a baby wolf is its own model in its own texture, in
+      proportions of its own), and a wolf's and a cat's texture is picked as the state is extracted. The mod marked a
+      grown creature's state as a baby's, so a baby body's borrowed wolf was drawn with the baby's model over the grown
+      texture (its tail was a see-through part of it), and what a creature lends was cached on the grown model and
+      looked up on the baby's, so the ears were never drawn. A baby body now borrows from a real baby
+      (`MorphEntities.babyForWorld` / `babyForGui`: the creature's baby where it has one), what it lends is decided on
+      its grown model, and that choice travels with the render state.
+- [x] For players without the mod the plugin measured babies as grown creatures at half size, which put a borrowed head
+      beside a baby's neck (a baby husk's neck is at 0.55 blocks, not 0.8). `HeadDump` now also measures every
+      creature's baby (43 of them), `gen_head_pack.py` writes their models and numbers under `<mob>_baby` (heads, ears,
+      parts with the baby textures; `morph-heads.json`, `morph-boxes.json`), and the plugin uses them for a baby body,
+      a baby form borrowed, a grown creature lent to a baby body (drawn as its baby, as with the mod), and a baby's
+      transformation and absorbing. The grown creatures' models and numbers are unchanged.
+- [x] Borrowed ears for players without the mod sit on the body's head's big blocks, as the mod measures it (the plugin
+      counted the head's own ears and snout: on a wolf, borrowed ears stood two pixels high and pulled forward).
+      `gen_head_pack.py` writes each head's `crown`.
+- [x] With the mod, a hat's brim is no longer part of a head: every villager's, wandering trader's, witch's and zombie
+      villager's head has one (drawn only under a profession's hat, which a borrowed head never wears). Counted in, a
+      villager's borrowed head sat forward of the neck and ears on a villager's head were twice their size. The plugin
+      has left brims out since 7.2.0.
+- [x] Bee: the ability key with nothing in reach makes it angry (red eyes) or calms it down; a sting makes it angry too.
+      Both views (the mod reads it from the morph's look, Lib's Disguises from `setAngryUntil`). It lasts until the bee
+      calms down, changes form or respawns.
+- [x] Horse ears for players without the mod: the ears model kept the horse's head tilt (30 degrees at rest), so they
+      leaned on the head they went on; the mod measures and places ears in the head's own frame. `HeadDump` now writes
+      a lender's ears, their box and its head's big blocks in the head's own frame (horse, donkey, mule, skeleton and
+      zombie horse, their babies). Ears on a tilted head (a horse's, a hoglin's, a zoglin's, a baby goat's): the dump
+      writes the head's tilt and `gen_head_pack.py` its big blocks in its own frame (`frame`), and the plugin turns the
+      ears with it, as the mod does. A hoglin with a horse's ears was wrong without the mod (the user saw it).
+- [x] `gen_head_pack.py` measured a turned element by its box before the turn (its from/to), not as it is drawn: a
+      horse's head sat a block below its neck in those numbers, a piglin's 8 pixels (its ears hang turned), and goats,
+      hoglins, zoglins, ravagers, witches, guardians, parrots, phantoms, fish and the horse family were off too. Every
+      element is now measured as drawn (the game turns about z, then y, then x, as `HeadDump` writes them).
+- [x] Where a head meets its neck, as the mod measures it: by its big blocks (a goat's beard put it 4 pixels low;
+      illagers' and witches' noses, golems', a ravager's and a sniffer's lower parts a pixel or two), and for a
+      borrowed head lifted out of the body's torso, up or forward, whichever is nearer (the mod's `outOfTorso`: camels,
+      llamas, pigs, sheep, goats, polar bears and a dozen babies have their head's neck point inside the chest; a
+      camel's half a block). Ties (a sheep's, a baby goat's) go up in both: the mod decided them by its floats' last
+      digits, which the plugin can't see.
+- [x] A borrowed head's size for players without the mod (the llama): heads are compared by their big blocks, as the
+      mod compares them (by its longest side a baby llama's head, mostly neck, was over 1.5 times a baby goat's and was
+      drawn at three quarters of its size). The user's call: a head is drawn bigger to cover the body's own head (which
+      they always see) at most 1.5 times the mod's size; a head that at that size would still sit inside the body's on
+      every side is covered fully, or it would vanish (a baby turtle's on a cow). Covering is measured by where the big
+      blocks sit too, not only by the heads' sizes: a zombie's face showed in front of a llama's neck, which is 6
+      pixels deep. Before: a cow's head on a llama or a goat and a panda's on a camel were drawn 2.3 to 2.4 times their
+      size, a llama's on a zombie at two thirds.
+- [x] Multimorph piglins and hoglins shook for good (the user saw it): a body that starts zombifying away from the
+      Nether shakes, and borrowing a form then stopped the conversion (multimorphs don't convert) but not the shake. It
+      stops with it now, as does any conversion under way when a form is borrowed.
+- [x] compat_check: the 7.5.0 client mod against the first 7 of the 16 released servers, 6.0.0 to 6.6.0: every one OK. Stopped there at the user's word (older versions aren't a concern for now); 6.6.1 to 7.4.0 not run.
+- [ ] Left for later (the user: fine for now): a creature's colour differs between the views when `/morph force` picks
+      no variant (a fox, a horse).
 
 ## Released: 7.4.0, wings and fins, the morph skin and the frenzy's hover for players without the mod
 
@@ -677,3 +738,4 @@ Repository: https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition
 | 2026-11-06 | Transformations play in first person instead of pausing the body view | Asked for; the body slides from the old form's placement to the new one's as the boxes move, and head boxes are left out |
 | 2026-11-06 | The head is hidden in ModelFeatureRenderer, between posing and drawing that one submitted model | Rendering is deferred in 26.3, so a flag set while submitting would be gone (or hit other models) by draw time |
 | 2026-11-06 | The favourites wheel's Biomass button is sized to its text; wheel prices sit under each name, in light grey when unaffordable | The fixed-size square was too big; dark grey didn't read on the wheel's dark ring |
+| 2026-11-13 | For players without the mod, a borrowed head is drawn bigger to cover the body's own head at most 1.5 times the size the mod draws it; a head that would still sit inside the body's at that size is covered fully | The user's call. Covering fully drew heads two to three times their size on camels, llamas and goats (their heads hold their necks); at the mod's size the body's face showed; a baby turtle's head on a cow would vanish inside it |

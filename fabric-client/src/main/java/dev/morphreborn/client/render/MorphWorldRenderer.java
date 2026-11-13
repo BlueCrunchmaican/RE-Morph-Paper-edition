@@ -153,7 +153,11 @@ public final class MorphWorldRenderer {
 	private static void borrow(EntityRenderDispatcher dispatcher, AbstractClientPlayer player, @Nullable MorphRef form, @Nullable MorphRef lent,
 			EntityRenderState body, EntityRenderState playerState, float partialTick) {
 		if (lent == null || form == null || form.isSelf()) return;
-		HybridMorph.attach(dispatcher, body, formState(dispatcher, player, lent, playerState, partialTick));
+		// a baby body borrows from the borrowed creature's baby, where it has one, as the plugin shows it to players
+		// without the mod
+		LivingEntity baby = body instanceof LivingEntityRenderState b && b.isBaby && !lent.isPlayer() ? MorphClient.ENTITIES.babyForWorld(player.getUUID(), lent) : null;
+		HybridMorph.attach(dispatcher, body, baby != null ? stateOf(dispatcher, player, lent, baby, playerState, partialTick)
+				: formState(dispatcher, player, lent, playerState, partialTick));
 	}
 
 	/** A transformation's render state: {@code from} morphing into {@code to}, the player's place and light. */
@@ -184,6 +188,13 @@ public final class MorphWorldRenderer {
 		if (form == null || form.isSelf()) return playerState;
 		LivingEntity morph = MorphClient.ENTITIES.forWorld(player.getUUID(), form);
 		if (morph == null) return playerState;
+		return stateOf(dispatcher, player, form, morph, playerState, partialTick);
+	}
+
+	/** Render state for {@code form} of {@code player}, drawn as {@code morph}. */
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	private static EntityRenderState stateOf(EntityRenderDispatcher dispatcher, AbstractClientPlayer player, MorphRef form, LivingEntity morph,
+			EntityRenderState playerState, float partialTick) {
 		EntityRenderer renderer = dispatcher.getRenderer(morph);
 		EntityRenderState morphState = renderer.createRenderState(morph, partialTick);
 		MorphSync.copyAnimation(morphState, playerState, player, partialTick);

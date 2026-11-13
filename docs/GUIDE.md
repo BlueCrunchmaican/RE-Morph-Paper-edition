@@ -231,6 +231,13 @@ new; copy back any changes from the backup), `survival.yml` gets the Devouring F
 of the old one (your other values are kept), and `config.yml` gains `appearance.vanilla-skin-effects`. The mod's frenzy
 meter has a setting of its own now.
 
+**7.5.0** makes babies work in multimorphs: a baby body borrows from the creature's baby, and players without the mod
+see babies' heads, ears, tails, wings and fins at their own size (see Playing). A bee's ability key with nothing in reach
+makes it angry or calms it down. For players without the mod, borrowed heads, ears and tails sit where the mod puts
+them, and a borrowed head is drawn at most 1.5 times the mod's size to cover the body's own head. Swap in the 7.5.0
+`RE-Morph-pack.zip` if you serve it (with an older pack, players whose game loaded it see placeholder cubes on baby
+multimorphs). No settings files change.
+
 **First-person Model (optional compatible mod):** it works with the RE:Morph client mod, not without it: a player on
 Fabric without the client mod is told a few seconds after joining that it gives the full experience
 (`client.no-client-message` in `config.yml`, "" turns it off). With [First-person Model](https://modrinth.com/mod/first-person-model)
@@ -264,6 +271,8 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
   else lends its head (at its real size) and any tail; a creature with no separate head (slime, ghast, squid) is lent
   whole, no bigger than the head it replaces. The ender dragon's wings and tail are scaled to the body. Parts morph
   in with the transformation.
+- **Babies** (7.5.0): a baby body borrows from the creature's baby (a baby husk with a wolf has a baby wolf's ears and
+  tail), and a baby borrowed lends as a baby; a creature that has no baby (a bat, a phantom) lends its grown parts.
 - **Traits and abilities:** the combination has every trait either form has (good ones still need their Survival
   unlocks), and every drawback. With two different abilities, the second input (sneak + ability key with the mod,
   `F` without) steps through both; the action bar shows which one the ability key uses. A borrowed creeper's blast
@@ -274,8 +283,8 @@ A multimorph is a main body with a second form it borrows from. In Survival it n
 - Picking your body again (normally) drops what it borrows. The combination is saved with you and comes back when you
   log in.
 - `/morphclient preview [main] [borrowed]` shows any two creatures combined, without owning or becoming them.
-- Players without the mod see the body with the borrowed head on it, an animal's ears on its head and its tail at its
-  back, or a creature's wings, fins or rods where the mod puts them, beating as that creature's do (see the resource
+- Players without the mod see the body with the borrowed head on it (drawn up to 1.5 times bigger to hide the body's
+  own head, which they always see), an animal's ears on its head and its tail at its back, or a creature's wings, fins or rods where the mod puts them, beating as that creature's do (see the resource
   pack above). Each part moves as one piece: a wing's tip doesn't fold on its own as it does with the mod. Without the
   pack they see only the borrowed heads the game has a skull for (the dragon's, a player's).
 
@@ -434,7 +443,7 @@ Abilities are always yours to trigger:
 
 - **Ability key:** creepers explode (a creeper struck by lightning is charged, like a real one: it gets the blue aura
   and its next explosion is twice as big; killing a charged creeper unlocks a charged-creeper morph, which always is); endermen teleport; ghasts shoot fireballs; bees sting once (and die a minute
-  later, like a real bee); turtles lay eggs on sand; rabbits hop forward.
+  later, like a real bee), and with nothing in reach the key makes a bee angry (red eyes) or calms it down; turtles lay eggs on sand; rabbits hop forward.
 - **Bat:** the ability key hangs you upside down from the block above (within 2.5 blocks of your head), like a
   resting bat. Let go with the ability key again, any movement key or jump; getting hurt or the block disappearing
   also drops you. You go back to flying or standing, whichever you were doing.
@@ -459,7 +468,7 @@ Skeletons raise a held bow, pillagers and piglins load their crossbows and drown
 mobs in combat. Players without the mod see these too, plus:
 - each ability's own animation, such as a panda's roll, a polar bear rearing up, a sheep grazing, an illusioner's
   spell and mirror images, and a copper golem sorting;
-- changes to the mob: a sheared sheep, a bee that has lost its stinger, an enderman's block.
+- changes to the mob: a sheared sheep, a bee that has lost its stinger or is angry, an enderman's block.
 
 Dying resets those changes: a bee grows its stinger back and a sheep its wool. The full list is in `ABILITIES.md`.
 

@@ -10,7 +10,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/armadillo/armadillo_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/axolotl/axolotl_lucy"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/axolotl/axolotl_lucy_baby"
   },
   {
    "type": "minecraft:single",
@@ -22,7 +30,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/bear/polarbear_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/bee/bee"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/bee/bee_baby"
   },
   {
    "type": "minecraft:single",
@@ -38,6 +54,10 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/camel/camel_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/camel/camel_husk"
   },
   {
@@ -46,11 +66,23 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/cat/cat_black_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/cat/ocelot"
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/cat/ocelot_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/chicken/chicken_temperate"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/chicken/chicken_temperate_baby"
   },
   {
    "type": "minecraft:single",
@@ -62,7 +94,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/cow/cow_temperate_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/cow/mooshroom_red"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/cow/mooshroom_red_baby"
   },
   {
    "type": "minecraft:single",
@@ -75,6 +115,10 @@
   {
    "type": "minecraft:single",
    "resource": "minecraft:entity/dolphin/dolphin"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/dolphin/dolphin_baby"
   },
   {
    "type": "minecraft:single",
@@ -110,6 +154,10 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/fox/fox_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/frog/frog_temperate"
   },
   {
@@ -122,7 +170,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/ghast/happy_ghast_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/goat/goat"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/goat/goat_baby"
   },
   {
    "type": "minecraft:single",
@@ -138,7 +194,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/hoglin/hoglin_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/hoglin/zoglin"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/hoglin/zoglin_baby"
   },
   {
    "type": "minecraft:single",
@@ -146,7 +210,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/horse/donkey_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/horse/horse_skeleton"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/horse/horse_skeleton_baby"
   },
   {
    "type": "minecraft:single",
@@ -154,11 +226,23 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/horse/horse_white_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/horse/horse_zombie"
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/horse/horse_zombie_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/horse/mule"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/horse/mule_baby"
   },
   {
    "type": "minecraft:single",
@@ -194,7 +278,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/llama/llama_creamy_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/nautilus/nautilus"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/nautilus/nautilus_baby"
   },
   {
    "type": "minecraft:single",
@@ -203,6 +295,10 @@
   {
    "type": "minecraft:single",
    "resource": "minecraft:entity/panda/panda"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/panda/panda_baby"
   },
   {
    "type": "minecraft:single",
@@ -218,7 +314,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/pig/pig_temperate_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/piglin/piglin"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/piglin/piglin_baby"
   },
   {
    "type": "minecraft:single",
@@ -230,11 +334,23 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/piglin/zombified_piglin_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/rabbit/rabbit_brown"
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/rabbit/rabbit_brown_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/sheep/sheep"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/sheep/sheep_baby"
   },
   {
    "type": "minecraft:single",
@@ -278,6 +394,10 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/sniffer/snifflet"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/snow_golem/snow_golem"
   },
   {
@@ -294,7 +414,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/squid/glow_squid_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/squid/squid"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/squid/squid_baby"
   },
   {
    "type": "minecraft:single",
@@ -302,7 +430,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/strider/strider_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/sulfur_cube/sulfur_cube_outer"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/sulfur_cube/sulfur_cube_outer_small"
   },
   {
    "type": "minecraft:single",
@@ -314,7 +450,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/turtle/turtle_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/villager/villager"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/villager/villager_baby"
   },
   {
    "type": "minecraft:single",
@@ -338,7 +482,15 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/wolf/wolf_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/zombie/drowned"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/zombie/drowned_baby"
   },
   {
    "type": "minecraft:single",
@@ -346,11 +498,23 @@
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/zombie/husk_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/zombie/zombie"
   },
   {
    "type": "minecraft:single",
+   "resource": "minecraft:entity/zombie/zombie_baby"
+  },
+  {
+   "type": "minecraft:single",
    "resource": "minecraft:entity/zombie_villager/zombie_villager"
+  },
+  {
+   "type": "minecraft:single",
+   "resource": "minecraft:entity/zombie_villager/zombie_villager_baby"
   },
   {
    "type": "minecraft:single",

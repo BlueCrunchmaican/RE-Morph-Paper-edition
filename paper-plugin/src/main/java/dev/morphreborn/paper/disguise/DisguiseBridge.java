@@ -244,7 +244,11 @@ public final class DisguiseBridge {
 				creeper.setPowered(flag(overlay, "powered", template instanceof org.bukkit.entity.Creeper c && c.isPowered()));
 			}
 			if (watcher instanceof SheepWatcher sheep) sheep.setSheared(flag(overlay, "Sheared", template instanceof Sheep s && s.isSheared()));
-			if (watcher instanceof BeeWatcher bee) bee.setHasStung(flag(overlay, "HasStung", template instanceof Bee b && b.hasStung()));
+			if (watcher instanceof BeeWatcher bee) {
+				bee.setHasStung(flag(overlay, "HasStung", template instanceof Bee b && b.hasStung()));
+				// angry (red eyes) until the game time given: an angry bee morph's is as far off as it goes
+				bee.setAngryUntil(overlay.get("anger_end_time") instanceof Number until ? until.longValue() : -1L);
+			}
 			if (watcher instanceof ArmadilloWatcher armadillo) armadillo.setState("scared".equals(overlay.get("state")) ? ArmadilloState.SCARED : ArmadilloState.IDLE);
 			if (watcher instanceof BatWatcher bat) bat.setHanging(flag(overlay, "BatFlags", false));
 			shake(watcher, flag(overlay, "MorphShaking", false));

@@ -209,8 +209,14 @@ public final class SkinEffects implements Listener {
 
 	// ------------------------------------------------------------------ models
 
-	private @Nullable Model model(MorphRef form) {
-		return models.get(form.isPlayer() || form.isSelf() ? "minecraft:player" : form.entityType());
+	private @Nullable Model model(Player owner, MorphRef form) {
+		if (form.isPlayer() || form.isSelf()) return models.get("minecraft:player");
+		// a baby's own boxes (26.3's babies have models of their own), where there are any
+		if (plugin.templates().get(form, owner.getWorld()) instanceof org.bukkit.entity.Ageable a && !a.isAdult()) {
+			Model baby = models.get(form.entityType() + "_baby");
+			if (baby != null) return baby;
+		}
+		return models.get(form.entityType());
 	}
 
 	/** How big {@code form} is drawn against the size its boxes were taken at (a baby, a big slime). */
@@ -279,7 +285,7 @@ public final class SkinEffects implements Listener {
 	}
 
 	private @Nullable Melt startMelt(Player player, MorphRef from, MorphRef to) {
-		Model a = model(from), b = model(to);
+		Model a = model(player, from), b = model(player, to);
 		if (a == null || b == null) return null;
 		Melt melt = new Melt(from, to);
 		float sa = sizeOf(player, from, a), sb = sizeOf(player, to, b);
@@ -393,7 +399,9 @@ public final class SkinEffects implements Listener {
 			}
 		} else if (a.age == COVERED) {
 			// the skin over the creature, which goes from the sight of those who see the skin
-			Model m = models.get(a.victim instanceof Player p ? modelKey(p) : a.victim.getType().getKey().toString());
+			String key = a.victim instanceof Player p ? modelKey(p) : a.victim.getType().getKey().toString();
+			Model m = a.victim instanceof org.bukkit.entity.Ageable young && !young.isAdult() && models.containsKey(key + "_baby") ? models.get(key + "_baby")
+					: models.get(key);
 			if (m != null) {
 				float size = m.height <= 0 ? 1F : (float) (a.victim.getHeight() / m.height);
 				Location at = a.victim.getLocation();

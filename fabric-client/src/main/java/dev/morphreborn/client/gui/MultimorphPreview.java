@@ -71,6 +71,11 @@ public final class MultimorphPreview {
 		if (body == null) return null;
 		EntityRenderState state = guiState(body, bodyRot, headYaw, partialTick);
 		LivingEntity lent = borrowed == null ? null : MorphClient.ENTITIES.forGui(borrowed);
+		// a baby body borrows from the borrowed creature's baby, where it has one (as in the world)
+		if (lent != null && body.isBaby() && !borrowed.isPlayer()) {
+			LivingEntity baby = MorphClient.ENTITIES.babyForGui(borrowed);
+			if (baby != null) lent = baby;
+		}
 		if (lent != null) HybridMorph.attach(Minecraft.getInstance().getEntityRenderDispatcher(), state, guiState(lent, bodyRot, headYaw, partialTick));
 		return state;
 	}

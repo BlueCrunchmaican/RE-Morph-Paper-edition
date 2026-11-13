@@ -64,9 +64,19 @@ public final class BorrowedHeads implements Listener {
 	 * and where its head meets its neck (the middle of the head's bottom, at the back) in the head model's blocks from
 	 * the pivot (item space: +y up, the face towards -z). Heads are lined up by that point, not by their pivots, which sit
 	 * in different places (a wolf's mid-head, a golem's at its chin): lining up pivots sank heads into bodies.
+	 * {@code model} names its pack models (head/wolf, part/wolf/tail); a baby's numbers ({@code baby}) are its own, from
+	 * its own model, under <mob>_baby (head/wolf_baby).
 	 */
-	private record Head(@Nullable Vector neck, double height, double scale, Vector anchor, Vector size, double @Nullable [][] torso,
-			double @Nullable [][] all, @Nullable Ears ears, List<Part> parts, boolean lendsHead) {}
+	private record Head(@Nullable Vector neck, double height, double scale, Vector anchor, Vector size, double @Nullable [][] crown,
+			@Nullable Frame frame, double @Nullable [][] torso, double @Nullable [][] all, @Nullable Ears ears, List<Part> parts, boolean lendsHead,
+			String model, boolean baby) {}
+
+	/**
+	 * A head tilted at rest (a horse's, 30 degrees): its turn (as a display's left rotation) and its big blocks' box in
+	 * its own frame (item space, model blocks from its pivot). Borrowed ears go on top of that box and turn with it, as
+	 * the client mod places them in the head's own frame.
+	 */
+	private record Frame(Quaternionf tilt, double[][] crown) {}
 
 	/**
 	 * An animal's ears: their box and the box of its head's big blocks without them (item space, blocks from the head's
@@ -88,8 +98,8 @@ public final class BorrowedHeads implements Listener {
 	 * model's 8 x 12 x 4 body at that size, its whole box the model with its arms and head.
 	 */
 	private static final Head PLAYER = new Head(new Vector(0, 1.40625, 0), 1.8, 0.9375, new Vector(0, -0.0312, 0.2812), new Vector(0.5625, 0.5625, 0.5625),
-			new double[][] {{-0.2344, 0.7031, -0.1172}, {0.2344, 1.4063, 0.1172}}, new double[][] {{-0.4688, 0, -0.2344}, {0.4688, 1.875, 0.2344}}, null,
-			List.of(), true);
+			null, null, new double[][] {{-0.2344, 0.7031, -0.1172}, {0.2344, 1.4063, 0.1172}}, new double[][] {{-0.4688, 0, -0.2344}, {0.4688, 1.875, 0.2344}}, null,
+			List.of(), true, "player", false);
 	/** Blocks borrowed ears reach into the head they go on (the client mod's EAR_SET_IN). */
 	private static final double EAR_SET_IN = 0.0625;
 	/** Blocks a borrowed tail is set into the body it joins (the client mod's Graft.SET_IN). */
@@ -193,6 +203,15 @@ public final class BorrowedHeads implements Listener {
 				Vector anchor = h.has("anchor") ? vector(h.getAsJsonArray("anchor")) : new Vector();
 				if (h.has("whole") && h.get("whole").getAsBoolean()) whole.add(e.getKey());
 				Vector size = h.has("size") ? vector(h.getAsJsonArray("size")) : new Vector();
+				double[][] crown = h.has("crown") ? box(h.getAsJsonArray("crown")) : null;
+				Frame frame = null;
+				if (h.has("frame")) {
+					// item space to the display's: the display draws its item turned half way round about y
+					JsonObject f = h.getAsJsonObject("frame");
+					JsonArray q = f.getAsJsonArray("tilt");
+					frame = new Frame(new Quaternionf(-q.get(0).getAsFloat(), q.get(1).getAsFloat(), -q.get(2).getAsFloat(), q.get(3).getAsFloat()).normalize(),
+							box(f.getAsJsonArray("crown")));
+				}
 				double[][] torso = h.has("torso") ? box(h.getAsJsonArray("torso")) : null;
 				double[][] all = h.has("all") ? box(h.getAsJsonArray("all")) : null;
 				Ears ears = null;
@@ -216,8 +235,9 @@ public final class BorrowedHeads implements Listener {
 					}
 				}
 				boolean lendsHead = !h.has("lendsHead") || h.get("lendsHead").getAsBoolean();
-				heads.put(e.getKey(), new Head(neck, h.get("height").getAsDouble(), h.get("scale").getAsDouble(), anchor, size, torso, all, ears,
-						List.copyOf(parts), lendsHead));
+				String key = e.getKey();
+				heads.put(key, new Head(neck, h.get("height").getAsDouble(), h.get("scale").getAsDouble(), anchor, size, crown, frame, torso, all, ears,
+						List.copyOf(parts), lendsHead, key.substring(key.indexOf(':') + 1), key.endsWith(BABY)));
 			}
 		} catch (Exception e) {
 			plugin.getLogger().log(Level.WARNING, "Could not read morph-heads.json; multimorph heads won't show to players without the mod.", e);
@@ -273,10 +293,28 @@ public final class BorrowedHeads implements Listener {
 	}
 
 	/** A body's numbers: the head table's, or a player's for player forms; null for a body with no neck in it (the dragon). */
-	private @Nullable Head body(MorphRef form) {
+	private @Nullable Head body(Player owner, MorphRef form) {
 		if (form.isPlayer()) return PLAYER;
-		Head head = heads.get(form.entityType());
+		Head head = headFor(owner, form, false);
 		return head == null || head.neck() == null ? null : head;
+	}
+
+	/** The table's key suffix for a creature's baby. */
+	private static final String BABY = "_baby";
+
+	/**
+	 * The numbers {@code form} is drawn by: its baby's when it is a baby, or when {@code young} (a baby body's borrowed
+	 * creature, drawn as its baby where it has one, as the client mod draws it); otherwise its own. 26.3 draws babies with
+	 * models of their own, in proportions of their own: a grown creature's numbers at half size put a borrowed head
+	 * beside a baby's and its parts at the wrong size.
+	 */
+	private @Nullable Head headFor(Player owner, MorphRef form, boolean young) {
+		if (form.isPlayer()) return null;
+		if (young || isBaby(owner, form)) {
+			Head baby = heads.get(form.entityType() + BABY);
+			if (baby != null) return baby;
+		}
+		return heads.get(form.entityType());
 	}
 
 	/** Ticks counted by {@link #tick}, which times the flaps. */
@@ -320,8 +358,8 @@ public final class BorrowedHeads implements Listener {
 			Player player = plugin.getServer().getPlayer(e.getKey());
 			MorphRef main = player == null ? null : plugin.morphs().activeForm(player);
 			MorphRef lent = e.getValue();
-			Head body = main == null ? null : body(main);
-			Head lentHead = lent.isPlayer() ? null : heads.get(lent.entityType());
+			Head body = main == null ? null : body(player, main);
+			Head lentHead = lent.isPlayer() || main == null ? null : headFor(player, lent, isBaby(player, main));
 			boolean show = !mode.equals("off") && player != null && !player.isDead() && main != null && !main.isSelf()
 					&& !plugin.morphs().isTransitioning(player) && body != null && (lentHead != null || skullType(lent) != null);
 			// a body that wears things on its head wears the borrowed skull, for every viewer without the mod (not a
@@ -343,11 +381,11 @@ public final class BorrowedHeads implements Listener {
 				continue;
 			}
 			Shown shown = displays.get(e.getKey());
-			Location neck = neck(player, main, body, isWhole(lent.entityType()));
+			Location neck = neck(player, main, body, isWhole(lent.entityType()), lentHead == null || lentHead.lendsHead());
 			List<Placed> partsAt = lentHead == null ? List.of() : partsAt(player, main, body, lent, lentHead);
 			if (shown == null || !shown.valid(player, partsAt.size())) {
 				removeDisplay(e.getKey());
-				displays.put(e.getKey(), spawn(player, main, body, lent, neck, partsAt, coverScale(player, main, body, lent)));
+				displays.put(e.getKey(), spawn(player, main, body, lent, lentHead, neck, partsAt, coverScale(player, main, body, lent, lentHead)));
 			} else {
 				shown.teleport(neck, partsAt);
 			}
@@ -357,23 +395,44 @@ public final class BorrowedHeads implements Listener {
 
 	/**
 	 * Where the borrowed head goes: where the main body's own head meets its neck, turned with the body; the head turned
-	 * as the player looks.
+	 * as the player looks. {@code head}: a head goes there (not ears), lifted out of the body's torso as the mod lifts it.
 	 */
-	private Location neck(Player player, MorphRef main, Head body, boolean centred) {
-		LivingEntity template = main.isPlayer() ? null : plugin.templates().get(main, player.getWorld());
-		double size = template == null || body.height() <= 0 ? 1.0 : template.getHeight() / body.height();
+	private Location neck(Player player, MorphRef main, Head body, boolean centred, boolean head) {
+		double size = sizeOf(player, main, body);
 		double yaw = Math.toRadians(drawnYaw(player, main));
 		// the pivot, then the body's own head's neck point from it (item space faces -z: the body's +z is its -z); a
-		// creature lent whole (a slime) stands on the middle of the head's bottom, not at its back, or it sat behind it
+		// creature lent whole (a slime) stands on the middle of the head's big blocks, not at its back, or it sat behind it
 		double s = body.scale() * size;
-		double back = centred ? body.anchor().getZ() - body.size().getZ() / 2.0 : body.anchor().getZ();
+		double back = body.anchor().getZ();
+		if (centred) back += body.crown() != null ? (body.crown()[0][2] + body.crown()[1][2]) / 2.0 : -body.size().getZ() / 2.0;
 		Vector n = body.neck().clone().multiply(size).add(new Vector(-body.anchor().getX() * s, body.anchor().getY() * s, -back * s));
+		// a head goes on a neck point out of the body's torso, as the client mod puts it (HybridMorph.outOfTorso): a
+		// camel's, a llama's, a pig's and a baby goat's heads meet their necks inside their chests, and a borrowed head
+		// set there sank into the body for players without the mod. Ears go on the head itself and aren't moved.
+		if (head && body.torso() != null && (main.isPlayer() || !isWhole(main.entityType()))) outOfTorso(n, scale(body.torso(), size));
 		double x = n.getX() * Math.cos(yaw) - n.getZ() * Math.sin(yaw);
 		double z = n.getX() * Math.sin(yaw) + n.getZ() * Math.cos(yaw);
 		Location at = player.getLocation().add(x, n.getY(), z);
 		at.setYaw(player.getLocation().getYaw());
 		at.setPitch(player.getLocation().getPitch());
 		return at;
+	}
+
+	/**
+	 * {@code n} (blocks from the feet, +z forward) moved out of {@code torso} (item space, the face towards -z) when it is
+	 * inside it: up to its top or forward to its front, whichever is nearer, as the client mod's outOfTorso. A tie (within
+	 * the numbers' rounding) goes up, as the mod's does: a baby goat's is one.
+	 */
+	private static void outOfTorso(Vector n, double[][] torso) {
+		double x = -n.getX(), y = n.getY(), z = -n.getZ();
+		double[] lo = torso[0], hi = torso[1];
+		double inside = 0.01;
+		if (x <= lo[0] + inside || x >= hi[0] - inside || y <= lo[1] + inside || y >= hi[1] - inside || z <= lo[2] + inside || z >= hi[2] - inside) {
+			return;
+		}
+		double up = hi[1] - y, forward = z - lo[2];
+		if (up <= forward + 1e-3) n.setY(hi[1]);
+		else n.setZ(-lo[2]);
 	}
 
 	/** The vanilla skull for {@code form}, or null when the game has none. */
@@ -386,33 +445,96 @@ public final class BorrowedHeads implements Listener {
 	 * How much bigger to draw a borrowed head than its real size so it covers the body's own head (players without the
 	 * mod always see the body's head; a smaller head would sit hidden inside it): at least 1.
 	 */
-	private double coverScale(Player owner, MorphRef main, Head body, MorphRef form) {
+	private double coverScale(Player owner, MorphRef main, Head body, MorphRef form, @Nullable Head lentHead) {
 		// a player's head (another player's form, or your own on a creature) covers the body's head too, or it hid in it
-		Head head = form.isPlayer() ? PLAYER : heads.get(form.entityType());
+		Head head = form.isPlayer() ? PLAYER : lentHead;
 		if (head == null || body.size().lengthSquared() == 0 || head.size().lengthSquared() == 0 || heads.get(main.entityType()) != null
 				&& isWhole(main.entityType())) {
 			return 1;
 		}
 		boolean whole = !form.isPlayer() && isWhole(form.entityType());
-		LivingEntity bodyTemplate = main.isPlayer() ? null : plugin.templates().get(main, owner.getWorld());
-		LivingEntity headTemplate = form.isPlayer() ? null : plugin.templates().get(form, owner.getWorld());
-		double bodySize = bodyTemplate == null || body.height() <= 0 ? 1.0 : bodyTemplate.getHeight() / body.height();
-		double headSize = headTemplate == null || head.height() <= 0 ? 1.0 : headTemplate.getHeight() / head.height();
+		double bodySize = sizeOf(owner, main, body), headSize = sizeOf(owner, form, head);
 		// what it takes to cover the body's head on every axis
-		double fit = 0, mainBig = 0, lentBig = 0;
+		double fit = 0;
 		for (int axis = 0; axis < 3; axis++) {
 			double main3 = component(body.size(), axis) * body.scale() * bodySize;
 			double lent3 = component(head.size(), axis) * head.scale() * headSize;
 			if (lent3 > 1e-3) fit = Math.max(fit, main3 / lent3 * 1.04);
-			mainBig = Math.max(mainBig, main3);
-			lentBig = Math.max(lentBig, lent3);
 		}
 		if (fit <= 0) return 1;
-		// a creature lent whole is a head, so it shrinks to the head it covers (a full-size ghast on a person); any other
-		// head much bigger than the body's (a giant's) is drawn at most BIG_HEAD times it, as the client mod does
-		if (whole) return fit;
-		if (mainBig > 1e-3 && lentBig > BIG_HEAD * mainBig) return BIG_HEAD * mainBig / lentBig;
-		return Math.max(1, fit);
+		// heads compared as the client mod compares them (HybridMorph.headSize): by their big blocks' box, not the
+		// longest side of everything on them. A llama's head is mostly neck, 18 pixels tall: by its longest side a baby
+		// llama's was more than BIG_HEAD times a baby goat's and was drawn at three quarters of its size, by its big
+		// blocks it isn't, and the mod draws it at its own
+		double sB = body.scale() * bodySize, sH = head.scale() * headSize;
+		double mainCore = coreSide(body) * sB, lentCore = coreSide(head) * sH;
+		if (mainCore <= 1e-3 || lentCore <= 1e-3) return whole ? fit : Math.max(1, fit);
+		// the size the client mod draws it at: a creature lent whole no bigger than the head it stands in for, any other
+		// head at most BIG_HEAD times the body's (a giant's), as it is
+		double mod = whole ? Math.min(1, mainCore / lentCore) : lentCore > BIG_HEAD * mainCore ? BIG_HEAD * mainCore / lentCore : 1;
+		if (!whole && lentCore > BIG_HEAD * mainCore) return mod;
+		// what it takes to hide the body's head: on every axis of the whole head, and (not for a creature lent whole,
+		// which sits on the middle of the head) its big blocks holding the body's from where both meet their necks: a
+		// zombie's face showed in front of a llama's neck, which is 6 pixels deep
+		double cover = whole ? fit : Math.max(fit, crownFit(crownOf(body, sB), crownOf(head, sH)));
+		// The user's call (7.5.0): covering is worth at most COVER_MAX times the mod's size; past it the body's head may
+		// show (a cow's head on a llama, a panda's on a camel were two to three times their size, to hide the long neck
+		// those heads hold). Unless at that size the head would still sit inside the body's on every side, where it would
+		// vanish (a baby turtle's on a cow; the wolf's in the iron golem's, why covering began): that one is covered fully.
+		// Not by size alone: a frog's head is small but flat and wide, and covering a zombie's grew it to three times.
+		if (holdLeast(crownOf(body, sB), crownOf(head, sH), whole) < COVER_MAX * mod) cover = Math.min(cover, COVER_MAX * mod);
+		return whole ? cover : Math.max(mod, cover);
+	}
+
+	/**
+	 * The least, over its sides, of how far {@code mine} reaches past {@code own}, both from where they meet their necks
+	 * (sideways each way, up and forward; for a head set on the middle of the other, {@code middle}, back too): drawn that
+	 * many times bigger, {@code own} would still sit inside {@code mine} on every side.
+	 */
+	private static double holdLeast(double[][] mine, double[][] own, boolean middle) {
+		if (middle) {
+			mine = centredFrontToBack(mine);
+			own = centredFrontToBack(own);
+		}
+		double least = Math.min(Math.min(ratio(mine[0][0], own[0][0]), ratio(mine[1][0], own[1][0])),
+				Math.min(ratio(mine[1][1], own[1][1]), ratio(mine[0][2], own[0][2])));
+		return middle ? Math.min(least, ratio(mine[1][2], own[1][2])) : least;
+	}
+
+	private static double[][] centredFrontToBack(double[][] box) {
+		double half = (box[1][2] - box[0][2]) / 2;
+		return new double[][] {{box[0][0], box[0][1], -half}, {box[1][0], box[1][1], half}};
+	}
+
+	/** Covering a body's head is worth at most this many times the size the mod draws a head at (the user's call). */
+	private static final double COVER_MAX = 1.5;
+
+	/** A head's big blocks (item space from where it meets its neck, the face towards -z), times {@code scale}. */
+	private static double[][] crownOf(Head h, double scale) {
+		if (h.crown() != null) return scale(h.crown(), scale);
+		double w = h.size().getX() * scale, ht = h.size().getY() * scale, d = h.size().getZ() * scale;
+		return new double[][] {{-w / 2, 0, -d}, {w / 2, ht, 0}};
+	}
+
+	/**
+	 * How much bigger {@code own} must be drawn to hold {@code mine}, both from where they meet their necks (the back of
+	 * their bottom, which the head display lines up): sideways each way, up and forward. 0 when it holds it already.
+	 */
+	private static double crownFit(double[][] mine, double[][] own) {
+		double fit = Math.max(Math.max(ratio(mine[0][0], own[0][0]), ratio(mine[1][0], own[1][0])),
+				Math.max(ratio(mine[1][1], own[1][1]), ratio(mine[0][2], own[0][2])));
+		return fit * 1.04;
+	}
+
+	private static double ratio(double mine, double own) {
+		return Math.abs(own) > 1e-4 && mine * own > 0 ? mine / own : 0;
+	}
+
+	/** A head's size as the client mod measures it (HybridMorph.headSize): its big blocks' box, as one side of a cube. */
+	private static double coreSide(Head h) {
+		double[][] c = h.crown();
+		double v = c != null ? (c[1][0] - c[0][0]) * (c[1][1] - c[0][1]) * (c[1][2] - c[0][2]) : h.size().getX() * h.size().getY() * h.size().getZ();
+		return Math.cbrt(Math.max(0, v));
 	}
 
 	private static double component(Vector v, int axis) {
@@ -426,24 +548,28 @@ public final class BorrowedHeads implements Listener {
 		return whole.contains(type);
 	}
 
-	private boolean hasBabies(Player owner, MorphRef form) {
-		return !form.isPlayer() && plugin.templates().get(form, owner.getWorld()) instanceof org.bukkit.entity.Ageable;
-	}
-
 	private boolean isBaby(Player owner, MorphRef form) {
 		if (form.isPlayer()) return false;
 		return plugin.templates().get(form, owner.getWorld()) instanceof org.bukkit.entity.Ageable a && !a.isAdult();
 	}
 
-	/** How big a form is drawn against the size its numbers were measured at (a baby, a big slime). */
+	/**
+	 * How big a form is drawn against the size its numbers were measured at (a big slime, a scaled mob). A grown creature
+	 * drawn by its baby's numbers (a baby body's borrowed creature) is its own scale against its grown height.
+	 */
 	private double sizeOf(Player owner, MorphRef form, Head head) {
 		LivingEntity template = form.isPlayer() ? null : plugin.templates().get(form, owner.getWorld());
-		return template == null || head.height() <= 0 ? 1.0 : template.getHeight() / head.height();
+		if (template == null || head.height() <= 0) return 1.0;
+		if (head.baby() && !(template instanceof org.bukkit.entity.Ageable a && !a.isAdult())) {
+			Head grown = heads.get(form.entityType());
+			return grown == null || grown.height() <= 0 ? 1.0 : template.getHeight() / grown.height();
+		}
+		return template.getHeight() / head.height();
 	}
 
-	/** An item showing one of the pack's models: {@code kind} "head" or "ears", for {@code form}'s mob. */
-	private static ItemStack packItem(String kind, MorphRef form) {
-		return packItem(kind + "/" + form.entityType().substring(form.entityType().indexOf(':') + 1));
+	/** An item showing one of the pack's models: {@code kind} "head" or "ears", for the creature {@code head} is. */
+	private static ItemStack packItem(String kind, Head head) {
+		return packItem(kind + "/" + head.model());
 	}
 
 	/** An item showing the pack's model {@code morphreborn:<path>}. */
@@ -461,13 +587,11 @@ public final class BorrowedHeads implements Listener {
 	 * an animal that lends its ears and tail, its ears; a creature that lends its parts instead of its head shows players
 	 * without the pack its skull, if the game has one (the dragon's), as before it lent its parts.
 	 */
-	private Shown spawn(Player owner, MorphRef main, Head body, MorphRef form, Location at, List<Placed> partsAt, double cover) {
-		Head head = form.isPlayer() ? null : heads.get(form.entityType());
+	private Shown spawn(Player owner, MorphRef main, Head body, MorphRef form, @Nullable Head head, Location at, List<Placed> partsAt, double cover) {
 		List<ItemDisplay> parts = new java.util.ArrayList<>();
-		String mob = form.entityType().substring(form.entityType().indexOf(':') + 1);
 		for (int i = 0; head != null && i < partsAt.size(); i++) {
 			Placed p = partsAt.get(i);
-			parts.add(display(owner, packItem("part/" + mob + "/" + head.parts().get(i).name()), p.at(), p.scale(), new Vector3f(), new Quaternionf(), FOR_PACK));
+			parts.add(display(owner, packItem("part/" + head.model() + "/" + head.parts().get(i).name()), p.at(), p.scale(), new Vector3f(), new Quaternionf(), FOR_PACK));
 		}
 		if (head != null && !head.lendsHead()) {
 			ItemDisplay ears = head.ears() == null ? null : ears(owner, main, body, form, head, at);
@@ -477,7 +601,7 @@ public final class BorrowedHeads implements Listener {
 		}
 		ItemDisplay pack = null;
 		if (head != null) {
-			pack = display(owner, packItem("head", form), at, (float) (head.scale() * sizeOf(owner, form, head) * cover), head.anchor(), false, FOR_PACK);
+			pack = display(owner, packItem("head", head), at, (float) (head.scale() * sizeOf(owner, form, head) * cover), head.anchor(), false, FOR_PACK);
 		}
 		ItemDisplay skull = null;
 		ItemStack skullItem = skullItem(form);
@@ -499,23 +623,39 @@ public final class BorrowedHeads implements Listener {
 		if (ea == null || (!main.isPlayer() && isWhole(main.entityType())) || body.size().lengthSquared() == 0) return null;
 		double sizeA = sizeOf(owner, form, head);
 		double sB = body.scale() * sizeOf(owner, main, body);
-		// the main head, item space from its neck point (the middle of its bottom, at the back; the face towards -z)
-		double wB = body.size().getX() * sB, hB = body.size().getY() * sB, dB = body.size().getZ() * sB;
+		// the main head's big blocks, item space from its neck point (the middle of its bottom, at the back; the face
+		// towards -z), as the client mod measures them: not its own ears, horns or snout (counted in, a wolf's own ears
+		// stood borrowed ones two pixels up and its snout pulled them forward)
+		double wS = body.size().getX() * sB, hS = body.size().getY() * sB, dS = body.size().getZ() * sB;
+		// a head tilted at rest (a horse's): measured in its own frame from its pivot, the ears turned with it below
+		Frame frame = body.frame();
+		double[][] mine = frame != null ? scale(frame.crown(), sB)
+				: body.crown() != null ? scale(body.crown(), sB) : new double[][] {{-wS / 2, 0, -dS}, {wS / 2, hS, 0}};
+		double wB = mine[1][0] - mine[0][0], top = mine[1][1];
+		double cx = (mine[0][0] + mine[1][0]) / 2, cz = (mine[0][2] + mine[1][2]) / 2;
 		double[][] core = scale(ea.core(), sizeA), box = scale(ea.box(), sizeA);
 		double wA = Math.max(0.01, core[1][0] - core[0][0]);
 		double k = Math.clamp(wB / wA, 0.5, 2); // an armadillo's at 2.5 were twice its head
-		// the borrowed head's top middle goes on the main head's top middle, (0, hB, -dB / 2)
+		// the borrowed head's top middle goes on the main head's top middle, (cx, top, cz)
 		double tx = (core[0][0] + core[1][0]) / 2, ty = core[1][1], tz = (core[0][2] + core[1][2]) / 2;
-		double middle = -dB / 2 + k * ((box[0][2] + box[1][2]) / 2 - tz);
-		double front = -dB + EAR_SET_IN, back = -EAR_SET_IN;
+		double middle = cz + k * ((box[0][2] + box[1][2]) / 2 - tz);
+		double front = mine[0][2] + EAR_SET_IN, back = mine[1][2] - EAR_SET_IN;
 		double dz = front < back ? Math.clamp(middle, front, back) - middle : 0;
-		double bottom = hB + k * (box[0][1] - ty);
+		double bottom = top + k * (box[0][1] - ty);
 		double sink = Math.max(EAR_SET_IN, k * (box[1][1] - box[0][1]) / 3);
-		double dy = hB - sink - bottom;
+		double dy = top - sink - bottom;
 		// where the ears model's origin (the borrowed head's pivot) goes, item space; the display shows it turned round
-		double ox = -k * tx, oy = hB - k * ty + dy, oz = -dB / 2 - k * tz + dz;
+		double ox = cx - k * tx, oy = top - k * ty + dy, oz = cz - k * tz + dz;
 		Vector3f shift = new Vector3f((float) -ox, (float) oy, (float) -oz);
-		return display(owner, packItem("ears", form), at, (float) (ea.scale() * sizeA * k), shift, new Quaternionf(), FOR_PACK);
+		Quaternionf turn = new Quaternionf();
+		if (frame != null) {
+			// from the tilted head's own frame: turned with it about its pivot, then from the pivot to where the head
+			// meets its neck, which is where the display sits
+			turn = new Quaternionf(frame.tilt());
+			turn.transform(shift);
+			shift.add((float) (body.anchor().getX() * sB), (float) (-body.anchor().getY() * sB), (float) (body.anchor().getZ() * sB));
+		}
+		return display(owner, packItem("ears", head), at, (float) (ea.scale() * sizeA * k), shift, turn, FOR_PACK);
 	}
 
 	/**
@@ -524,10 +664,8 @@ public final class BorrowedHeads implements Listener {
 	 */
 	private List<Placed> partsAt(Player player, MorphRef main, Head body, MorphRef lent, Head lentHead) {
 		if (lentHead.parts().isEmpty() || body.torso() == null || lentHead.torso() == null) return List.of();
+		// a baby body's borrowed creature comes with its baby's numbers, where it has babies (headFor), as with the mod
 		double sizeA = sizeOf(player, lent, lentHead), sizeM = sizeOf(player, main, body);
-		// a baby body borrows a baby's parts, as with the mod, which draws a borrowed creature that has babies as one (a
-		// wolf's tail, a chicken's wings; a phantom's and an allay's stay full size): half size
-		if (isBaby(player, main) && !isBaby(player, lent) && hasBabies(player, lent)) sizeA *= 0.5;
 		double[][] own = scale(lentHead.torso(), sizeA), mine = scale(body.torso(), sizeM);
 		double[][] ownAll = lentHead.all() == null ? own : scale(lentHead.all(), sizeA);
 		double[][] mineAll = body.all() == null ? mine : scale(body.all(), sizeM);
