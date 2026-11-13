@@ -126,6 +126,8 @@ public final class AbilityManager {
 	private final Map<UUID, Long> lastWaterTeleport = new HashMap<>();
 	/** Bees that have used their stinger, until they change form. */
 	private final Set<UUID> stung = new HashSet<>();
+	/** Angry bees (red eyes), until they calm down or change form: the ability key with nothing in reach, or a sting. */
+	private final Set<UUID> angry = new HashSet<>();
 	/** Creakings that can't move because someone is looking at them. */
 	private final Set<UUID> frozen = new HashSet<>();
 	private final NamespacedKey frozenKey;
@@ -544,6 +546,17 @@ public final class AbilityManager {
 		return form != null && form.entityType().equals("minecraft:creeper") && form.snbt().replace(" ", "").contains("powered:1b");
 	}
 
+	/**
+	 * A bee's look: its stinger gone once it has stung, red eyes while it is angry. Anger is a game time it lasts until;
+	 * this one lasts until the bee calms down or changes form.
+	 */
+	private void beeOverlay(Player p) {
+		List<String> tags = new ArrayList<>(2);
+		if (stung.contains(p.getUniqueId())) tags.add("HasStung:1b");
+		if (angry.contains(p.getUniqueId())) tags.add("anger_end_time:" + Long.MAX_VALUE + "L");
+		plugin.morphs().setOverlay(p, tags.isEmpty() ? "" : "{" + String.join(",", tags) + "}");
+	}
+
 	public void clearPassives(Player player) {
 		plugin.channel().sendTraits(player, 0);
 		UUID id = player.getUniqueId();
@@ -555,6 +568,7 @@ public final class AbilityManager {
 		setFrozen(player, false);
 		setLandSpeed(player, 1.0);
 		stung.remove(id);
+		angry.remove(id);
 		beaming.remove(id);
 		fishOnLand.remove(id);
 		dryTicks.remove(id);
@@ -2012,17 +2026,25 @@ public final class AbilityManager {
 					}
 				}
 				case "sting" -> {
+					Entity target = p.getTargetEntity(config.getInt("range", 3));
+					if (!(target instanceof LivingEntity victim)) {
+						// nothing in reach: get angry (an angry bee's red eyes), or calm down again
+						boolean now = !angry.remove(p.getUniqueId());
+						if (now) angry.add(p.getUniqueId());
+						beeOverlay(p);
+						p.sendActionBar(Component.text(now ? "You're angry." : "You calm down.", NamedTextColor.GRAY));
+						return true;
+					}
 					if (stung.contains(p.getUniqueId())) {
 						p.sendActionBar(Component.text("Your stinger is spent.", NamedTextColor.GRAY));
 						return false;
 					}
-					Entity target = p.getTargetEntity(config.getInt("range", 3));
-					if (!(target instanceof LivingEntity victim)) return false;
 					victim.damage(config.getDouble("damage", 2), p);
 					victim.addPotionEffect(new PotionEffect(PotionEffectType.POISON, config.getInt("poison-seconds", 10) * 20, 0));
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_BEE_STING, 1F, 1F);
 					stung.add(p.getUniqueId());
-					plugin.morphs().setOverlay(p, "{HasStung:1b}");
+					angry.add(p.getUniqueId()); // a bee that stings is an angry one
+					beeOverlay(p);
 					MorphRef bee = plugin.morphs().activeForm(p);
 					boolean mortal = p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE;
 					if (plugin.settings().beeStingKillsUser && stingDeathTicks > 0 && mortal) {

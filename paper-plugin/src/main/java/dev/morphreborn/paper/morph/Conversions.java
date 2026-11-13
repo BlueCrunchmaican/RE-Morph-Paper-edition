@@ -96,7 +96,12 @@ public final class Conversions implements Listener {
 		for (Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
 			MorphRef look = look(player);
 			if (look == null) {
-				watches.remove(player.getUniqueId());
+				Watch old = watches.remove(player.getUniqueId());
+				// multimorphs don't convert: a conversion under way when a form is borrowed stops, and so does its shake
+				// (a piglin that borrowed a form shook on for good and never zombified; the user saw it)
+				if (old != null && (old.converting >= 0 || old.outsideNether > 0) && !plugin.morphs().isTransitioning(player)) {
+					plugin.morphs().setOverlay(player, "");
+				}
 				continue;
 			}
 			Watch w = watches.get(player.getUniqueId());

@@ -32,7 +32,8 @@ Nobody is kicked for not having the mod.
   fins or rods, and gets both creatures' traits and abilities: a zombie with bat wings, a cow with a wolf's head, a
   ghast with a creeper's blast. Shift-pick in the selector or wheel (a preview panel shows the result), or
   `/morph combine`. In Survival it's an upgrade. Players without the mod see the borrowed head, ears, tail, wings, fins
-  or rods too, flapping (with the resource pack). See [docs/GUIDE.md](docs/GUIDE.md).
+  or rods too, flapping (with the resource pack). Babies borrow and lend as babies (7.5.0). See
+  [docs/GUIDE.md](docs/GUIDE.md).
 - **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
   becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
   outside the Nether, lightning turns a pig into a zombified piglin. Only that body changes; your saved morph doesn't.
@@ -61,7 +62,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.5.0 to 7.4.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.5.0 to 7.5.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 

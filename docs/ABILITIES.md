@@ -15,7 +15,7 @@ step height), see `attributes` in `config.yml`.
 | armadillo | - | Roll up |
 | axolotl | Water breathing; Fast swimmer; Dries out after 300s out of water | Play dead |
 | bat | Flight; No fall damage; night vision | Hang from ceilings |
-| bee | Flight; No fall damage; Berry-bush proof | Sting (dies afterwards) |
+| bee | Flight; No fall damage; Berry-bush proof | Sting (dies afterwards); with nothing in reach, get angry or calm down |
 | blaze | Flight; No fall damage; Fire immune; Hurt by water; Hurt by snowballs | Small fireball |
 | bogged | Water breathing; Burns in daylight; Undead (Healing hurts, Harming heals); hit: poison; immune: poison, regeneration | Shoot arrow |
 | breeze | No fall damage; Deflects projectiles; jump boost; Leap (sneak + jump) | Wind charge |

@@ -250,6 +250,72 @@ each "show when" trigger one by one (only the settings page and the vignette wer
 riders and the hoglin; the cave spider on webs (same code and list as the spider); the dolphin's 4-minute dry-out
 (only the number changed); the daily restock of trades.
 
+## 7.5.0 release (2026-11-13)
+
+- [x] The 7.5.0 jars are the tested 7.5.0-beta.1 code with only the version changed.
+- [x] `tools/compat_check.py` with the 7.5.0 client mod against the first 7 of the 16 released servers, 6.0.0 to 6.6.0: every one OK. Stopped there at the user's word (older versions aren't a concern for now); 6.6.1 to 7.4.0 not run.
+- [x] Unit tests 37/37.
+
+## 7.5.0-beta.1, babies in multimorphs, and the angry bee (2026-11-13)
+
+The same rig (VanillaViewer without the mod but with the pack, MorphTester1 with the mod, MorphTester2 the subject),
+the windows tiled; every multimorph shot from both viewers at the same spot (from behind for wings and tails, the side
+for ears and tails, the front for heads). Baby forms by `/morph force <player> <type> {Age:-24000}` (`{IsBaby:1b}` for
+zombies and piglins), babies lent by `/morph borrow <player> <type> {Age:-24000}`.
+
+- [x] The bug: a baby husk borrowing a wolf. Before: with the mod no ears and no tail; without the mod grown ears at
+      half size. Now both views show the baby wolf's ears on the husk's head and its tail at the small of the back.
+- [x] Baby bodies borrowing each kind of thing, both views alike: ears and tails (husk, cow, wolf, villager, fox and
+      panda bodies with wolf, fox, cat, horse and rabbit), wings with babies (chicken on husk and wolf: baby wings),
+      wings without babies (bat on husk and chicken, phantom on pig: grown wings), a stinger and wings (bee on horse),
+      heads with babies (cow, pig, sheep, villager, llama: the baby's head) and without (creeper on husk: the grown
+      head), on husk, cow, villager, goat and piglin bodies.
+- [x] Grown bodies borrowing babies: a husk with a baby wolf (the baby's ears and tail) and a baby cow (its head), a cow
+      with a baby chicken (baby wings). Both views alike.
+- [x] A baby husk turning into a baby cow: the skin melts from the baby husk's boxes into the baby cow's in both views.
+      A husk absorbing a baby cow: the skin covers it in the baby's shape in both views.
+- [x] The dump: 133 entries (90 as before, unchanged, and 43 babies); every baby lends what its grown creature lends
+      (ears and tails: armadillo, axolotl, camel, cat, donkey, fox, horse, mule, ocelot, rabbit, skeleton horse, wolf,
+      zombie horse; parts only: bee, chicken, dolphin). The grown creatures' pack models are unchanged.
+- [x] Found and fixed while comparing the views (not only babies): borrowed ears stood higher and further forward for
+      players without the mod on heads with ears or a snout (a wolf with a fox's ears); now on the head's big blocks,
+      as with the mod. With the mod, a villager's (always present, usually see-through) hat brim made ears on its head
+      twice their size and set them back, and pushed a borrowed villager head forward; brims are left out now. Wolf
+      with fox ears, villager with cat ears (grown and baby), a villager's head on a cow: both views alike.
+- [x] Bee, both views: the ability key with nothing in reach turns its eyes red, again turns them back; a sting (a
+      husk in reach) leaves it angry with no stinger; calming down keeps the stinger gone. In Survival the key needs
+      the Morph Abilities upgrade, as before.
+- [x] Unit tests 37/37.
+- [ ] Seen, not fixed (also on grown bodies): a creature's colour differs between the views when `/morph force` picks
+      no variant (a fox, a horse); with the mod, a burning body's fire covers a borrowed head.
+
+### Horse ears, the llama's head, neck points, the cover rule and the shake (7.5.0-beta.1, 2026-11-13)
+
+The same rig at midnight with night vision for both viewers (the user's suggestion: by day zombies burn and hide
+what they wear), `advance_time` off. The models dumped again (the ears in the head's own frame, tilted heads' turns).
+
+- [x] Horse ears lent: a zombie, a cow (a donkey's), a baby fox (a baby horse's): before, without the mod they leaned
+      with the horse's head; now upright in both views, a donkey's own lean the same in both.
+- [x] Ears on a tilted head: a horse with a fox's and a wolf's ears, a hoglin with a horse's and a fox's: both views
+      alike (the hoglin with a horse's ears was wrong without the mod; the user saw it). A fox's ears on a hoglin sit
+      partway down its long, steep snout in both: the mod puts ears at the share of the head's depth they have on their
+      own head.
+- [x] Heads with turned parts, measured as drawn: a hoglin's head on a zombie, a piglin's on a cow, a cow's on a
+      piglin, a piglin with a wolf's ears: both views alike.
+- [x] Neck points: a baby llama's head on a baby goat sat 2 to 3 pixels lower without the mod (the mod lifts a neck
+      point out of the torso); now the same place. A sheep with a zombie's head was a tie the mod had decided forward
+      by its floats; ties go up in both now.
+- [x] The cover rule (the user's call, at most 1.5 times the mod's size): before, a panda's head on a camel and a
+      cow's on a llama or a goat were 2.3 to 2.4 times their size without the mod, and a zombie's face showed in front of
+      a llama's neck and through a cow's face. Now 1.5 times, the zombie's face hidden; the camel's, llama's and goat's
+      own heads show above. A frog's head on a zombie (small but flat and wide) was drawn three times its size by a first
+      try at exempting small heads from the cap; the exemption is now only for a head that would sit inside the body's
+      on every side at 1.5 times.
+- [x] A piglin away from the Nether shakes and is told it is zombifying (`morph info`: look `{MorphShaking:1b}`);
+      borrowing a wolf then cleared the look, which is what both views shake by (checked over RCON, not watched).
+      Before, it stayed and the body shook for good.
+- [x] Unit tests 37/37.
+
 ## 7.4.0 release (2026-11-12)
 
 - [x] The 7.4.0 jars are the tested 7.4.0-beta.1 code with only the version changed.

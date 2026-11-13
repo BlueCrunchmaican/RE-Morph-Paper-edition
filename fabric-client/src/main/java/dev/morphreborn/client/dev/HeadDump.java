@@ -9,6 +9,7 @@ import dev.morphreborn.client.MorphClient;
 import dev.morphreborn.client.mixin.EnderDragonRendererAccessor;
 import dev.morphreborn.client.mixin.LivingEntityRendererInvoker;
 import dev.morphreborn.client.mixin.ModelPartAccessor;
+import dev.morphreborn.client.morph.MorphEntities;
 import dev.morphreborn.client.render.HybridMorph;
 import dev.morphreborn.client.render.ModelCapture;
 import java.io.IOException;
@@ -77,10 +78,18 @@ public final class HeadDump {
 		for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
 			String id = BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
 			try {
-				JsonObject head = dump(mc, type);
+				JsonObject head = dump(mc, type, false);
 				if (head != null) out.add(id, head);
 			} catch (RuntimeException e) {
 				skipped.add(id + " (" + e + ")");
+			}
+			// its baby, where it has one: 26.3 draws babies with models and textures of their own, in proportions of
+			// their own (a baby wolf's head is big for its body), so they are measured as they are, under <id>_baby
+			try {
+				JsonObject baby = dump(mc, type, true);
+				if (baby != null) out.add(id + "_baby", baby);
+			} catch (RuntimeException e) {
+				skipped.add(id + "_baby (" + e + ")");
 			}
 		}
 		// the player's model (player forms, and your own body), as the morph-skin boxes only
@@ -101,12 +110,13 @@ public final class HeadDump {
 	}
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static @Nullable JsonObject dump(Minecraft mc, EntityType<?> type) {
+	private static @Nullable JsonObject dump(Minecraft mc, EntityType<?> type, boolean baby) {
 		Entity entity = type.create(mc.level, new EntitySpawnRequest(EntitySpawnReason.LOAD, true));
 		if (!(entity instanceof LivingEntity living) || entity instanceof Player) return null;
+		if (baby && !MorphEntities.makeBaby(living)) return null; // a parrot or a frog never is one
 		entity.setId(-1_000_000 - nextId++); // renderers read the id; far below anything the server hands out
 		EntityRenderer<?, ?> renderer = mc.getEntityRenderDispatcher().getRenderer(entity);
-		if (renderer instanceof EnderDragonRenderer dragon) return dragon(dragon, entity);
+		if (renderer instanceof EnderDragonRenderer dragon) return baby ? null : dragon(dragon, entity);
 		if (!(renderer instanceof LivingEntityRenderer lr)) return null;
 		LivingEntityRenderState state = (LivingEntityRenderState) lr.createRenderState(living, 1F);
 		state.bodyRot = 0F;
@@ -182,6 +192,20 @@ public final class HeadDump {
 			collect(path.getLast(), pose, pivot, rendererScale * state.scale, elements, measure);
 		}
 		if (elements.isEmpty()) return null;
+		// the ears again, in the head's own frame, as the client mod measures and places them (HybridMorph.placeEars): a
+		// horse's head is tilted 30 degrees at rest, and its ears written as they sit on it leaned back on the head they
+		// went on
+		Measure upright = new Measure(measure.ears);
+		JsonArray uprightElements = new JsonArray();
+		if (!measure.ears.isEmpty()) {
+			Matrix4f straight = new Matrix4f(base.last().pose()).mul(untilt(headPath));
+			for (List<ModelPart> path : heads) {
+				PoseStack pose = new PoseStack();
+				pose.last().pose().set(straight);
+				for (int i = 0; i < path.size() - 1; i++) path.get(i).translateAndRotate(pose);
+				collect(path.getLast(), pose, pivot, rendererScale * state.scale, uprightElements, upright);
+			}
+		}
 
 		JsonObject head = new JsonObject();
 		Identifier texture = lr.getTextureLocation(state);
@@ -191,6 +215,13 @@ public final class HeadDump {
 		head.addProperty("texture", texture.getNamespace() + ":" + path);
 		head.addProperty("scale", round(rendererScale));
 		head.add("neck", vec(neck.x, neck.y, neck.z));
+		// a head tilted at rest (a horse's): its turn in item space, so borrowed ears can go on it as the mod puts them
+		org.joml.Quaternionf tilt = whole ? null : tilt(headPath, base);
+		if (tilt != null) {
+			JsonArray q = new JsonArray();
+			for (float v : new float[] {tilt.x, tilt.y, tilt.z, tilt.w}) q.add(round(v));
+			head.add("tilt", q);
+		}
 		if (whole) head.addProperty("whole", true);
 		Vec3 passenger = entity.getAttachments().get(EntityAttachment.PASSENGER, 0, 0F);
 		head.add("passenger", vec((float) passenger.x, (float) passenger.y, (float) passenger.z));
@@ -239,10 +270,14 @@ public final class HeadDump {
 		for (var p : parts) hasTail |= p.getAsJsonObject().get("kind").getAsString().equals("tail");
 		boolean earsAndTail = hasTail && !measure.ears.isEmpty() && measure.earLo[0] <= measure.earHi[0];
 		if (earsAndTail) {
-			// item pixels, as the elements: the ears' box, and the box of the head's big blocks without them
+			// item pixels, in the head's own frame: the ears' box, the box of the head's big blocks without them, and the
+			// ears as elements
 			JsonObject ears = new JsonObject();
-			ears.add("box", box(new float[][] {measure.earLo, measure.earHi}));
-			ears.add("core", box(measure.core()));
+			ears.add("box", box(new float[][] {upright.earLo, upright.earHi}));
+			ears.add("core", box(upright.core()));
+			JsonArray earElements = new JsonArray();
+			for (var e : uprightElements) if (e.getAsJsonObject().has("ear")) earElements.add(e);
+			ears.add("elements", earElements);
 			head.add("ears", ears);
 		}
 		// as the client mod decides (HybridMorph.attach): a pufferfish is its puffed body, not its fins
@@ -585,6 +620,32 @@ public final class HeadDump {
 		out.add(vec(b[0][0], b[0][1], b[0][2]));
 		out.add(vec(b[1][0], b[1][1], b[1][2]));
 		return out;
+	}
+
+	/**
+	 * Model space: the turn that stands a head up in its own frame, about its pivot (the inverse of the turn its parts
+	 * give it at rest). Nothing for most heads; a horse's is tilted 30 degrees.
+	 */
+	private static Matrix4f untilt(List<ModelPart> headPath) {
+		PoseStack frame = new PoseStack();
+		for (ModelPart part : headPath) part.translateAndRotate(frame);
+		Matrix4f head = frame.last().pose();
+		Vector3f pivot = head.getTranslation(new Vector3f());
+		Matrix4f turn = new Matrix4f(head).setTranslation(0F, 0F, 0F).normalize3x3().invert();
+		return new Matrix4f().translation(pivot).mul(turn).translate(-pivot.x, -pivot.y, -pivot.z);
+	}
+
+	/**
+	 * The turn a head's parts give it at rest, in item space (+y up, the face towards -z), or null when it is upright
+	 * (within half a degree).
+	 */
+	private static org.joml.@Nullable Quaternionf tilt(List<ModelPart> headPath, PoseStack base) {
+		Matrix3f turn = new Matrix3f(untilt(headPath)).invert();
+		Matrix3f body = new Matrix3f(base.last().pose());
+		Matrix3f toItem = new Matrix3f().rotationY((float) Math.PI);
+		Matrix3f inItem = new Matrix3f(toItem).mul(body).mul(turn).mul(new Matrix3f(body).invert()).mul(new Matrix3f(toItem).invert());
+		org.joml.Quaternionf q = inItem.getNormalizedRotation(new org.joml.Quaternionf());
+		return Math.abs(q.w) > Math.cos(Math.toRadians(0.25)) ? null : q;
 	}
 
 	/** Boxes measured while collecting, in item pixels: the ears', every cube's, and each other cube's with its volume. */

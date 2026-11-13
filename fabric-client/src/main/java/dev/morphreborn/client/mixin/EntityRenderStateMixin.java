@@ -17,6 +17,8 @@ public abstract class EntityRenderStateMixin implements FirstPersonMorph.Mark, d
 	private @org.jspecify.annotations.Nullable EntityRenderState morph$borrowed;
 	@Unique
 	private boolean morph$hideHead;
+	@Unique
+	private boolean morph$lendsEars;
 
 	@Override
 	public @org.jspecify.annotations.Nullable EntityRenderState morph$borrowed() {
@@ -36,6 +38,16 @@ public abstract class EntityRenderStateMixin implements FirstPersonMorph.Mark, d
 	@Override
 	public void morph$setHideHead(boolean hide) {
 		this.morph$hideHead = hide;
+	}
+
+	@Override
+	public boolean morph$lendsEars() {
+		return this.morph$lendsEars;
+	}
+
+	@Override
+	public void morph$setLendsEars(boolean ears) {
+		this.morph$lendsEars = ears;
 	}
 
 	@Override

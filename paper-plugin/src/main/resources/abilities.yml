@@ -421,7 +421,8 @@ active:
     cooldown-seconds: 30
     seconds: 8
   # Sting what is in front of you (poison). A bee only has one sting: afterwards it dies, like a real bee
-  # (world-effects.bee-sting-kills-user in config.yml).
+  # (world-effects.bee-sting-kills-user in config.yml). With nothing in reach, the key makes the bee angry (red eyes)
+  # or calms it down again; a sting makes it angry too.
   sting:
     types: [bee]
     cooldown-seconds: 1

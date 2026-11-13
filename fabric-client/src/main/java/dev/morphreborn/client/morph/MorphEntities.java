@@ -30,6 +30,7 @@ import net.minecraft.world.entity.EntitySpawnRequest;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.hoglin.Hoglin;
 import net.minecraft.world.entity.monster.piglin.AbstractPiglin;
 import net.minecraft.world.entity.player.PlayerModelPart;
@@ -63,13 +64,53 @@ public final class MorphEntities {
 		return gui.computeIfAbsent(ref.appearanceKey(), k -> create(lvl, ref));
 	}
 
+	/**
+	 * A baby of {@code ref}'s creature, for {@code owner}'s baby body to borrow its head or parts from; null for a creature
+	 * that has no babies (a parrot, a phantom). 26.3 draws babies with models and textures of their own, chosen as their
+	 * state is extracted (a wolf's texture), so a grown creature's state can't just be marked as a baby's.
+	 */
+	public @Nullable LivingEntity babyForWorld(UUID owner, MorphRef ref) {
+		ClientLevel lvl = currentLevel();
+		if (lvl == null) return null;
+		return babyOrNull(world.computeIfAbsent(owner, k -> new HashMap<>()).computeIfAbsent(ref.appearanceKey() + BABY, k -> createBaby(lvl, ref)));
+	}
+
+	/** {@link #babyForWorld} for selector previews. */
+	public @Nullable LivingEntity babyForGui(MorphRef ref) {
+		ClientLevel lvl = currentLevel();
+		if (lvl == null) return null;
+		return babyOrNull(gui.computeIfAbsent(ref.appearanceKey() + BABY, k -> createBaby(lvl, ref)));
+	}
+
+	/** Key suffix for the baby instances. */
+	private static final String BABY = "#baby";
+
+	private LivingEntity createBaby(ClientLevel level, MorphRef ref) {
+		LivingEntity created = create(level, ref);
+		makeBaby(created); // kept either way: a creature without babies is asked once, not every frame
+		return created;
+	}
+
+	private static @Nullable LivingEntity babyOrNull(LivingEntity entity) {
+		return entity.isBaby() ? entity : null;
+	}
+
+	/** Makes {@code living} a baby, if its kind has babies; returns whether it is one. */
+	public static boolean makeBaby(LivingEntity living) {
+		if (living.isBaby()) return true;
+		if (living instanceof Mob mob) mob.setBaby(true);
+		if (!living.isBaby()) return false;
+		living.refreshDimensions();
+		return true;
+	}
+
 	/** Drop instances for appearances a player no longer uses. */
 	public void retain(UUID owner, @Nullable MorphRef... keep) {
 		Map<String, LivingEntity> map = world.get(owner);
 		if (map == null) return;
 		map.keySet().removeIf(k -> {
 			for (MorphRef ref : keep) {
-				if (ref != null && k.equals(ref.appearanceKey())) return false;
+				if (ref != null && (k.equals(ref.appearanceKey()) || k.equals(ref.appearanceKey() + BABY))) return false;
 			}
 			return true;
 		});

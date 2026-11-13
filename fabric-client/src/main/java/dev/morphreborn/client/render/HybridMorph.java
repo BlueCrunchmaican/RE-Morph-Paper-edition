@@ -65,6 +65,11 @@ public final class HybridMorph {
 		boolean morph$hideHead();
 
 		void morph$setHideHead(boolean hide);
+
+		/** The borrowed form lends its ears (and tail) instead of its head (see {@link #EARS_AND_TAIL}). */
+		boolean morph$lendsEars();
+
+		void morph$setLendsEars(boolean ears);
 	}
 
 	private record Cube(Matrix4f pose, Matrix3f normal, ModelPart.Cube cube) {}
@@ -97,18 +102,25 @@ public final class HybridMorph {
 	 */
 	private static final Map<ModelPart, Boolean> EARS_AND_TAIL = new java.util.WeakHashMap<>();
 
-	/** Extraction: {@code main} is drawn with {@code borrowed}'s head and parts, or only its parts, on it. */
+	/**
+	 * Extraction: {@code main} is drawn with {@code borrowed}'s head and parts, or only its parts, on it. A baby body is
+	 * handed the borrowed creature's baby, where it has one (MorphWorldRenderer.borrow): 26.3's babies have models and
+	 * textures of their own, picked as the state is extracted.
+	 */
 	public static void attach(EntityRenderDispatcher dispatcher, EntityRenderState main, EntityRenderState borrowed) {
 		if (rootOf(dispatcher, main) == null) return;
-		ModelPart lent = rootOf(dispatcher, borrowed);
-		if (lent == null) return;
+		// What a creature lends (its head, its ears and tail, or its parts) is decided on its grown model, so a baby lends
+		// what a grown one does, as the plugin shows it to players without the mod. (Cached on the grown model and looked up
+		// on the baby's, the decision was lost: a baby body borrowing a wolf had no ears.)
+		LivingEntityRenderState young = borrowed instanceof LivingEntityRenderState b && b.isBaby ? b : null;
+		if (young != null) young.isBaby = false;
+		ModelPart grown = rootOf(dispatcher, borrowed);
+		boolean earsAndTail = grown != null && EARS_AND_TAIL.computeIfAbsent(grown, k -> lendsEarsAndTail(dispatcher, borrowed));
+		boolean definingParts = grown != null && PARTS_ONLY.computeIfAbsent(grown, HybridMorph::hasDefiningParts);
+		if (young != null) young.isBaby = true;
+		if (grown == null || rootOf(dispatcher, borrowed) == null) return;
 		if (borrowed instanceof PhantomRenderState phantom) phantom.flapTime *= PHANTOM_FLAP_SPEED; // extracted afresh every frame
 		if (borrowed instanceof EnderDragonRenderState dragon) dragon.flapTime *= DRAGON_FLAP_SPEED;
-		// a baby body borrows a baby's head and parts (the borrowed creature's baby model, where it has one)
-		if (main instanceof LivingEntityRenderState m && m.isBaby && borrowed instanceof LivingEntityRenderState b && !b.isBaby) {
-			b.isBaby = true;
-			b.ageScale = m.ageScale;
-		}
 		// its head at rest: the body's look turns the borrowed head (place), once. Posed with the player's look of its
 		// own as well, it turned and nodded twice as far, and the paper doll's level head modes left it looking up.
 		if (borrowed instanceof LivingEntityRenderState b) {
@@ -117,10 +129,9 @@ public final class HybridMorph {
 		}
 		((Mark) main).morph$setBorrowed(borrowed);
 		// a pufferfish is its puffed body, not its fins (too small to see): it lends itself whole
-		boolean earsAndTail = EARS_AND_TAIL.computeIfAbsent(lent, k -> lendsEarsAndTail(dispatcher, borrowed));
-		boolean partsOnly = borrowed.entityType != net.minecraft.world.entity.EntityTypes.PUFFERFISH
-				&& (earsAndTail || PARTS_ONLY.computeIfAbsent(lent, HybridMorph::hasDefiningParts));
+		boolean partsOnly = borrowed.entityType != net.minecraft.world.entity.EntityTypes.PUFFERFISH && (earsAndTail || definingParts);
 		((Mark) main).morph$setHideHead(!partsOnly);
+		((Mark) main).morph$setLendsEars(earsAndTail);
 	}
 
 	/**
@@ -432,7 +443,7 @@ public final class HybridMorph {
 			}
 		}
 		// ears on the main head (not in First-person Model's body view, where the head is the camera)
-		if (!headSwap && withHead && Boolean.TRUE.equals(EARS_AND_TAIL.get(lent.root()))) placeEars(lent, main, placed);
+		if (!headSwap && withHead && mark.morph$lendsEars()) placeEars(lent, main, placed);
 		// the parts; a whole body lent as a head (a slime) has none to give
 		if (mainTorso != null && (!headSwap || headPath(lent.root()) != null)) {
 			float[][] ownTorso = torso(lent.root(), local(lent.base(), lent.unturn()));
@@ -586,7 +597,16 @@ public final class HybridMorph {
 		if (neck.x <= lo[0] + inside || neck.x >= hi[0] - inside || neck.y <= lo[1] + inside || neck.y >= hi[1] - inside
 				|| neck.z <= lo[2] + inside || neck.z >= hi[2] - inside) return neck;
 		float up = neck.y - lo[1], forward = neck.z - lo[2];
-		return up <= forward ? new Vector3f(neck.x, lo[1], neck.z) : new Vector3f(neck.x, neck.y, lo[2]);
+		// a tie goes up, whatever the floats' last digits say: a sheep's and a baby goat's are ties, and the plugin, which
+		// works from rounded numbers, could only guess which way each had gone (tools/gen_head_pack.py, BorrowedHeads)
+		return up <= forward + 1e-3F ? new Vector3f(neck.x, lo[1], neck.z) : new Vector3f(neck.x, neck.y, lo[2]);
+	}
+
+	/** A hat's brim: a flat sheet (under 1.5 pixels thick) at least 12 pixels across both ways, in the head's frame. */
+	private static boolean brim(Cube c, Matrix4f inverse) {
+		float[][] box = cubeBox(c, inverse);
+		float x = box[1][0] - box[0][0], y = box[1][1] - box[0][1], z = box[1][2] - box[0][2];
+		return y < 1.5F / 16F && Math.min(x, z) >= 12F / 16F;
 	}
 
 	/** A head's size: the cube root of its core box's volume. */
@@ -601,11 +621,16 @@ public final class HybridMorph {
 		float[] lo = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE};
 		float[] hi = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
 		// only the head's big blocks: a guardian's spikes, a goat's beard and a ghast's tentacles hang below the head
-		// and would leave it floating over the neck
+		// and would leave it floating over the neck. Not a hat's brim either: every villager's head has one (drawn only
+		// under a profession's hat, which a borrowed head never wears), and it made the head 16 pixels deep, so a
+		// villager's head sat forward of its neck and ears on it were twice their size (tools/gen_head_pack.py leaves
+		// brims out for players without the mod the same way)
 		float biggest = 0;
-		for (Cube c : cubes) biggest = Math.max(biggest, volume(c.cube()));
 		for (Cube c : cubes) {
-			if (volume(c.cube()) < biggest * 0.25F) continue;
+			if (!brim(c, inverse)) biggest = Math.max(biggest, volume(c.cube()));
+		}
+		for (Cube c : cubes) {
+			if (volume(c.cube()) < biggest * 0.25F || brim(c, inverse)) continue;
 			Matrix4f toLocal = new Matrix4f(inverse).mul(c.pose());
 			for (ModelPart.Polygon polygon : c.cube().polygons) {
 				for (ModelPart.Vertex v : polygon.vertices()) {
