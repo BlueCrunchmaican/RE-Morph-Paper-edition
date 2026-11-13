@@ -123,6 +123,8 @@ horse ears. Built as 7.5.0-beta.1 and released as 7.5.0; results in [TESTING.md]
       Nether shakes, and borrowing a form then stopped the conversion (multimorphs don't convert) but not the shake. It
       stops with it now, as does any conversion under way when a form is borrowed.
 - [x] compat_check: the 7.5.0 client mod against the first 7 of the 16 released servers, 6.0.0 to 6.6.0: every one OK. Stopped there at the user's word (older versions aren't a concern for now); 6.6.1 to 7.4.0 not run.
+- [x] Released 2026-11-13: tag `v7.5.0`, GitHub release `RE:Morph 7.5.0` (with the 7.5.0 resource pack), Modrinth
+      `7.5.0+paper` / `7.5.0+fabric`. The Modrinth project description is unchanged (docs/MODRINTH.md as of 7.4.0).
 - [ ] Left for later (the user: fine for now): a creature's colour differs between the views when `/morph force` picks
       no variant (a fox, a horse).
 
