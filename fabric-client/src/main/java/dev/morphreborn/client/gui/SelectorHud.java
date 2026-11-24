@@ -4,10 +4,13 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.morphreborn.client.ClientConfig;
 import dev.morphreborn.client.Keys;
 import dev.morphreborn.client.MorphClient;
+import dev.morphreborn.client.arm.gui.ArmWheel;
+import dev.morphreborn.client.arm.gui.WheelLayout;
 import dev.morphreborn.client.data.Collection;
 import dev.morphreborn.client.data.MorphState;
 import dev.morphreborn.client.net.ClientNet;
 import dev.morphreborn.client.net.MorphRef;
+import dev.morphreborn.client.tips.Tagged;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.ChatFormatting;
@@ -82,7 +85,9 @@ public final class SelectorHud {
 	/** Survival Mode: say why the selector doesn't open, and where to go. */
 	private static void cantMorphYet() {
 		net.minecraft.network.chat.MutableComponent message;
-		if (!ClientNet.biomassUnlocked()) message = Component.translatable("morphreborn.message.unlock_biomass");
+		// that it can't morph yet and what is missing is the state; where to go and how to unlock it are tips (the Tooltips setting)
+		if (!TipUi.on()) message = Component.translatable(!ClientNet.biomassUnlocked() ? "morphreborn.message.unlock_biomass_short" : "morphreborn.message.buy_morph_ability_short");
+		else if (!ClientNet.biomassUnlocked()) message = Component.translatable("morphreborn.message.unlock_biomass");
 		else if (Keys.BIOMASS.isUnbound()) message = Component.translatable("morphreborn.message.buy_morph_ability_no_key");
 		else message = Component.translatable("morphreborn.message.buy_morph_ability", Keys.BIOMASS.getTranslatedKeyMessage());
 		ClientNet.message(message.withStyle(ChatFormatting.GRAY));
@@ -140,6 +145,7 @@ public final class SelectorHud {
 	}
 
 	private void onSelectorKey(boolean down, boolean horizontal) {
+		if (!showSelector && ArmWheel.INSTANCE.isOpen()) return; // one wheel at a time: the Arsenal's is up
 		if (!canUseSelector()) {
 			if (!ClientNet.isActive()) ClientNet.warnInactive();
 			else if (ClientNet.isSurvival() && !ClientNet.survivalCanMorph()) cantMorphYet();
@@ -161,6 +167,7 @@ public final class SelectorHud {
 	}
 
 	private void onFavouriteKey(boolean released) {
+		if (!released && !showRadial && ArmWheel.INSTANCE.isOpen()) return; // one wheel at a time: the Arsenal's is up
 		if (!canUseSelector() && !survivalWheel()) return;
 		if (showSelector) {
 			if (released) toggleFavourite();
@@ -219,8 +226,9 @@ public final class SelectorHud {
 		keyRightDown = right;
 	}
 
-	/** Mouse buttons while the selector/radial is open. Returns true to swallow the click. */
+	/** Mouse buttons while the selector/radial (or the Arsenal wheel, asked first) is open. Returns true to swallow the click. */
 	public boolean onMouseButton(int button, boolean pressed) {
+		if (ArmWheel.INSTANCE.onMouseButton(button, pressed)) return true;
 		if (!ClientConfig.INSTANCE.selectorAllowMouseControl || mc.gui.screen() != null || !pressed) return false;
 		// A side button bound to a selector key (players often put [ and ] on mouse buttons 4 and 5) must reach its key
 		// binding, or the selector opens and then never moves.
@@ -249,6 +257,7 @@ public final class SelectorHud {
 	}
 
 	public boolean onMouseScroll(double delta) {
+		if (ArmWheel.INSTANCE.onMouseScroll(delta)) return true;
 		if (!ClientConfig.INSTANCE.selectorAllowMouseControl || !showSelector || mc.gui.screen() != null || delta == 0) return false;
 		boolean down = ClientConfig.INSTANCE.invertScroll ? delta > 0 : delta < 0;
 		shiftIndexSelector(down, Keys.shiftDown());
@@ -526,9 +535,9 @@ public final class SelectorHud {
 				double rx = at[0] == indexVert ? posX + (at[1] - indexHoriProg) * size : posX;
 				double ry = at[0] == indexVert ? top : stackTop + at[0] * size;
 				tile(g, TEX_SELECTED, rx, ry, size, pulseRed(partialTick)); // the whole tile, tinted red
-				tendrilFrame(g, rx, ry, size, (mc.player == null ? 0 : mc.player.tickCount) + partialTick);
+				Tendrils.frame(g, rx, ry, size, (mc.player == null ? 0 : mc.player.tickCount) + partialTick);
 			}
-			multimorphPanel(g, entities, overlays, screenW - PANEL_W - 8, top, selectedVariant(), partialTick);
+			multimorphPanel(g, entities, overlays, top, selectedVariant(), partialTick);
 		}
 		int first = Math.max(0, indexVert - ((int) Math.ceil(top / size) + 1));
 		int last = Math.min(rows.size(), indexVert + ((int) Math.ceil((screenH - top) / size) + 1));
@@ -612,11 +621,15 @@ public final class SelectorHud {
 		Font font = mc.font;
 		int screenW = g.guiWidth();
 		int screenH = g.guiHeight();
-		double diameter = Math.min(screenW, screenH) * ClientConfig.INSTANCE.radialScale;
-		double radius = diameter / 2D;
+		double radius = radialRadius();
 		float radialProg = MorphState.sineify(Mth.clamp((radialTime + partialTick) / RADIAL_TIME, 0F, 1F));
 		double radialDist = radius * radialProg;
-		float textScale = (float) radius / 96.375F;
+		float textScale = (float) radius / WheelLayout.BASE_RADIUS;
+		// text is drawn at whole device texels per font pixel, once the ring has opened (a fractional scale smeared it, and was under 8 device px
+		// at small windows)
+		boolean opened = radialProg >= 1F;
+		float labelScale = WheelLayout.labelScale(guiScale(), textScale);
+		float spacing = WheelLayout.slotSpacing((float) radius, Math.max(1, favourites.size()));
 		float deadzoneScale = 0.55F;
 		double distFromDeadzone = mouseDistanceFromCenter() - radius * deadzoneScale;
 		float bonusScale = Mth.clamp((float) (distFromDeadzone / (radius * (1F - deadzoneScale) * 0.5F)), 0F, 1F);
@@ -631,18 +644,14 @@ public final class SelectorHud {
 		List<MorphGuiEntities.Entry> entities = new ArrayList<>();
 		List<Runnable> overlays = new ArrayList<>();
 		if (pendingMain != null) {
-			multimorphPanel(g, entities, overlays, screenW - PANEL_W - 8, (screenH - PANEL_H) / 2, selectedIndex >= 0 ? favourites.get(selectedIndex) : null, partialTick);
+			multimorphPanel(g, entities, overlays, (screenH - panelH(screenH)) / 2, selectedIndex >= 0 ? favourites.get(selectedIndex) : null, partialTick);
 		}
 		Component title = Component.translatable("key.morphreborn.favourite");
 		if (biomassButton) {
-			drawBiomassButton(g, overlays, cx, cy, textScale * radialProg, partialTick);
+			drawBiomassButton(g, overlays, cx, cy, (float) radius, radialProg, partialTick);
 		} else {
 			overlays.add(() -> {
-				g.pose().pushMatrix();
-				g.pose().translate(cx, cy);
-				g.pose().scale(textScale, textScale);
-				g.text(font, title, -font.width(title) / 2, -font.lineHeight / 2, 0xFFFFFFFF, true);
-				g.pose().popMatrix();
+				UiText.centred(g, font, title, cx, cy - font.lineHeight * textScale / 2F, textScale, 0xFFFFFFFF);
 			});
 		}
 		for (int i = 0; i < favourites.size(); i++) {
@@ -663,26 +672,49 @@ public final class SelectorHud {
 			MutableComponent name = customName(variant.ref);
 			if (name == null) name = typeName(variant.ref.entityType());
 			name = name.withStyle(isCurrent(variant.ref) ? ChatFormatting.GOLD : i == selectedIndex ? ChatFormatting.YELLOW : ChatFormatting.WHITE);
-			MutableComponent label = name;
+			// a long name ("Wither Skeleton", a name tag) is cut to the room before the next favourite's, not run into it
+			int room = Math.max(16, (int) ((spacing - 2F) / labelScale));
+			Component label = UiText.fit(font, name, room);
 			Component cost = wheelPrice(variant.ref);
-			float labelScale = 0.5F * radialProg * textScale;
+			if (cost != null) cost = UiText.fit(font, cost, room);
+			Component shownCost = cost;
 			float ly = (float) (radialDist * 0.1F + font.lineHeight / 1.75F * textScale);
-			overlays.add(() -> {
-				g.pose().pushMatrix();
-				g.pose().translate(ex, ey + ly);
-				g.pose().scale(labelScale, labelScale);
-				g.text(font, label, -font.width(label) / 2, 0, 0xFFFFFFFF, true);
-				if (cost != null) g.text(font, cost, -font.width(cost) / 2, font.lineHeight, 0xFFFFFFFF, true);
-				g.pose().popMatrix();
-			});
+			if (opened) {
+				overlays.add(() -> {
+					float width = Math.max(font.width(label), shownCost == null ? 0 : font.width(shownCost)) * labelScale;
+					float height = font.lineHeight * labelScale * (shownCost == null ? 1 : 2);
+					// on a dark strip: the ring behind is translucent and the world shows through it
+					UiText.backing(g, ex - width / 2F, ey + ly, ex + width / 2F, ey + ly + height, 2, 0x70000000);
+					UiText.centred(g, font, label, ex, ey + ly, labelScale, 0xFFFFFFFF);
+					if (shownCost != null) UiText.centred(g, font, shownCost, ex, ey + ly + font.lineHeight * labelScale, labelScale, 0xFFFFFFFF);
+				});
+			}
 		}
 		if (!entities.isEmpty()) g.guiRenderState.addPicturesInPictureState(new MorphGuiEntities.State(entities, screenW, screenH));
 		g.nextStratum();
 		overlays.forEach(Runnable::run);
 	}
 
-	/** The Biomass button's text size, as a share of the wheel's text size. */
-	private static final float BIOMASS_TEXT = 0.5F;
+	/** The ring's radius in GUI px: the Radial Size setting's share of the screen, as large as it fits ({@link WheelLayout#fitRadialRadius}). */
+	private float radialRadius() {
+		int w = mc.getWindow().getGuiScaledWidth();
+		int h = mc.getWindow().getGuiScaledHeight();
+		return WheelLayout.fitRadialRadius(Math.min(w, h) * (float) ClientConfig.INSTANCE.radialScale / 2F, w, h, guiScale());
+	}
+
+	/** Vanilla's GUI scale (device pixels per GUI pixel), which the text sizes are snapped to. */
+	private int guiScale() {
+		return Math.max(1, (int) mc.getWindow().getGuiScale());
+	}
+
+	/** The mouse in GUI px as screens get it (window coordinates are not the framebuffer's on a high-density display, so not divided by the GUI scale). */
+	private double mouseGuiX() {
+		return mc.mouseHandler.getScaledXPos(mc.getWindow());
+	}
+
+	private double mouseGuiY() {
+		return mc.mouseHandler.getScaledYPos(mc.getWindow());
+	}
 
 	private Component biomassLabel() {
 		return Component.translatable("morphreborn.wheel.biomass");
@@ -693,22 +725,19 @@ public final class SelectorHud {
 				: Component.translatable("morphreborn.upgrades.locked_short");
 	}
 
-	/** The Biomass button's radius: just big enough for its two lines of text. */
-	private float biomassButtonRadius(float textScale) {
+	/** The Biomass button's radius for a ring of radius {@code radius}: just big enough for its two lines of text, never past the dead zone. */
+	private float biomassButtonRadius(float radius) {
 		Font font = mc.font;
-		float scale = textScale * BIOMASS_TEXT;
+		float ts = radius / WheelLayout.BASE_RADIUS;
+		float scale = WheelLayout.labelScale(guiScale(), ts);
 		float textWidth = Math.max(font.width(biomassLabel()), font.width(biomassAmount())) * scale;
-		return Math.max(textWidth / 2F, font.lineHeight * scale) + 4F * textScale;
+		return Math.min(Math.max(textWidth / 2F, font.lineHeight * scale) + 4F * ts, WheelLayout.centreLimit(radius, false));
 	}
 
 	/** Mouse over the centre Biomass button (the round part, not its tendrils). */
 	private boolean isMouseOnBiomassButton() {
-		double diameter = Math.min(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()) * ClientConfig.INSTANCE.radialScale;
-		float r = biomassButtonRadius((float) (diameter / 2D) / 96.375F);
-		double scale = mc.getWindow().getGuiScale();
-		double mx = mc.mouseHandler.xpos() / scale;
-		double my = mc.mouseHandler.ypos() / scale;
-		return BiomassOrb.contains(radialCenterX, mc.getWindow().getGuiScaledHeight() / 2D, r / BiomassOrb.RADIUS, mx, my);
+		float r = biomassButtonRadius(radialRadius());
+		return BiomassOrb.contains(radialCenterX, mc.getWindow().getGuiScaledHeight() / 2D, r / BiomassOrb.RADIUS, mouseGuiX(), mouseGuiY());
 	}
 
 	/**
@@ -716,33 +745,25 @@ public final class SelectorHud {
 	 * morph's static inside, and the biomass amount. Clicking it opens the upgrade tree; letting go of the key over it
 	 * only closes the wheel.
 	 */
-	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float textScale, float partialTick) {
-		float r = biomassButtonRadius(textScale);
+	private void drawBiomassButton(GuiGraphicsExtractor g, List<Runnable> overlays, float cx, float cy, float radius, float prog, float partialTick) {
+		float r = biomassButtonRadius(radius) * prog;
 		if (r < 4) return;
 		boolean hover = isMouseOnBiomassButton();
 		float time = (mc.player == null ? 0 : mc.player.tickCount) + partialTick;
 		BiomassOrb.draw(g, cx, cy, r / BiomassOrb.RADIUS, time, hover ? 0xFFE53935 : 0xFF6D1010, hover ? 0x709E1B1B : 0x509E1B1B, hover ? 0.8F : 0F);
+		if (prog < 1F) return; // the text is drawn once the ring is open, at whole device texels per font pixel
 		Font font = mc.font;
 		Component label = biomassLabel();
 		Component amount = biomassAmount();
-		Component click = Component.translatable("morphreborn.wheel.biomass_click");
-		boolean showClick = hover && ClientConfig.INSTANCE.selectorAllowMouseControl;
-		float scale = textScale * BIOMASS_TEXT;
+		boolean showClick = hover && ClientConfig.INSTANCE.selectorAllowMouseControl && TipUi.on(); // "Click: upgrades" is a tip
+		Component click = showClick ? Component.translatable("morphreborn.wheel.biomass_click") : null; // built only when it is drawn
+		float scale = WheelLayout.labelScale(guiScale(), radius / WheelLayout.BASE_RADIUS);
 		overlays.add(() -> {
-			g.pose().pushMatrix();
-			g.pose().translate(cx, cy);
-			g.pose().scale(scale, scale);
-			g.text(font, label, -font.width(label) / 2, -font.lineHeight, hover ? 0xFFFFFFFF : 0xFFFFCDD2, true);
-			g.text(font, amount, -font.width(amount) / 2, 1, 0xFFEF9A9A, true);
-			g.pose().popMatrix();
+			UiText.centred(g, font, label, cx, cy - font.lineHeight * scale, scale, hover ? 0xFFFFFFFF : 0xFFFFCDD2);
+			UiText.centred(g, font, amount, cx, cy + scale, scale, 0xFFEF9A9A);
 			if (showClick) {
-				// under the orb and its tendrils, so the hint never sits on top of the text
-				float hintScale = scale * 0.8F;
-				g.pose().pushMatrix();
-				g.pose().translate(cx, cy + r * 1.85F);
-				g.pose().scale(hintScale, hintScale);
-				g.text(font, click, -font.width(click) / 2, 0, 0xFFFFEB3B, true);
-				g.pose().popMatrix();
+				// under the orb and its tendrils, so the hint never sits on top of the text, on a dark strip
+				UiText.centredBacked(g, font, click, cx, cy + r * 1.85F, scale, 0xFFFFEB3B);
 			}
 		});
 	}
@@ -756,6 +777,16 @@ public final class SelectorHud {
 
 	private static final int PANEL_W = 152;
 	private static final int PANEL_H = 166;
+
+	/** The multimorph panel's width on a screen {@code guiW} wide: 152 on a big screen, a third of a small one (never under 96). */
+	static int panelW(int guiW) {
+		return Math.max(96, Math.min(PANEL_W, guiW / 3));
+	}
+
+	/** Its height on a screen {@code guiH} tall: 166, or what fits. */
+	static int panelH(int guiH) {
+		return Math.min(PANEL_H, guiH - 8);
+	}
 
 	/** Where {@code variant} sits in the selector: {row, column}, or null. */
 	private int @Nullable [] positionOf(Collection.Variant variant) {
@@ -775,76 +806,39 @@ public final class SelectorHud {
 		return ((int) (pulse * 255F) << 24) | 0xE53935;
 	}
 
-	/**
-	 * Black and red tendrils of goo reaching out of a tile's four edges, swaying and breathing in and out, like the
-	 * biomass bar's and the Biomass button's: they mark a multimorph's chosen main body.
-	 */
-	private void tendrilFrame(GuiGraphicsExtractor g, double x, double y, double size, float time) {
-		int perSide = 4;
-		for (int side = 0; side < 4; side++) {
-			for (int k = 0; k < perSide; k++) {
-				int i = side * perSide + k;
-				double along = (k + 0.5 + 0.3 * Math.sin(time * 0.02 + i * 1.3)) / perSide;
-				// where it grows from, and outwards
-				double bx, by, nx, ny;
-				switch (side) {
-					case 0 -> { bx = x + along * size; by = y; nx = 0; ny = -1; }
-					case 1 -> { bx = x + size; by = y + along * size; nx = 1; ny = 0; }
-					case 2 -> { bx = x + (1 - along) * size; by = y + size; nx = 0; ny = 1; }
-					default -> { bx = x; by = y + (1 - along) * size; nx = -1; ny = 0; }
-				}
-				double length = size * (0.11 + 0.07 * Math.sin(time * 0.055 + i * 2.3));
-				boolean red = i % 2 == 0;
-				for (double s = 0; s <= length; s += 0.8) {
-					double t = s / length;
-					double wobble = Math.sin(time * 0.16 + s * 0.5 + i * 1.7) * 2.2 * t;
-					float px = (float) (bx + nx * s - ny * wobble);
-					float py = (float) (by + ny * s + nx * wobble);
-					float dot = (float) (2.6 - 1.8 * t);
-					int alpha = t < 0.7 ? 0xFF : (int) (0xFF * (1 - (t - 0.7) / 0.3));
-					int color = (alpha << 24) | (red ? lerpColor(0x7A1018, 0xE53935, t) : lerpColor(0x050505, 0x2A1214, t));
-					g.pose().pushMatrix();
-					g.pose().translate(px - dot / 2, py - dot / 2);
-					g.pose().scale(dot, dot);
-					g.fill(0, 0, 1, 1, color);
-					g.pose().popMatrix();
-				}
-			}
-		}
-	}
-
-	private static int lerpColor(int from, int to, double t) {
-		int r = (int) (((from >> 16) & 0xFF) + (((to >> 16) & 0xFF) - ((from >> 16) & 0xFF)) * t);
-		int gr = (int) (((from >> 8) & 0xFF) + (((to >> 8) & 0xFF) - ((from >> 8) & 0xFF)) * t);
-		int b = (int) ((from & 0xFF) + ((to & 0xFF) - (from & 0xFF)) * t);
-		return (r << 16) | (gr << 8) | b;
-	}
-
 	/** The wheel has no tiles: a pulsing red ring around the chosen main body there. */
 	private void ring(GuiGraphicsExtractor g, float cx, float cy, float inner, float outer, float partialTick) {
 		g.guiRenderState.addGuiElement(new RingRenderState(cx, cy, inner, outer, 48, pulseRed(partialTick)));
 	}
 
 	/** The preview while a multimorph is being picked: the main body with {@code candidate} (the morph under the cursor) on it. */
-	private void multimorphPanel(GuiGraphicsExtractor g, List<MorphGuiEntities.Entry> entities, List<Runnable> overlays, int x, int y,
+	private void multimorphPanel(GuiGraphicsExtractor g, List<MorphGuiEntities.Entry> entities, List<Runnable> overlays, int wantedY,
 			Collection.@Nullable Variant candidate, float partialTick) {
 		Collection.Variant pending = pendingMain;
 		if (pending == null) return;
+		// sized and put from the screen: on the right edge, never past the bottom or the top (a selector pushed down by its Distance From Top
+		// or a big Selector Size put the fixed 152 by 166 box off the bottom of a short screen)
+		int panelW = panelW(g.guiWidth());
+		int panelH = panelH(g.guiHeight());
+		int x = g.guiWidth() - panelW - 8;
+		int y = Math.max(4, Math.min(wantedY, g.guiHeight() - 4 - panelH));
 		MorphRef main = pending.ref;
 		MorphRef lent = candidate != null && !candidate.ref.variantId().equals(main.variantId()) && cannotBorrow(main, candidate.ref) == null ? candidate.ref : null;
-		List<Component> lines = new ArrayList<>();
-		lines.add(lent == null ? Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), "?").withStyle(ChatFormatting.YELLOW)
-				: Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), typeName(lent.entityType())).withStyle(ChatFormatting.YELLOW));
+		// the pair and what it costs stay; what to pick next and how to close the panel are tips (the Tooltips setting)
+		List<Tagged<Component>> lines = new ArrayList<>();
+		lines.add(Tagged.always(lent == null ? Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), "?").withStyle(ChatFormatting.YELLOW)
+				: Component.translatable("morphreborn.multimorph.pair", typeName(main.entityType()), typeName(lent.entityType())).withStyle(ChatFormatting.YELLOW)));
 		int cost = (isCurrent(main) ? 0 : Math.max(0, ClientNet.morphCost(main.variantId()))) + (lent == null ? 0 : Math.max(0, ClientNet.morphCost(lent.variantId())));
 		if (lent != null) cost = ClientNet.multimorphCost(cost);
 		if (cost > 0) {
-			lines.add(Component.literal(String.format(java.util.Locale.ROOT, "%,d biomass", cost))
-					.withStyle(cost <= ClientNet.biomass() ? ChatFormatting.RED : ChatFormatting.DARK_GRAY));
+			lines.add(Tagged.always(Component.literal(String.format(java.util.Locale.ROOT, "%,d biomass", cost))
+					.withStyle(cost <= ClientNet.biomass() ? ChatFormatting.RED : ChatFormatting.GRAY)));
 		}
-		lines.add(Component.translatable(lent == null ? "morphreborn.multimorph.pick_second" : "morphreborn.multimorph.pick_to_combine").withStyle(ChatFormatting.GRAY));
-		lines.add(Component.translatable("morphreborn.multimorph.again", typeName(main.entityType())).withStyle(ChatFormatting.GRAY));
-		lines.add(Component.translatable("morphreborn.multimorph.close").withStyle(ChatFormatting.DARK_GRAY));
-		MultimorphPreview.panel(g, entities, overlays, x, y, PANEL_W, PANEL_H, main, lent, Component.translatable("morphreborn.multimorph.title"), lines, partialTick);
+		lines.add(Tagged.tip(Component.translatable(lent == null ? "morphreborn.multimorph.pick_second" : "morphreborn.multimorph.pick_to_combine").withStyle(ChatFormatting.GRAY)));
+		lines.add(Tagged.tip(Component.translatable("morphreborn.multimorph.again", typeName(main.entityType())).withStyle(ChatFormatting.GRAY)));
+		lines.add(Tagged.tip(Component.translatable("morphreborn.multimorph.close").withStyle(ChatFormatting.GRAY)));
+		MultimorphPreview.panel(g, entities, overlays, x, y, panelW, panelH, main, lent, Component.translatable("morphreborn.multimorph.title"),
+				Tagged.filter(lines, TipUi.on()), partialTick);
 	}
 
 	private static MutableComponent typeName(String entityType) {
@@ -861,7 +855,7 @@ public final class SelectorHud {
 		int cost = ClientNet.morphCost(ref.variantId());
 		if (cost <= 0 || isCurrent(ref)) return Component.empty();
 		boolean affordable = cost <= ClientNet.biomass();
-		return Component.literal(String.format(java.util.Locale.ROOT, "  %,d biomass", cost)).withStyle(affordable ? ChatFormatting.RED : ChatFormatting.DARK_GRAY);
+		return Component.literal(String.format(java.util.Locale.ROOT, "  %,d biomass", cost)).withStyle(affordable ? ChatFormatting.RED : ChatFormatting.GRAY);
 	}
 
 	/**
@@ -880,7 +874,7 @@ public final class SelectorHud {
 		}
 		if (c.kindLimit >= 0) {
 			MutableComponent kinds = counter("morphreborn.selector.morphs", c.kinds, c.kindLimit);
-			line = line == null ? kinds : line.append(Component.literal("  ·  ").withStyle(ChatFormatting.DARK_GRAY)).append(kinds);
+			line = line == null ? kinds : line.append(Component.literal("  ·  ").withStyle(ChatFormatting.GRAY)).append(kinds);
 		}
 		return line;
 	}
@@ -939,36 +933,31 @@ public final class SelectorHud {
 
 	/**
 	 * The middle of the screen; while a multimorph pair is being picked, moved left just enough that the panel on the
-	 * right doesn't cover the wheel (in fullscreen, at the usual GUI scale, it hid the right of the wheel; the user's
-	 * most likely case).
+	 * right doesn't cover the wheel (in fullscreen, at the usual GUI scale, it hid the right of the wheel, the most
+	 * likely case).
 	 */
 	private float radialTargetX() {
 		float w = mc.getWindow().getGuiScaledWidth();
 		if (pendingMain == null) return w / 2F;
-		float radius = Math.min(w, mc.getWindow().getGuiScaledHeight()) * (float) ClientConfig.INSTANCE.radialScale / 2F;
-		float clear = w - PANEL_W - 16 - radius; // the furthest right the centre can be with the wheel clear of the panel
+		float radius = radialRadius();
+		float clear = w - panelW((int) w) - 16 - radius; // the furthest right the centre can be with the wheel clear of the panel
 		return Math.max(radius + 4F, Math.min(w / 2F, clear));
 	}
 
 	private double mouseDistanceFromCenter() {
-		double scale = mc.getWindow().getGuiScale();
-		double mx = mc.mouseHandler.xpos() / scale;
-		double my = mc.mouseHandler.ypos() / scale;
-		double dx = mx - radialCenterX;
-		double dy = my - mc.getWindow().getGuiScaledHeight() / 2D;
+		double dx = mouseGuiX() - radialCenterX;
+		double dy = mouseGuiY() - mc.getWindow().getGuiScaledHeight() / 2D;
 		return Math.sqrt(dx * dx + dy * dy);
 	}
 
 	private boolean isMouseOutsideRadialDeadZone() {
-		double diameter = Math.min(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()) * ClientConfig.INSTANCE.radialScale;
-		return mouseDistanceFromCenter() > diameter / 2D * 0.55F;
+		return mouseDistanceFromCenter() > radialRadius() * 0.55F;
 	}
 
 	/** Index of the slice under the mouse; slice 0 is at the top and indices run clockwise, matching the layout. */
 	private int selectedRadialIndex(int count) {
-		double scale = mc.getWindow().getGuiScale();
-		double dx = mc.mouseHandler.xpos() / scale - radialCenterX;
-		double dy = mc.mouseHandler.ypos() / scale - mc.getWindow().getGuiScaledHeight() / 2D;
+		double dx = mouseGuiX() - radialCenterX;
+		double dy = mouseGuiY() - mc.getWindow().getGuiScaledHeight() / 2D;
 		double angle = Math.atan2(dx, -dy);
 		if (angle < 0) angle += Math.PI * 2;
 		double slice = Math.PI * 2 / count;

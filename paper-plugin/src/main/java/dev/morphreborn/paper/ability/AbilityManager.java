@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -59,8 +60,15 @@ public final class AbilityManager {
 
 	private Set<String> flight = Set.of();
 	private float flySpeed = 0.05F;
+	/**
+	 * After Morph Flight, a flier's morph that isn't flying glides while jump is held and drops when it isn't
+	 * (2026-11-15: how the flight upgrade was always meant to work; passive.flight.hold-jump-glide, on by default).
+	 */
+	private boolean holdJumpGlide = true;
 	private Set<String> slowFall = Set.of();
 	private Set<String> fallImmunity = Set.of();
+	/** passive.quiet-steps: the forms that raise no step, swim or soft-landing vibrations (see {@link QuietSteps}). */
+	private QuietSteps.Settings quietSteps = QuietSteps.Settings.NONE;
 	private Set<String> fireImmunity = Set.of();
 	private Set<String> waterBreathing = Set.of();
 	private Set<String> swimBoost = Set.of();
@@ -126,11 +134,25 @@ public final class AbilityManager {
 	private final Map<UUID, Long> lastWaterTeleport = new HashMap<>();
 	/** Bees that have used their stinger, until they change form. */
 	private final Set<UUID> stung = new HashSet<>();
+	/**
+	 * The wool of the borrowed sheep forms, once shears or grass changed it: per borrowed form, whether it is bald. Not the look
+	 * overlay: that is the main body's, and a cow body has no wool to show (2026-11-17, B1-12). It is per form and survives a
+	 * borrowed swap, as a main sheep's bald overlay does, so swapping the borrowed form is no way to farm wool; only a new body
+	 * (or grass) grows it back.
+	 */
+	private final Map<UUID, Map<MorphRef, Boolean>> lentWool = new HashMap<>();
+
+	/** Each spent stinger's own death clock (a number per sting), so an old sting's timer cannot run out on a newer one. */
+	private final Map<UUID, Integer> stingTimer = new HashMap<>();
+	private int stingSeq;
 	/** Angry bees (red eyes), until they calm down or change form: the ability key with nothing in reach, or a sting. */
 	private final Set<UUID> angry = new HashSet<>();
 	/** Creakings that can't move because someone is looking at them. */
 	private final Set<UUID> frozen = new HashSet<>();
 	private final NamespacedKey frozenKey;
+	private final NamespacedKey tradeFreezeKey = MorphRebornPlugin.key("trade_freeze"); // VillagerTrading's hold
+	// the arm holds' modifier keys, as SpearImpale (PIN_MODIFIER) and WhipLash (SNARE_MODIFIER) name them
+	private final NamespacedKey spearPinKey = MorphRebornPlugin.key("spear_pin"), whipSnareKey = MorphRebornPlugin.key("whip_snare");
 	/** Guardian beams being charged. */
 	private final Set<UUID> beaming = new HashSet<>();
 	/** Death message keys for players killed by their own mob (creeper blast, spent bee stinger). */
@@ -182,6 +204,10 @@ public final class AbilityManager {
 	private final Set<UUID> grantedFlight = new HashSet<>();
 	/** Mobs a camouflaged player has attacked: they may fight back. */
 	private final Map<UUID, Set<UUID>> provoked = new HashMap<>();
+	/** Each player's {@link #makeup} for the forms they had last: it is asked for on every target and damage event, and per mob each second. */
+	private final Map<UUID, CachedMakeup> makeups = new HashMap<>();
+
+	private record CachedMakeup(MorphRef main, @Nullable MorphRef lent, MorphMakeup makeup) {}
 	private final Set<UUID> explosionImmune = new HashSet<>();
 	private long tick;
 
@@ -192,13 +218,15 @@ public final class AbilityManager {
 		this.landSpeedKey = MorphRebornPlugin.key("land_speed");
 	}
 
-	public void load(FileConfiguration c) {
+	/** {@code quietStepsDefaults}: the bundled file's passive.quiet-steps, for a server file that has no such section. */
+	public void load(FileConfiguration c, @Nullable ConfigurationSection quietStepsDefaults) {
 		enabled = c.getBoolean("enabled", true);
 		vanillaTrigger = c.getString("activation.vanilla-trigger", "sneak-swap-hand");
 		cooldownMessage = c.getBoolean("activation.cooldown-message", true);
 		flight = types(c.getStringList("passive.flight.types"));
 		flySpeed = (float) Math.clamp(c.getDouble("passive.flight.fly-speed", 0.05), 0.01, 0.2);
 		flightNeedsNether = c.getBoolean("passive.flight.require-nether-visit", false);
+		holdJumpGlide = c.getBoolean("passive.flight.hold-jump-glide", true);
 		waterOnlyBreathing = types(c.getStringList("passive.water-only-breathing"));
 		sink = types(c.getStringList("passive.sink"));
 		attackEffectsUnarmedOnly = c.getBoolean("passive.attack-effects-unarmed-only", false);
@@ -295,6 +323,10 @@ public final class AbilityManager {
 		attacks = attackMap;
 		slowFall = types(c.getStringList("passive.slow-fall"));
 		fallImmunity = types(c.getStringList("passive.fall-immunity"));
+		// an 8.0.0 beta file has this release's version, so it is never merged and lacks the section: the bundled one applies then.
+		// A section the admin has, even an emptied list, is theirs.
+		ConfigurationSection quiet = c.getConfigurationSection("passive.quiet-steps");
+		quietSteps = QuietSteps.Settings.read(quiet != null ? quiet : quietStepsDefaults);
 		fireImmunity = types(c.getStringList("passive.fire-immunity"));
 		waterBreathing = types(c.getStringList("passive.water-breathing"));
 		swimBoost = types(c.getStringList("passive.swim-boost"));
@@ -348,11 +380,55 @@ public final class AbilityManager {
 		return enabled && !actives.isEmpty();
 	}
 
+	/** abilities.yml {@code enabled}: whether mob traits and abilities work at all. */
+	public boolean isEnabled() {
+		return enabled;
+	}
+
 	public String vanillaTrigger() {
 		return vanillaTrigger;
 	}
 
 	// ------------------------------------------------------------------ form changes
+
+	/** The player's current form's entity type ("minecraft:zombie"), null for their own body or mid-transformation. */
+	public @Nullable String currentFormType(Player player) {
+		return type(player);
+	}
+
+	/**
+	 * What the player's body is made of, to tell Camouflage (creatures only) from Borrowed Scent (you with a creature); see
+	 * {@link MorphMakeup}. Nothing while they transform, as {@link #type} says.
+	 */
+	public MorphMakeup makeup(Player player) {
+		if (plugin.morphs().isTransitioning(player)) return MorphMakeup.NONE;
+		MorphRef main = plugin.morphs().activeForm(player);
+		if (main == null) return MorphMakeup.NONE;
+		MorphRef lent = plugin.borrowedHeads().borrowed(player);
+		// kept until the forms change, so a crowd of mobs near a morphed player allocates nothing per event (fix round, 2026-11-17)
+		CachedMakeup cached = makeups.get(player.getUniqueId());
+		if (cached != null && java.util.Objects.equals(cached.main(), main) && java.util.Objects.equals(cached.lent(), lent)) return cached.makeup();
+		MorphMakeup made = MorphMakeup.of(main, lent);
+		makeups.put(player.getUniqueId(), new CachedMakeup(main, lent, made));
+		return made;
+	}
+
+	/**
+	 * Whether Borrowed Scent has anything to do for this player's body: it is Scent's and the creature in it is a kind that would
+	 * ever target a player. A cow or pig with your own head spares nothing, so the passive idles and bills nothing
+	 * (2026-11-17). Neutral kinds that fight when provoked (wolf, bee, iron golem...) still count; see {@link MorphMakeup#canTargetPlayers}.
+	 */
+	public boolean scentHasWork(Player player) {
+		return makeup(player).scentHasWork(this::canTargetPlayers);
+	}
+
+	/** Whether creatures of {@code type} ("minecraft:cow") can ever target a player: hostile in the server's types, always hostile here, or provokable. */
+	private boolean canTargetPlayers(String type) {
+		NamespacedKey key = NamespacedKey.fromString(type);
+		org.bukkit.entity.EntityType entityType = key == null ? null : org.bukkit.Registry.ENTITY_TYPE.get(key);
+		Class<?> cls = entityType == null ? null : entityType.getEntityClass();
+		return MorphMakeup.canTargetPlayers(type, cls, alwaysHostile.contains(type));
+	}
 
 	private @Nullable String type(Player player) {
 		MorphRef form = plugin.morphs().activeForm(player);
@@ -387,12 +463,26 @@ public final class AbilityManager {
 	}
 
 	public void onFormChanged(Player player, @Nullable MorphRef form) {
-		clearPassives(player);
+		onFormChanged(player, form, false);
+	}
+
+	/**
+	 * {@code sameBody}: the body is the same and only what it is made of was refreshed (another borrowed form, a reload, a
+	 * mode switch): the state that belongs to a form still in it (a charge, a perch, a spent stinger) and the air and
+	 * dry-out clocks carry on, so swapping the borrowed form is no way to reset them, and the look stays what the state is.
+	 */
+	public void onFormChanged(Player player, @Nullable MorphRef form, boolean sameBody) {
+		// a flier in the air stays in the air through a borrowed swap that still has a flier: the teardown below drops the flight
+		// and the grant only gives the permission back, so without this the player falls until they double-jump
+		boolean wasAirborne = sameBody && grantedFlight.contains(player.getUniqueId()) && player.isFlying();
+		clearPassives(player, sameBody ? types(player) : null);
+		if (sameBody) plugin.passives().restore(player); // the form's night vision just went: no blink before Night Eyes' own
 		abilityChoice.remove(player.getUniqueId()); // a new combination starts at its main form's ability
 		if (!enabled || form == null || !player.hasPermission("morphreborn.ability")) return;
 		List<String> forms = types(player);
 		if (forms.isEmpty()) forms = List.of(form.entityType());
-		for (String t : forms) grantFlight(player, t);
+		if (!isPerched(player)) for (String t : forms) grantFlight(player, t); // a perched bat holds still: flight at zero speed
+		if (wasAirborne && !isPerched(player) && grantedFlight.contains(player.getUniqueId()) && player.getAllowFlight()) flying(player, true);
 		plugin.channel().sendTraits(player, traitBits(player, forms));
 		applyEffects(player, forms);
 	}
@@ -405,6 +495,12 @@ public final class AbilityManager {
 		Set<PotionEffectType> applied = appliedEffects.computeIfAbsent(player.getUniqueId(), k -> new HashSet<>());
 		List<TimedEffect> effects = new ArrayList<>();
 		for (String t : forms) effects.addAll(constantEffects.getOrDefault(t, List.of()));
+		// A giant-sized player's speed is the pair's own modifier (MorphManager.syncGiantPlayers, 5x a player's): the giant's
+		// slowness is for a giant's body and would take the 5x down to 3.5x
+		if (dev.morphreborn.paper.disguise.GiantPlayer.applies(plugin.morphs().activeForm(player), plugin.borrowedHeads().borrowed(player))) {
+			effects.removeIf(e -> e.type().equals(PotionEffectType.SLOWNESS));
+		}
+		effects = BodyState.strongest(effects, TimedEffect::type, TimedEffect::amplifier); // the same effect from both forms: the stronger
 		for (TimedEffect e : effects) {
 			boolean allowed = allowed(player, "effect:" + e.type().getKey().getKey());
 			if (allowed && applied.add(e.type())) {
@@ -415,6 +511,21 @@ public final class AbilityManager {
 			}
 		}
 		if (applied.isEmpty()) appliedEffects.remove(player.getUniqueId());
+	}
+
+	/**
+	 * Whether a movement game event this player raised is dropped before any sensor or warden hears it (quiet steps; the listener calls
+	 * this for every vibration in the world, so the cheap checks come first and nothing is allocated). The main form decides, read live
+	 * each time, so the very next step after a form change follows the new form; {@link #type} is null while transforming and in your
+	 * own body, which are never quiet. Like every trait it needs abilities on and the ability permission; no Survival unlock lists it
+	 * unless an admin adds one under an upgrade's traits, so it is on from the start.
+	 */
+	public boolean quietSteps(Player player, QuietSteps.Move move, float fallDistance) {
+		if (!enabled) return false;
+		String main = type(player);
+		if (main == null || !quietSteps.types().contains(main)) return false; // the set lookup goes before the permission and the mode
+		if (!player.hasPermission("morphreborn.ability") || !allowed(player, "quiet-steps")) return false;
+		return quietSteps.silences(move, main, fallDistance);
 	}
 
 	/** The gameplay mode lets the player use this beneficial trait (Survival: its unlock is bought; Classic: always). */
@@ -436,6 +547,23 @@ public final class AbilityManager {
 		return waterOnlyBreathing.contains(type) || dryOutTicks.containsKey(type) || allowed(player, "water-breathing");
 	}
 
+	/**
+	 * True when one of the player's forms already breathes under water (a fish, an axolotl, or a form with the Water Breathing
+	 * unlock), so the Gills passive has nothing to do and bills nothing (passives billing, 2026-11-16).
+	 */
+	public boolean coversDrowning(Player player) {
+		for (String t : types(player)) if (breathesWater(player, t)) return true;
+		return false;
+	}
+
+	/**
+	 * True when one of the player's forms burns in daylight (a zombie, a skeleton: abilities.yml passive.sunburn). That fire is a
+	 * drawback "always on by design", so the Fire Shedding passive leaves its burning tick alone (2026-11-16).
+	 */
+	public boolean burnsInSunlight(Player player) {
+		return any(types(player), sunburn);
+	}
+
 	/** Whether {@code player}'s flight is a flying morph's (which a frenzy's hover leaves alone). */
 	public boolean grantsFlight(Player player) {
 		return grantedFlight.contains(player.getUniqueId());
@@ -447,10 +575,28 @@ public final class AbilityManager {
 		boolean survivalLike = mode == GameMode.SURVIVAL || mode == GameMode.ADVENTURE;
 		boolean netherOk = !flightNeedsNether || hasBeenToNether(player);
 		if (flight.contains(type) && survivalLike && netherOk && plugin.mode().mayFly(player)) {
-			player.setAllowFlight(true);
-			player.setFlySpeed(flySpeed);
+			allowFlight(player, true);
+			flySpeed(player, flierSpeed(frozen.contains(player.getUniqueId()), isPerched(player), flySpeed));
 			grantedFlight.add(player.getUniqueId());
 		}
+	}
+
+	/*
+	 * A shulker body clinging to a block is held there by flying at zero speed (ShulkerLock). Flight changes made while
+	 * it holds the player (a borrowed bee's flight, the teardown when the form changes) go into what the lock gives back
+	 * on letting go, so the player isn't dropped out of the hold now and gets exactly the right flight later.
+	 */
+
+	private void allowFlight(Player player, boolean allow) {
+		if (!plugin.shulkerLock().routeAllowFlight(player, allow)) player.setAllowFlight(allow);
+	}
+
+	private void flying(Player player, boolean on) {
+		if (!plugin.shulkerLock().routeFlying(player, on)) player.setFlying(on);
+	}
+
+	private void flySpeed(Player player, float speed) {
+		if (!plugin.shulkerLock().routeFlySpeed(player, speed)) player.setFlySpeed(speed);
 	}
 
 	/**
@@ -460,6 +606,8 @@ public final class AbilityManager {
 	 * passive would also restart timers such as a bee's last minute or an axolotl drying out.
 	 */
 	public void onGameModeChanged(Player player) {
+		// first: a held shulker takes the new mode's flight as what it gives back, before the grants below go into it
+		plugin.shulkerLock().onGameModeChanged(player);
 		unperch(player, true); // the mode change stopped the flying that held the bat up
 		String type = type(player);
 		if (!enabled || type == null || !player.hasPermission("morphreborn.ability")) return;
@@ -467,7 +615,7 @@ public final class AbilityManager {
 		if (mode == GameMode.SURVIVAL || mode == GameMode.ADVENTURE) {
 			for (String t : types(player)) grantFlight(player, t);
 		} else if (grantedFlight.remove(player.getUniqueId())) {
-			player.setFlySpeed(0.1F); // creative and spectator fly at the normal speed, not the morph's
+			flySpeed(player, 0.1F); // creative and spectator fly at the normal speed, not the morph's
 		}
 	}
 
@@ -493,6 +641,11 @@ public final class AbilityManager {
 		return flight.contains(type) && !plugin.mode().mayFly(player);
 	}
 
+	/** A flier's morph that may fly, with hold-jump-glide on: it glides while jump is held ({@link #holdJumpGlide}). */
+	private boolean glidesOnJump(Player player, String type) {
+		return holdJumpGlide && flight.contains(type) && plugin.mode().mayFly(player);
+	}
+
 	/** Re-apply flight, movement traits and effects after a Survival upgrade changed what the current form may do. */
 	public void refreshMovement(Player player) {
 		List<String> forms = types(player);
@@ -516,8 +669,16 @@ public final class AbilityManager {
 		if (has(player, type, lavaStand, "lava-stand")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_LAVA;
 		if (has(player, type, berryWalk, "berry-walk")) bits |= dev.morphreborn.paper.net.Wire.TRAIT_BERRY;
 		if (has(player, type, slowFall, "slow-fall") || glides(player, type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_SLOW_FALL;
+		if (glidesOnJump(player, type)) bits |= dev.morphreborn.paper.net.Wire.TRAIT_GLIDE_ON_JUMP;
 		return bits;
 	}
+
+	/** The overlay keys each ability writes (MorphManager.setOverlayKeys): one writer never wipes another's look. */
+	private static final Set<String> CREEPER_KEYS = Set.of("powered", "ignited");
+	private static final Set<String> BEE_KEYS = Set.of("HasStung", "anger_end_time");
+	private static final Set<String> BAT_KEYS = Set.of("BatFlags");
+	private static final Set<String> ROLL_KEYS = Set.of("state");
+	private static final Set<String> SHEAR_KEYS = Set.of("Sheared");
 
 	/** A creeper morph's look: the charge's electric aura and the swelling fuse, together. */
 	private String creeperLook(Player player, boolean ignited) {
@@ -531,9 +692,11 @@ public final class AbilityManager {
 	 * electric aura shows for everyone and its next explosion is twice as big.
 	 */
 	public void onLightning(Player player) {
-		if (!enabled || !"minecraft:creeper".equals(type(player)) || !player.hasPermission("morphreborn.ability")) return;
+		// any form with a creeper in it: a pig lending a creeper's head is as good a bomb as the creeper (any-form rule)
+		if (!enabled || !types(player).contains("minecraft:creeper") || !player.hasPermission("morphreborn.ability")) return;
 		if (isPoweredForm(plugin.morphs().activeForm(player)) || !charged.add(player.getUniqueId())) return; // already charged
-		plugin.morphs().setOverlay(player, creeperLook(player, fusing.contains(player.getUniqueId())));
+		// the aura is the creeper body's; a borrowed creeper holds the charge for its blast without drawing it
+		if ("minecraft:creeper".equals(type(player))) plugin.morphs().setOverlayKeys(player, CREEPER_KEYS, creeperLook(player, fusing.contains(player.getUniqueId())));
 		player.sendActionBar(Component.text("Charged! Your next explosion is twice as big.", NamedTextColor.AQUA));
 	}
 
@@ -554,32 +717,55 @@ public final class AbilityManager {
 		List<String> tags = new ArrayList<>(2);
 		if (stung.contains(p.getUniqueId())) tags.add("HasStung:1b");
 		if (angry.contains(p.getUniqueId())) tags.add("anger_end_time:" + Long.MAX_VALUE + "L");
-		plugin.morphs().setOverlay(p, tags.isEmpty() ? "" : "{" + String.join(",", tags) + "}");
+		plugin.morphs().setOverlayKeys(p, BEE_KEYS, tags.isEmpty() ? "" : "{" + String.join(",", tags) + "}");
 	}
 
 	public void clearPassives(Player player) {
+		clearPassives(player, null);
+	}
+
+	/** {@code keep}: the forms the same body still has (see onFormChanged), or null for a new body: everything goes. */
+	private void clearPassives(Player player, @Nullable List<String> keep) {
 		plugin.channel().sendTraits(player, 0);
 		UUID id = player.getUniqueId();
-		charged.remove(id); // the charge belongs to this creeper body; a new form or a respawn loses it
-		unperch(player, false); // first: it puts back the flight state the flight passive below may clear
+		boolean sameBody = keep != null;
+		boolean keepsPerch = sameBody && BodyState.keepsPerch(keep) && perched.containsKey(id);
+		boolean keepsSting = sameBody && BodyState.keepsSting(keep);
+		// state that drew a look went: the look goes with it (it stays for what is kept)
+		boolean chargeLook = false, beeLook = false, batLook = false;
+		if (!(sameBody && BodyState.keepsCharge(keep))) chargeLook = charged.remove(id); // a creeper body's charge; a new form or a respawn loses it
+		if (!keepsPerch) {
+			batLook = perched.containsKey(id);
+			unperch(player, false); // first: it puts back the flight state the flight passive below may clear
+		}
 		PotionEffect chickenFall = player.getPotionEffect(PotionEffectType.SLOW_FALLING);
 		if (chickenFall != null && isChickenFall(chickenFall)) player.removePotionEffect(PotionEffectType.SLOW_FALLING);
 		climbing.remove(id);
 		setFrozen(player, false);
 		setLandSpeed(player, 1.0);
-		stung.remove(id);
-		angry.remove(id);
+		if (!keepsSting) {
+			beeLook = stung.remove(id);
+			beeLook |= angry.remove(id);
+			stingTimer.remove(id); // a sting's death clock stops with it, and cannot be picked up by the next one
+		}
 		beaming.remove(id);
-		fishOnLand.remove(id);
-		dryTicks.remove(id);
-		underwaterTicks.remove(id);
-		if (grantedFlight.remove(player.getUniqueId())) {
+		if (!sameBody) lentWool.remove(id); // a new body starts woolly; within a body a shearing stays through borrowed swaps (grass is what regrows it)
+		if (!sameBody || keep.stream().noneMatch(waterOnlyBreathing::contains)) fishOnLand.remove(id); // only a fish form's tick advances it: a stale count would skip the grace
+		if (!sameBody || keep.stream().noneMatch(dryOutTicks::containsKey)) dryTicks.remove(id);
+		if (!sameBody || keep.stream().noneMatch(breathHoldTicks::containsKey)) underwaterTicks.remove(id);
+		if (sameBody) {
+			// only what these abilities drew; a carried block, a roll or a shearing stays. (A new body resets its own look.)
+			if (chargeLook) plugin.morphs().setOverlayKeys(player, CREEPER_KEYS, "");
+			if (beeLook) plugin.morphs().setOverlayKeys(player, BEE_KEYS, "");
+			if (batLook) plugin.morphs().setOverlayKeys(player, BAT_KEYS, "");
+		}
+		if (!keepsPerch && grantedFlight.remove(player.getUniqueId())) {
 			GameMode mode = player.getGameMode();
 			if (mode == GameMode.SURVIVAL || mode == GameMode.ADVENTURE) {
-				player.setFlying(false);
-				player.setAllowFlight(false);
+				flying(player, false);
+				allowFlight(player, false);
 			}
-			player.setFlySpeed(0.1F);
+			flySpeed(player, 0.1F);
 		}
 		Set<PotionEffectType> applied = appliedEffects.remove(player.getUniqueId());
 		if (applied != null) {
@@ -599,6 +785,7 @@ public final class AbilityManager {
 		abilityChoice.remove(player.getUniqueId());
 		sneakingSince.remove(player.getUniqueId());
 		deathMessages.remove(player.getUniqueId());
+		makeups.remove(player.getUniqueId());
 	}
 
 	// ------------------------------------------------------------------ ticking
@@ -610,7 +797,8 @@ public final class AbilityManager {
 		for (Player player : plugin.getServer().getOnlinePlayers()) {
 			List<String> forms = types(player);
 			if (forms.isEmpty()) continue;
-			if (anyHas(player, forms, slowFall, "slow-fall") || forms.stream().anyMatch(t -> glides(player, t))) tickSlowFall(player);
+			if (anyHas(player, forms, slowFall, "slow-fall") || forms.stream().anyMatch(t -> glides(player, t))) tickSlowFall(player, true);
+			else if (forms.stream().anyMatch(t -> glidesOnJump(player, t))) tickSlowFall(player, player.getCurrentInput().isJump());
 			if (anyHas(player, forms, climb, "climb")) tickClimb(player);
 			// Webs work like scaffolding for spider morphs (client mod): climbing and sliding down them never builds a fall.
 			if (anyHas(player, forms, webWalk, "web-walk") && inCobweb(player)) player.setFallDistance(0);
@@ -628,7 +816,10 @@ public final class AbilityManager {
 				Integer breath = breathHoldTicks.get(t);
 				if (breath != null && (breathLimit == null || breath > breathLimit)) breathLimit = breath;
 			}
-			if (dryLimit != null) tickDryOut(player, dries, dryLimit);
+			// a fish's suffocation is the quickest air drawback; while it drains, a slower dry-out clock must not write the
+			// air back up each tick (drawbacks combine: the worse one counts)
+			boolean fishDrains = any(forms, waterOnlyBreathing) && ticksOnLand(player) > 10 && player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR;
+			if (dryLimit != null) tickDryOut(player, dries, dryLimit, !fishDrains);
 			if (breathLimit != null) tickBreathHold(player, breathLimit);
 			if (any(forms, waterTeleport) && player.isInWater() && tick - lastWaterTeleport.getOrDefault(player.getUniqueId(), -100L) >= 20) {
 				lastWaterTeleport.put(player.getUniqueId(), tick);
@@ -651,7 +842,7 @@ public final class AbilityManager {
 				if (v.getY() > -0.15) player.setVelocity(v.setY(Math.min(v.getY(), 0) - 0.04));
 			}
 			// A fish bobbing out at the surface for a moment doesn't start suffocating: half a second out of water first.
-			if (any(forms, waterOnlyBreathing) && ticksOnLand(player) > 10 && player.getGameMode() != GameMode.CREATIVE && player.getGameMode() != GameMode.SPECTATOR) {
+			if (fishDrains) {
 				int air = player.getRemainingAir() - 5; // vanilla refills 4 per tick on land, so this nets -1 like a fish out of water
 				if (air <= -20) {
 					air = 0;
@@ -665,7 +856,8 @@ public final class AbilityManager {
 				if (!scared.isEmpty()) tickFear(player, scared);
 			}
 			if (tick % 4 == 0 && any(forms, snowTrail)) tickSnowTrail(player);
-			if (tick % 20 == 0 && targetingEnabled) tickTargeting(player, forms);
+			// also for Borrowed Scent, which drops a mob it spares that already has you in its sights (fix round, 2026-11-17)
+			if (tick % 20 == 0 && (targetingEnabled || makeup(player).kind() == MorphMakeup.Kind.SCENT)) tickTargeting(player, forms);
 			if (tick % 20 == 0 && any(forms, heatSensitive) && player.getLocation().getBlock().getTemperature() > 1.0) player.damage(1.0);
 			// slow on land: whichever form is slowest
 			Double land = null;
@@ -768,7 +960,7 @@ public final class AbilityManager {
 				if (shouldIgnore(mob, player)) mob.setTarget(null);
 				continue;
 			}
-			if (!predatorsHunt || !huntable || mob.getTarget() != null || mob instanceof org.bukkit.entity.Enemy) continue;
+			if (!targetingEnabled || !predatorsHunt || !huntable || mob.getTarget() != null || mob instanceof org.bukkit.entity.Enemy) continue;
 			Set<String> prey = attacks.get(mob.getType().getKey().toString());
 			if (prey != null && forms.stream().anyMatch(prey::contains) && mob.hasLineOfSight(player)) mob.setTarget(player);
 		}
@@ -851,6 +1043,27 @@ public final class AbilityManager {
 		landSlowed.put(player.getUniqueId(), multiplier);
 	}
 
+	/**
+	 * Held in place: a creaking someone is looking at, a villager someone is trading with (trading.freeze-villager). The
+	 * freeze is a movement attribute, so a borrowed dash, hop or swoop that sets the velocity would walk straight through it.
+	 */
+	private boolean heldStill(Player player) {
+		if (frozen.contains(player.getUniqueId())) return true;
+		org.bukkit.attribute.AttributeInstance speed = player.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+		// the arms' holds too (the spear's pin, the whip's snare: ArmHold puts these modifiers on the walking speed): a pinned
+		// player with a lent camel, rabbit, goat or enderman got out by a dash, a hop, a ram or a teleport (rig B1-08)
+		return speed != null && (speed.getModifier(tradeFreezeKey) != null || speed.getModifier(spearPinKey) != null || speed.getModifier(whipSnareKey) != null);
+	}
+
+	/**
+	 * The fly speed of a morph that flies: nothing while it is held still by being watched (a creaking's freeze, rig B1-12) or hanging
+	 * from a ceiling (a bat's perch), both of which hold the player by flying at zero speed; otherwise the configured one. Every place
+	 * that puts the speed back goes through this, so one hold ending cannot undo the other.
+	 */
+	static float flierSpeed(boolean frozen, boolean perched, float normal) {
+		return frozen || perched ? 0F : normal;
+	}
+
 	private void setFrozen(Player player, boolean on) {
 		if (on == frozen.contains(player.getUniqueId())) return;
 		for (org.bukkit.attribute.Attribute attribute : List.of(org.bukkit.attribute.Attribute.MOVEMENT_SPEED, org.bukkit.attribute.Attribute.JUMP_STRENGTH)) {
@@ -864,9 +1077,13 @@ public final class AbilityManager {
 		}
 		if (on) {
 			frozen.add(player.getUniqueId());
+			// a flier in the air flies by its own speed, which the attributes above do not touch (rig B1-12)
+			if (grantedFlight.contains(player.getUniqueId())) flySpeed(player, 0F);
 			player.getWorld().playSound(player.getLocation(), Sound.ENTITY_CREAKING_FREEZE, 1F, 1F);
 		} else {
 			frozen.remove(player.getUniqueId());
+			// a perched bat is held by the same zero speed: unwatched, it stays held
+			if (grantedFlight.contains(player.getUniqueId())) flySpeed(player, flierSpeed(false, isPerched(player), flySpeed));
 		}
 	}
 
@@ -874,7 +1091,7 @@ public final class AbilityManager {
 	 * Axolotls, dolphins and nautiluses dry out away from water (rain counts for the first two). The air bar shows how
 	 * long you have left; once it is empty you take drying-out damage every second.
 	 */
-	private void tickDryOut(Player player, String type, int limit) {
+	private void tickDryOut(Player player, String type, int limit, boolean showAir) {
 		UUID id = player.getUniqueId();
 		boolean wet = player.isInWater() || player.isInBubbleColumn() || (rainKeepsWet.contains(type) && player.isInRain());
 		if (wet || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
@@ -884,7 +1101,7 @@ public final class AbilityManager {
 		int t = dryTicks.merge(id, 1, Integer::sum);
 		int max = player.getMaximumAir();
 		// vanilla adds 4 air per tick out of water right after this, so set 4 less to show the real time left
-		player.setRemainingAir(Math.max(0, max - (int) ((long) max * t / limit) - 4));
+		if (showAir) player.setRemainingAir(Math.max(0, max - (int) ((long) max * t / limit) - 4));
 		if (t >= limit && (t - limit) % 20 == 0) player.damage(2.0, org.bukkit.damage.DamageSource.builder(org.bukkit.damage.DamageType.DRY_OUT).build());
 	}
 
@@ -974,16 +1191,52 @@ public final class AbilityManager {
 		return value instanceof Number n ? n.intValue() != 0 : Boolean.TRUE.equals(value);
 	}
 
-	/** Another player shears a sheep morph: wool of its colour drops and it stays bald until it eats grass. */
+	/** A borrowed sheep's wool: what shears and grass left of it, else what the form was captured with. */
+	private boolean isLentSheared(Player player, MorphRef lent) {
+		Map<MorphRef, Boolean> wool = lentWool.get(player.getUniqueId());
+		Boolean known = wool == null ? null : wool.get(lent);
+		if (known != null) return known;
+		Object value = parse(lent.snbt()).get("Sheared");
+		return value instanceof Number n ? n.intValue() != 0 : Boolean.TRUE.equals(value);
+	}
+
+	private void setLentWool(Player player, MorphRef lent, boolean sheared) {
+		lentWool.computeIfAbsent(player.getUniqueId(), k -> new HashMap<>()).put(lent, sheared);
+	}
+
+	private boolean isAdult(MorphRef form, org.bukkit.World world) {
+		return !(plugin.templates().get(form, world) instanceof org.bukkit.entity.Ageable a) || a.isAdult();
+	}
+
+	/** Only a sheep form is asked its age and wool (a template is built for the question), anything else is not a candidate. */
+	private ShearRules.Candidate shearCandidate(Player sheep, @Nullable MorphRef form, boolean lent, org.bukkit.World world) {
+		if (form == null || !form.entityType().equals("minecraft:sheep")) return ShearRules.Candidate.NONE;
+		return new ShearRules.Candidate(true, isAdult(form, world), lent ? isLentSheared(sheep, form) : isSheared(sheep, form));
+	}
+
+	/**
+	 * Another player shears a sheep morph: wool of its colour drops and it stays bald until it eats grass. Either form of the
+	 * combination counts (2026-11-17: "let either form count"), as milking does; a lamb refuses, as in vanilla.
+	 */
 	public boolean shearSheep(Player shearer, Player sheep) {
-		MorphRef form = plugin.morphs().activeForm(sheep);
-		if (form == null || !form.entityType().equals("minecraft:sheep") || plugin.morphs().isTransitioning(sheep) || isSheared(sheep, form)) return false;
+		if (!enabled || plugin.morphs().isTransitioning(sheep)) return false; // abilities off: milking refuses, so shearing does too
+		MorphRef main = plugin.morphs().activeForm(sheep);
+		MorphRef lent = plugin.borrowedHeads().borrowed(sheep);
+		org.bukkit.World world = sheep.getWorld();
+		ShearRules.Candidate asMain = shearCandidate(sheep, main, false, world);
+		ShearRules.Candidate asLent = shearCandidate(sheep, lent, true, world);
+		ShearRules.Pick pick = ShearRules.pick(asMain, asLent);
+		if (pick == ShearRules.Pick.NONE) return false;
+		MorphRef form = pick == ShearRules.Pick.MAIN ? main : lent;
 		Object color = parse(form.snbt()).get("Color");
 		org.bukkit.DyeColor dye = org.bukkit.DyeColor.getByWoolData((byte) (color instanceof Number n ? n.intValue() : 0));
 		org.bukkit.Material wool = org.bukkit.Material.matchMaterial((dye == null ? org.bukkit.DyeColor.WHITE : dye).name() + "_WOOL");
 		int count = java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 4);
 		if (wool != null) sheep.getWorld().dropItemNaturally(sheep.getLocation().add(0, 0.5, 0), new org.bukkit.inventory.ItemStack(wool, count));
-		plugin.morphs().setOverlay(sheep, "{Sheared:1b}");
+		// the main body's wool is its look (every viewer sees it bald); a borrowed sheep's head is drawn from the base model, which has
+		// no wool layer, so there is no look to change: only the state is kept, for the next shearing and for grass
+		if (pick == ShearRules.Pick.MAIN) plugin.morphs().setOverlayKeys(sheep, SHEAR_KEYS, "{Sheared:1b}");
+		else setLentWool(sheep, lent, true);
 		sheep.getWorld().playSound(sheep.getLocation(), Sound.ENTITY_SHEEP_SHEAR, 1F, 1F);
 		return true;
 	}
@@ -1133,7 +1386,10 @@ public final class AbilityManager {
 	public boolean leap(Player player) {
 		String type = type(player);
 		if (!enabled || type == null || !player.isSneaking() || player.isFlying() || !player.hasPermission("morphreborn.ability")) return false;
-		if (!allowed(player, "leap")) return false;
+		// a shulker body clinging to a block stays put: a borrowed frog or goat can't launch it
+		if (!allowed(player, "leap") || plugin.shulkerLock().isLocked(player)) return false;
+		// held still (watched, pinned, trading) a leap sets the velocity straight through the frozen speed (rig B1-12)
+		if (heldStill(player)) return false;
 		Leap leap = null;
 		for (String t : types(player)) { // the main form's leap, or the borrowed one's
 			leap = leaps.get(t);
@@ -1194,22 +1450,34 @@ public final class AbilityManager {
 	}
 
 	/** Enderman-style random teleport: up to 16 tries at a spot within 16 blocks with ground below and room to stand. */
+	/** Nothing {@code blocked} where a body of this size would stand with its feet centred on {@code feet}. */
+	private static boolean hasRoom(Block feet, double width, double height, java.util.function.Predicate<Block> blocked) {
+		if (BodyRoom.cells(width, height) > BodyRoom.MAX_SCAN) return false; // a body this big has no room anywhere worth reading thousands of blocks for
+		int[] span = BodyRoom.span(width);
+		int high = BodyRoom.blocksHigh(height);
+		for (int dy = 0; dy < high; dy++) {
+			for (int dx = span[0]; dx <= span[1]; dx++) {
+				for (int dz = span[0]; dz <= span[1]; dz++) {
+					if (blocked.test(feet.getRelative(dx, dy, dz))) return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	private boolean teleportRandomly(Player player) {
+		if (heldStill(player)) return false; // as the teleport ability: a held body stays
 		java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
 		Location from = player.getLocation();
-		int height = (int) Math.ceil(player.getHeight());
 		for (int attempt = 0; attempt < 16; attempt++) {
-			Block feet = from.getWorld().getBlockAt(from.getBlockX() + random.nextInt(-16, 17), from.getBlockY() + random.nextInt(-8, 9),
-					from.getBlockZ() + random.nextInt(-16, 17));
+			int x = from.getBlockX() + random.nextInt(-16, 17), z = from.getBlockZ() + random.nextInt(-16, 17);
+			// never load a chunk for a try (getType would, on the main thread): an unloaded one is just another miss
+			if (!from.getWorld().isChunkLoaded(x >> 4, z >> 4)) continue;
+			Block feet = from.getWorld().getBlockAt(x, from.getBlockY() + random.nextInt(-8, 9), z);
 			while (feet.getY() > from.getWorld().getMinHeight() && feet.getRelative(BlockFace.DOWN).isPassable()) feet = feet.getRelative(BlockFace.DOWN);
 			Block ground = feet.getRelative(BlockFace.DOWN);
 			if (!ground.getType().isSolid() || ground.isLiquid()) continue;
-			boolean room = true;
-			for (int dy = 0; dy < height && room; dy++) {
-				Block b = feet.getRelative(0, dy, 0);
-				room = b.isPassable() && !b.isLiquid();
-			}
-			if (!room) continue;
+			if (!hasRoom(feet, player.getWidth(), player.getHeight(), b -> !b.isPassable() || b.isLiquid())) continue;
 			Location to = feet.getLocation().add(0.5, 0, 0.5);
 			to.setYaw(from.getYaw());
 			to.setPitch(from.getPitch());
@@ -1262,9 +1530,15 @@ public final class AbilityManager {
 
 	/** Should {@code mob} be stopped from targeting {@code player}? */
 	public boolean shouldIgnore(LivingEntity mob, Player player) {
+		String mobType = mob.getType().getKey().toString();
+		// Borrowed Scent (a paid passive, so no matter the abilities switch): creatures of the kind lent to you leave you alone,
+		// dropping a target they already have and ceasing to hit, until you strike them (fix round, 2026-11-17)
+		MorphMakeup makeup = makeup(player);
+		if (makeup.scentSpares(mobType) && plugin.survival().active() && plugin.passives().scentActive(player)) {
+			return !provoked.getOrDefault(player.getUniqueId(), Set.of()).contains(mob.getUniqueId());
+		}
 		List<String> forms = types(player);
 		if (!enabled || forms.isEmpty()) return false;
-		String mobType = mob.getType().getKey().toString();
 		if (allowed(player, "intimidate")) {
 			for (String t : forms) if (intimidate.getOrDefault(t, Set.of()).contains(mobType)) return true;
 		}
@@ -1273,23 +1547,48 @@ public final class AbilityManager {
 		// Mobs seeing a morph as the creature it looks like (targeting below, or the simpler hostile-camouflage) is a
 		// bought trait in Survival; until then they see through the disguise and treat you as a player.
 		if (!allowed(player, "hostile-camouflage")) return false;
+		// Camouflage is for mobs, Borrowed Scent for you (2026-11-17): a body made only of creatures is camouflaged
+		// with any of them counting (a zombie lent to a cow still does); one with you in it (your own body, or your own head on a
+		// creature) never is in Survival, where Borrowed Scent spares the creature's kind instead (above). Classic has no such
+		// passive, so there that body keeps Camouflage rather than going unprotected.
+		if (!makeup.camouflages(plugin.survival().active())) return false;
 		if (targetingEnabled) {
-			MorphRef form = plugin.morphs().activeForm(player);
-			if (form == null || form.isPlayer()) return false;
 			if (alwaysHostile.contains(mobType)) return false;
 			if (provoked.getOrDefault(player.getUniqueId(), Set.of()).contains(mob.getUniqueId())) return false;
 			Set<String> prey = attacks.get(mobType);
-			return prey != null && forms.stream().noneMatch(prey::contains); // prey if any form is
+			if (prey == null) return false;
+			for (String creature : makeup.creatures()) if (prey.contains(creature)) return false; // prey if any form is
+			return true;
 		}
 		if (!hostileCamouflage || !(mob instanceof org.bukkit.entity.Enemy)) return false;
-		MorphRef form = plugin.morphs().activeForm(player);
-		LivingEntity template = form == null ? null : plugin.templates().get(form, player.getWorld());
-		if (!(template instanceof org.bukkit.entity.Enemy)) return false;
+		boolean hostileForm = false;
+		for (MorphRef form : new MorphRef[] {plugin.morphs().activeForm(player), plugin.borrowedHeads().borrowed(player)}) {
+			if (form != null && !form.isPlayer() && plugin.templates().get(form, player.getWorld()) instanceof org.bukkit.entity.Enemy) hostileForm = true;
+		}
+		if (!hostileForm) return false;
 		return !provoked.getOrDefault(player.getUniqueId(), Set.of()).contains(mob.getUniqueId());
 	}
 
 	public boolean isMilkable(Player player) {
-		return enabled && any(types(player), milkable);
+		return milkingForm(player) != null;
+	}
+
+	/** The form (main first) that gives milk: a cow, goat or mooshroom that has grown up, as vanilla refuses a calf. */
+	public @Nullable String milkingForm(Player player) {
+		return milkingForm(player, null);
+	}
+
+	/** As above, but only a form of the {@code only} type (a bowl asks for a mooshroom, whichever form comes first). */
+	public @Nullable String milkingForm(Player player, @Nullable String only) {
+		if (!enabled || plugin.morphs().isTransitioning(player)) return null;
+		MorphRef main = plugin.morphs().activeForm(player);
+		MorphRef lent = plugin.borrowedHeads().borrowed(player);
+		for (MorphRef form : new MorphRef[] {main, lent}) {
+			if (form == null || form.isPlayer() || !milkable.contains(form.entityType()) || (only != null && !only.equals(form.entityType()))) continue;
+			if (plugin.templates().get(form, player.getWorld()) instanceof org.bukkit.entity.Ageable a && !a.isAdult()) continue;
+			return form.entityType();
+		}
+		return null;
 	}
 
 	public boolean canCarryBlocks(Player player) {
@@ -1309,11 +1608,11 @@ public final class AbilityManager {
 		/** Movement keys held right now; a key only lets go when it is newly pressed. */
 		org.bukkit.Input keys;
 
-		Perch(Block ceiling, Player p) {
+		Perch(Block ceiling, Player p, float freeSpeed) {
 			this.ceiling = ceiling;
 			this.allowFlight = p.getAllowFlight();
 			this.flying = p.isFlying();
-			this.flySpeed = p.getFlySpeed();
+			this.flySpeed = freeSpeed;
 			this.keys = p.getCurrentInput();
 		}
 	}
@@ -1339,7 +1638,9 @@ public final class AbilityManager {
 	 * so nothing fights gravity. Everyone sees the bat's resting pose through the BatFlags overlay.
 	 */
 	private void perch(Player p, Block ceiling) {
-		perched.put(p.getUniqueId(), new Perch(ceiling, p));
+		// what it gives back on letting go is the speed it flies at when free: a watched flier is at zero now, and that is not it
+		float free = frozen.contains(p.getUniqueId()) && grantedFlight.contains(p.getUniqueId()) ? flySpeed : p.getFlySpeed();
+		perched.put(p.getUniqueId(), new Perch(ceiling, p, free));
 		Location at = p.getLocation();
 		at.setY(ceiling.getY() - p.getHeight());
 		p.teleport(at);
@@ -1348,7 +1649,7 @@ public final class AbilityManager {
 		p.setFlySpeed(0F);
 		p.setVelocity(new Vector());
 		p.setFallDistance(0);
-		plugin.morphs().setOverlay(p, "{BatFlags:1b}");
+		plugin.morphs().setOverlayKeys(p, BAT_KEYS, "{BatFlags:1b}");
 	}
 
 	/**
@@ -1358,11 +1659,12 @@ public final class AbilityManager {
 	public void unperch(Player p, boolean showPose) {
 		Perch was = perched.remove(p.getUniqueId());
 		if (was == null) return;
-		p.setFlySpeed(was.flySpeed);
+		// still watched: it lets go of the ceiling and stays held by the freeze
+		p.setFlySpeed(flierSpeed(frozen.contains(p.getUniqueId()) && grantedFlight.contains(p.getUniqueId()), false, was.flySpeed));
 		p.setAllowFlight(was.allowFlight);
 		p.setFlying(was.allowFlight && was.flying);
 		if (showPose) {
-			plugin.morphs().setOverlay(p, "");
+			plugin.morphs().setOverlayKeys(p, BAT_KEYS, "");
 			p.getWorld().playSound(p.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 0.3F, 1F);
 		}
 	}
@@ -1413,11 +1715,16 @@ public final class AbilityManager {
 	 * Instead they get an invisible Slow Falling effect while in the air: the player's own game slows the fall and
 	 * leaves sideways movement alone. It is close to a chicken on short drops and quicker on long ones.
 	 */
-	private void tickSlowFall(Player player) {
+	/**
+	 * Slow fall for players without the mod (the mod's client does it itself, Wire.TRAIT_SLOW_FALL and
+	 * TRAIT_GLIDE_ON_JUMP): a hidden Slow Falling while airborne and {@code wanted} (always for a chicken or a flier that
+	 * can't fly yet; while jump is held for one that can, with hold-jump-glide).
+	 */
+	private void tickSlowFall(Player player, boolean wanted) {
 		if (plugin.channel().isModded(player)) return; // the client does it (Wire.TRAIT_SLOW_FALL)
 		PotionEffect current = player.getPotionEffect(PotionEffectType.SLOW_FALLING);
 		boolean ours = current != null && isChickenFall(current);
-		boolean airborne = !player.isOnGround() && !player.isFlying() && !player.isGliding() && !player.isInWater() && !player.isClimbing();
+		boolean airborne = wanted && !player.isOnGround() && !player.isFlying() && !player.isGliding() && !player.isInWater() && !player.isClimbing();
 		if (airborne) {
 			if (current == null || (ours && current.getDuration() < 10)) {
 				player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, CHICKEN_FALL_TICKS, 0, true, false, false));
@@ -1474,16 +1781,13 @@ public final class AbilityManager {
 			fire(player, choice.ability(), choice.type(), choice.fakeout());
 			return;
 		}
-		// one ability among the forms (the main form's first): its own second input, as for a single form
-		String type = null;
-		ActiveAbility ability = null;
-		for (String t : forms) {
-			ability = actives.get(t);
-			if (ability != null) {
-				type = t;
-				break;
-			}
-		}
+		// one ability among the forms (the main form's first, except a dash by where you are, 2026-11-17): its own second
+		// input, as for a single form
+		String type = PlaceVariants.pick(forms, t -> {
+			ActiveAbility a = actives.get(t);
+			return a == null ? null : a.name;
+		}, Map.of("dash", dashWaterOnly), player.isInWater());
+		ActiveAbility ability = type == null ? null : actives.get(type);
 		if (ability == null) return;
 		String locked = plugin.mode().cannotUseAbility(player);
 		if (locked != null) {
@@ -1519,6 +1823,9 @@ public final class AbilityManager {
 		if (fakeout ? fuse(player, true) : ability.run(player, type)) {
 			cds.put(cooldownKey, tick + Math.round(cooldownTicks * plugin.mode().cooldownFactor(player)));
 			if (!fakeout) plugin.channel().broadcastAnimation(player, ability.name);
+			// A shulker body clinging to a block opens its shell for whatever it does, as a shulker opens to attack: the head
+			// inside (its own, or the one it borrows) pops out to shoot, hiss or throw. Only a held shell opens.
+			plugin.shulkerLock().openShell(player);
 		}
 	}
 
@@ -1574,14 +1881,17 @@ public final class AbilityManager {
 	private @Nullable MorphRef explodingForm(Player p) {
 		MorphRef main = plugin.morphs().activeForm(p);
 		if (main == null || plugin.morphs().isTransitioning(p)) return null;
-		if (explodes(main.entityType())) return main;
-		MorphRef lent = plugin.borrowedHeads().borrowed(p);
-		return lent != null && explodes(lent.entityType()) ? lent : null;
+		return Blasters.pick(main, plugin.borrowedHeads().borrowed(p), this::canBlast);
 	}
 
 	private boolean explodes(String type) {
 		ActiveAbility ability = actives.get(type);
 		return ability != null && ability.name.equals("explode");
+	}
+
+	/** It explodes, and (a sulfur cube) holds an explosive block: a cube without one must not hide a borrowed creeper. */
+	private boolean canBlast(MorphRef form) {
+		return explodes(form.entityType()) && (!form.entityType().equals("minecraft:sulfur_cube") || hasExplosiveInside(form));
 	}
 
 	/**
@@ -1596,15 +1906,25 @@ public final class AbilityManager {
 	/**
 	 * Vanilla primes a sulfur cube holding TNT from outside (SulfurCube.mobInteract, hurtServer): flint and steel or a
 	 * fire charge, fire, a burning arrow, or a blast nearby ({@code imminent}: a short fuse, as PrimedTnt's). It isn't the
-	 * cube's own choice, so there is no cooldown and no Survival unlock; it blows up as its ability does.
+	 * cube's own choice, so there is no Survival unlock; it blows up as its ability does, and has its cooldown.
 	 */
 	public boolean ignite(Player p, boolean imminent) {
 		if (!enabled || plugin.morphs().isTransitioning(p)) return false;
-		MorphRef form = plugin.morphs().activeForm(p);
-		if (form == null || !"minecraft:sulfur_cube".equals(form.entityType()) || !explodes(form.entityType()) || !hasExplosiveInside(form)) return false;
+		// the cube may be the borrowed form (a zombie lending a TNT cube's body is lit the same way)
+		MorphRef main = plugin.morphs().activeForm(p);
+		MorphRef lent = plugin.borrowedHeads().borrowed(p);
+		MorphRef form = Blasters.pick(main, lent, f -> f.entityType().equals("minecraft:sulfur_cube") && canBlast(f));
+		if (form == null) return false;
+		// A blast from outside has the ability's own cooldown, shared with its key: a borrowed cube's block is not spent (only a main
+		// converted cube reverts), so without it an ally with flint and steel could relight it every half second
+		ActiveAbility blast = actives.get(form.entityType());
+		Map<String, Long> cds = cooldowns.computeIfAbsent(p.getUniqueId(), k -> new HashMap<>());
+		if (blast != null && tick < cds.getOrDefault(blast.name, 0L)) return false;
 		int ticks = imminent ? java.util.concurrent.ThreadLocalRandom.current().nextInt(Math.max(1, sulfurCubeFuseTicks / 4)) + sulfurCubeFuseTicks / 8
 				: sulfurCubeFuseTicks;
-		return fuse(p, false, ticks);
+		boolean lit = fuse(p, false, ticks, form);
+		if (lit && blast != null) cds.put(blast.name, tick + ticks + Math.round(blast.cooldownTicks * plugin.mode().cooldownFactor(p)));
+		return lit;
 	}
 
 	/** A creeper's or sulfur cube's fuse is burning (a primed sulfur cube can't be hurt, as in vanilla). */
@@ -1614,25 +1934,34 @@ public final class AbilityManager {
 
 	/** {@code fuseTicks} below 0: the form's own fuse. */
 	private boolean fuse(Player p, boolean fakeout, int fuseTicks) {
-		MorphRef creeperForm = explodingForm(p);
-		if (creeperForm == null) return false;
+		return fuse(p, fakeout, fuseTicks, null);
+	}
+
+	/** {@code lit}: the form that was lit from outside (a borrowed TNT cube under a creeper body), else the one that explodes. */
+	private boolean fuse(Player p, boolean fakeout, int fuseTicks, @Nullable MorphRef lit) {
+		MorphRef creeperForm = lit != null ? lit : explodingForm(p);
+		if (creeperForm == null) {
+			MorphRef main = plugin.morphs().activeForm(p);
+			if (main != null && !plugin.morphs().isTransitioning(p) && main.entityType().equals("minecraft:sulfur_cube")) {
+				p.sendActionBar(Component.text("Only a sulfur cube with an explosive block inside can explode.", NamedTextColor.GRAY));
+			}
+			return false;
+		}
 		ConfigurationSection config = actives.get(creeperForm.entityType()).config;
 		boolean sulfur = creeperForm.entityType().equals("minecraft:sulfur_cube");
 		// the swelling and the charge's aura are the creeper body's; a borrowed creeper only hisses and blows up
 		boolean looks = !sulfur && creeperForm.equals(plugin.morphs().activeForm(p));
-		if (sulfur && !hasExplosiveInside(creeperForm)) {
-			p.sendActionBar(Component.text("Only a sulfur cube with an explosive block inside can explode.", NamedTextColor.GRAY));
-			return false;
-		}
 		if (!fusing.add(p.getUniqueId())) return false;
-		if (looks) plugin.morphs().setOverlay(p, creeperLook(p, true));
+		if (looks) plugin.morphs().setOverlayKeys(p, CREEPER_KEYS, creeperLook(p, true));
 		p.getWorld().playSound(p.getLocation(), sulfur ? Sound.ENTITY_TNT_PRIMED : Sound.ENTITY_CREEPER_PRIMED, 1F, sulfur ? 1F : 0.5F);
 		plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
 			fusing.remove(p.getUniqueId());
-			if (!p.isOnline() || p.isDead() || !creeperForm.equals(explodingForm(p))) return;
+			// still made of the form that was lit (a lit borrowed cube need not be the one explodingForm names first)
+			if (!p.isOnline() || p.isDead() || plugin.morphs().isTransitioning(p)
+					|| !Blasters.isOneOf(creeperForm, plugin.morphs().activeForm(p), plugin.borrowedHeads().borrowed(p))) return;
 			if (fakeout) {
 				// Back to normal with a dud's fizzle; the charge (if any) stays for a real explosion.
-				if (looks) plugin.morphs().setOverlay(p, creeperLook(p, false));
+				if (looks) plugin.morphs().setOverlayKeys(p, CREEPER_KEYS, creeperLook(p, false));
 				Location chest = p.getLocation().add(0, p.getHeight() * 0.6, 0);
 				p.getWorld().spawnParticle(Particle.SMOKE, chest, 12, 0.25, 0.25, 0.25, 0.02);
 				p.getWorld().playSound(chest, Sound.BLOCK_FIRE_EXTINGUISH, 0.5F, 1.6F);
@@ -1642,7 +1971,7 @@ public final class AbilityManager {
 			// charged-creeper morph (killed while charged) stays charged.
 			boolean struck = !sulfur && charged.remove(p.getUniqueId());
 			boolean wasCharged = struck || (!sulfur && isPoweredForm(creeperForm));
-			if (looks) plugin.morphs().setOverlay(p, "");
+			if (looks) plugin.morphs().setOverlayKeys(p, CREEPER_KEYS, "");
 			var settings = plugin.settings();
 			float power = (float) (config.getDouble("power", 3) * (wasCharged ? config.getDouble("charged-multiplier", 2) : 1));
 			// A borrowed creeper blows up with the body it is on: the blast grows with that body's size, the cube root of
@@ -1656,6 +1985,9 @@ public final class AbilityManager {
 					power = (float) Math.min(config.getDouble("multimorph-max-power", 16), power * Math.cbrt(ratio));
 				}
 			}
+			// a creeper head in a held shulker's shell is out as it blows, however long the fuse burned (the shell opened as
+			// it was lit, for open-seconds)
+			plugin.shulkerLock().openShell(p);
 			explosionImmune.add(p.getUniqueId());
 			try {
 				p.getWorld().createExplosion(p, p.getLocation(), power,
@@ -1674,6 +2006,89 @@ public final class AbilityManager {
 		return true;
 	}
 
+	/**
+	 * Abilities that throw the player's own body about. A shulker body clinging to a block stays put, so on one they do
+	 * nothing (and cost no cooldown), as a borrowed frog's or goat's leap does.
+	 */
+	private static final Set<String> MOVES_BODY = Set.of("dash", "hop", "ram", "swoop", "roll");
+
+	/**
+	 * What the player aims at within {@code range}: a locked shulker's hidden helper stands for the player inside it.
+	 * Never the player's own helper: with the eye above their closed shell (hitbox scaling off, a larger scale) a look
+	 * down finds it first, and the bullet, toss or sting would land on themselves. The look is traced again past it,
+	 * still stopped by blocks.
+	 */
+	private @Nullable Entity aimedAt(Player p, int range) {
+		ShulkerLock lock = plugin.shulkerLock();
+		Entity target = p.getTargetEntity(range);
+		if (lock.isHelperOf(target, p)) {
+			Location eye = p.getEyeLocation();
+			RayTraceResult hit = p.getWorld().rayTrace(eye, eye.getDirection(), range, FluidCollisionMode.NEVER, true, 0,
+					e -> e != p && e instanceof LivingEntity && !lock.isHelperOf(e, p) && !(e instanceof Player q && q.getGameMode() == GameMode.SPECTATOR));
+			target = hit == null ? null : hit.getHitEntity();
+		}
+		return lock.standIn(target);
+	}
+
+	/** The box a {@link BodyReach} test reads from a Bukkit box. */
+	private static BodyReach.Box reachBox(org.bukkit.util.BoundingBox b) {
+		return new BodyReach.Box(b.getMinX(), b.getMinY(), b.getMinZ(), b.getMaxX(), b.getMaxY(), b.getMaxZ());
+	}
+
+	/** The player's body scale when it is bigger than a player's (a giant, a dragon, a ghast), else 0 for the plain eye trace. */
+	private double bigBodyScale(Player p) {
+		org.bukkit.attribute.AttributeInstance scale = p.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+		return scale != null && BodyReach.applies(scale.getValue()) ? scale.getValue() : 0;
+	}
+
+	/**
+	 * {@link #aimedAt} for the short fixed-range abilities (sting, toss, scare, tongue). On a player-sized body this is
+	 * exactly aimedAt. On a big one the eye is too high to meet a target at its feet inside the ability's range, so what
+	 * the look points at also counts when it is within {@code range} of the body's hitbox edge: a giant can sting a cow
+	 * at its ankle, and still reaches no further past its body than the ability always did (2026-11-17).
+	 */
+	private @Nullable Entity aimedAtNearBody(Player p, int range) {
+		Entity hit = aimedAt(p, range);
+		// A living hit ends it; a dropped item, orb, boat or frame the eye trace met first must not hide the cow behind it
+		if (hit instanceof LivingEntity) return hit;
+		if (bigBodyScale(p) == 0) return hit;
+		ShulkerLock lock = plugin.shulkerLock();
+		BodyReach.Box body = reachBox(p.getBoundingBox());
+		Location eye = p.getEyeLocation();
+		double length = BodyReach.traceLength(range, body, eye.getX(), eye.getY(), eye.getZ());
+		// Ray size 0 like the plain getTargetEntity trace: reach is widened, aim picking is not (I wanted reach only)
+		RayTraceResult ray = p.getWorld().rayTrace(eye, eye.getDirection(), length, FluidCollisionMode.NEVER, true, 0,
+				e -> e != p && e instanceof LivingEntity && !lock.isHelperOf(e, p) && !(e instanceof Player q && q.getGameMode() == GameMode.SPECTATOR)
+						&& BodyReach.within(body, reachBox(e.getBoundingBox()), range));
+		// Nothing living found: hand back the plain trace's result so a non-living hit behaves exactly as before
+		return ray == null ? hit : lock.standIn(ray.getHitEntity());
+	}
+
+	/** The block counterpart of {@link #aimedAtNearBody}, for infest and sort: the looked-at block, within {@code range} of the body's edge. */
+	private @Nullable Block blockAimedNearBody(Player p, int range) {
+		Block exact = p.getTargetBlockExact(range);
+		if (exact != null) return exact;
+		double scale = bigBodyScale(p);
+		if (scale == 0) return null;
+		BodyReach.Box body = reachBox(p.getBoundingBox());
+		Location eye = p.getEyeLocation();
+		RayTraceResult ray = p.getWorld().rayTraceBlocks(eye, eye.getDirection(), BodyReach.traceLength(range, body, eye.getX(), eye.getY(), eye.getZ()),
+				FluidCollisionMode.NEVER, true);
+		Block block = ray == null ? null : ray.getHitBlock();
+		return block != null && BodyReach.within(body, reachBox(block.getBoundingBox()), range) ? block : null;
+	}
+
+	/** A ray's living target, never the shooter's own helper, a helper standing for its player. */
+	/** An untargeted shulker bullet's speed (blocks a tick) and how long it flies (ticks): about 32 blocks, the aim's reach. */
+	private static final double SHULKER_BULLET_SPEED = 0.5;
+	private static final long SHULKER_BULLET_TICKS = 64L;
+
+	private @Nullable Entity rayTarget(Player p, Location eye, Vector dir, double range, double size) {
+		ShulkerLock lock = plugin.shulkerLock();
+		RayTraceResult hit = p.getWorld().rayTraceEntities(eye, dir, range, size, e -> e != p && e instanceof LivingEntity && !lock.isHelperOf(e, p));
+		return hit == null ? null : lock.standIn(hit.getHitEntity());
+	}
+
 	private final class ActiveAbility {
 		final String name;
 		final long cooldownTicks;
@@ -1689,15 +2104,18 @@ public final class AbilityManager {
 		boolean run(Player p, String type) {
 			Location eye = p.getEyeLocation();
 			Vector dir = eye.getDirection();
+			if (MOVES_BODY.contains(name) && (plugin.shulkerLock().isLocked(p) || heldStill(p))) return false;
 			switch (name) {
 				case "explode" -> {
 					return fuse(p, false);
 				}
 				case "teleport" -> {
+					if (heldStill(p)) return false; // a pin or a freeze holds the body, a teleport is no way out of it (rig B1-08)
 					Block target = p.getTargetBlockExact(config.getInt("range", 32));
 					if (target == null) return false;
 					Block above = target.getRelative(BlockFace.UP);
-					if (above.isSolid() || above.getRelative(BlockFace.UP).isSolid()) return false;
+					// the whole body must fit: a ghast's head in the roof, a giant wedged through the walls, is not a teleport
+					if (!hasRoom(above, p.getWidth(), p.getHeight(), Block::isSolid)) return false;
 					Location from = p.getLocation();
 					Location to = above.getLocation().add(0.5, 0, 0.5);
 					to.setYaw(from.getYaw());
@@ -1734,8 +2152,20 @@ public final class AbilityManager {
 				}
 				case "shulker-bullet" -> {
 					ShulkerBullet bullet = p.launchProjectile(ShulkerBullet.class);
-					Entity target = p.getTargetEntity(32);
-					if (target != null) bullet.setTarget(target);
+					Entity target = aimedAt(p, 32);
+					if (target != null) {
+						bullet.setTarget(target);
+					} else {
+						// Nothing in the crosshair: straight where you look. Vanilla's bullet with no target heads for the
+						// block below it and falls (ShulkerBullet.selectNextMoveDirection, applyGravity), so every shot
+						// that wasn't at a creature went into the ground (I saw it). Without gravity and a target
+						// it keeps its speed; it is cleared after a while, as it would otherwise fly on forever.
+						bullet.setGravity(false);
+						bullet.setVelocity(dir.clone().normalize().multiply(SHULKER_BULLET_SPEED));
+						plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+							if (bullet.isValid()) bullet.remove();
+						}, SHULKER_BULLET_TICKS);
+					}
 					p.getWorld().playSound(eye, Sound.ENTITY_SHULKER_SHOOT, 1F, 1F);
 				}
 				case "wind-charge" -> p.launchProjectile(WindCharge.class);
@@ -1770,8 +2200,7 @@ public final class AbilityManager {
 					for (double d = 1; d <= range; d += 1) {
 						p.getWorld().spawnParticle(Particle.SONIC_BOOM, eye.clone().add(dir.clone().multiply(d)), 1);
 					}
-					RayTraceResult hit = p.getWorld().rayTraceEntities(eye, dir, range, 1.0, e -> e != p && e instanceof LivingEntity);
-					if (hit != null && hit.getHitEntity() instanceof LivingEntity target) {
+					if (rayTarget(p, eye, dir, range, 1.0) instanceof LivingEntity target) {
 						target.damage(config.getDouble("damage", 10), p);
 						target.setVelocity(target.getVelocity().add(dir.clone().multiply(1.5).setY(0.5)));
 					}
@@ -1782,7 +2211,9 @@ public final class AbilityManager {
 					p.setVelocity(dir.clone().setY(0.1).multiply(strength));
 					plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
 						for (Entity e : p.getNearbyEntities(1.5, 1.5, 1.5)) {
-							if (e instanceof LivingEntity le && e != p) {
+							// a locked shulker's helper is skipped: the player inside it is in reach and takes the hit itself
+							// nor the mount a jockey sits on: it took 4 a press from its own rider until it died (rig B1-03)
+							if (e instanceof LivingEntity le && e != p && e != p.getVehicle() && !plugin.shulkerLock().isHelper(e)) {
 								le.damage(4, p);
 								le.setVelocity(dir.clone().multiply(strength).setY(0.6));
 							}
@@ -1810,7 +2241,7 @@ public final class AbilityManager {
 					}
 				}
 				case "toss" -> {
-					Entity target = p.getTargetEntity(3);
+					Entity target = aimedAtNearBody(p, 3);
 					if (!(target instanceof LivingEntity victim)) return false;
 					victim.damage(config.getDouble("damage", 7), p);
 					victim.setVelocity(victim.getVelocity().add(new Vector(0, 0.9, 0)));
@@ -1820,8 +2251,7 @@ public final class AbilityManager {
 				case "guardian-beam" -> {
 					// Like the real thing: the beam locks on and charges, and only hits if the target stays in sight.
 					double range = config.getDouble("range", 16);
-					RayTraceResult hit = p.getWorld().rayTraceEntities(eye, dir, range, 0.5, e -> e != p && e instanceof LivingEntity);
-					if (hit == null || !(hit.getHitEntity() instanceof LivingEntity target)) return false;
+					if (!(rayTarget(p, eye, dir, range, 0.5) instanceof LivingEntity target)) return false;
 					if (!beaming.add(p.getUniqueId())) return false;
 					int chargeTicks = Math.max(2, (int) Math.round(config.getDouble("charge-seconds", 2) * 20));
 					double damage = "minecraft:elder_guardian".equals(type) ? config.getDouble("elder-damage", 8) : config.getDouble("damage", 6);
@@ -1866,7 +2296,9 @@ public final class AbilityManager {
 					p.setFoodLevel(Math.min(20, p.getFoodLevel() + 2));
 					p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + 1));
 					MorphRef grazing = plugin.morphs().activeForm(p);
-					if (grazing != null && isSheared(p, grazing)) plugin.morphs().setOverlay(p, "{Sheared:0b}"); // eating grass regrows the wool
+					if (grazing != null && grazing.entityType().equals("minecraft:sheep") && isSheared(p, grazing)) plugin.morphs().setOverlayKeys(p, SHEAR_KEYS, "{Sheared:0b}"); // eating grass regrows the wool
+					MorphRef grazingLent = plugin.borrowedHeads().borrowed(p);
+					if (grazingLent != null && grazingLent.entityType().equals("minecraft:sheep") && isLentSheared(p, grazingLent)) setLentWool(p, grazingLent, false); // a borrowed sheep's too
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_SHEEP_AMBIENT, 1F, 1F);
 					p.getWorld().spawnParticle(Particle.BLOCK, p.getLocation(), 12, 0.3, 0.1, 0.3, org.bukkit.Material.GRASS_BLOCK.createBlockData());
 				}
@@ -1904,7 +2336,10 @@ public final class AbilityManager {
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_RABBIT_JUMP, 1F, 1F);
 				}
 				case "perch" -> {
-					if (p.getGameMode() == GameMode.SPECTATOR || p.isInsideVehicle() || p.isGliding() || p.isSwimming()) return false;
+					// a borrowed bat can't hang a shulker body that already clings to a block (both hold the player by flying)
+					if (p.getGameMode() == GameMode.SPECTATOR || p.isInsideVehicle() || p.isGliding() || p.isSwimming() || plugin.shulkerLock().isLocked(p)) {
+						return false;
+					}
 					Block ceiling = ceilingAbove(p, config.getDouble("reach", 2.5));
 					if (ceiling == null) {
 						p.sendActionBar(Component.text("Nothing solid above you to hang from.", NamedTextColor.GRAY));
@@ -1921,17 +2356,22 @@ public final class AbilityManager {
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_SQUID_SQUIRT, 1F, 1F);
 				}
 				case "tongue" -> {
-					Entity target = p.getTargetEntity(config.getInt("range", 5));
+					Entity target = aimedAtNearBody(p, config.getInt("range", 5));
 					if (!(target instanceof LivingEntity prey) || target instanceof Player) return false;
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_FROG_TONGUE, 1F, 1F);
-					boolean small = prey instanceof org.bukkit.entity.Slime slime && slime.getSize() <= 1;
+					// AbstractCubeMob, not Slime: in Paper 26.3 a magma cube no longer extends Slime, so the froglight below was unreachable
+					boolean small = prey instanceof org.bukkit.entity.AbstractCubeMob cube && cube.getSize() <= 1;
 					if (small) {
 						org.bukkit.Material drop = org.bukkit.Material.SLIME_BALL;
 						if (prey instanceof org.bukkit.entity.MagmaCube) {
-							MorphRef form = plugin.morphs().activeForm(p);
-							String variant = form == null ? "" : form.snbt();
-							drop = variant.contains("warm") ? org.bukkit.Material.PEARLESCENT_FROGLIGHT
-									: variant.contains("cold") ? org.bukkit.Material.VERDANT_FROGLIGHT : org.bukkit.Material.OCHRE_FROGLIGHT;
+							// the colour is the frog the tongue belongs to: a warm frog borrowed onto another body counts
+							MorphRef main = plugin.morphs().activeForm(p);
+							MorphRef frog = main != null && main.entityType().equals(type) ? main : plugin.borrowedHeads().borrowed(p);
+							drop = switch (Frogs.froglight(frog == null ? "" : frog.snbt())) {
+								case "pearlescent" -> org.bukkit.Material.PEARLESCENT_FROGLIGHT;
+								case "verdant" -> org.bukkit.Material.VERDANT_FROGLIGHT;
+								default -> org.bukkit.Material.OCHRE_FROGLIGHT;
+							};
 						}
 						prey.remove();
 						p.getWorld().dropItemNaturally(p.getLocation(), new org.bukkit.inventory.ItemStack(drop));
@@ -1960,9 +2400,9 @@ public final class AbilityManager {
 					p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, ticks, 5, true, false, true));
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_ARMADILLO_ROLL, 1F, 1F);
 					MorphRef rolled = plugin.morphs().activeForm(p);
-					plugin.morphs().setOverlay(p, "{state:\"scared\"}"); // curled up, for every viewer
+					plugin.morphs().setOverlayKeys(p, ROLL_KEYS, "{state:\"scared\"}"); // curled up, for every viewer
 					plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-						if (p.isOnline() && rolled != null && rolled.equals(plugin.morphs().activeForm(p))) plugin.morphs().setOverlay(p, "");
+						if (p.isOnline() && rolled != null && rolled.equals(plugin.morphs().activeForm(p))) plugin.morphs().setOverlayKeys(p, ROLL_KEYS, "");
 					}, ticks);
 				}
 				case "puff" -> {
@@ -2001,7 +2441,7 @@ public final class AbilityManager {
 					p.getWorld().playSound(p.getLocation(), Sound.ENTITY_AXOLOTL_HURT, 1F, 0.6F);
 				}
 				case "scare" -> {
-					Entity target = p.getTargetEntity(4);
+					Entity target = aimedAtNearBody(p, 4);
 					if (!(target instanceof LivingEntity victim)) return false;
 					victim.setVelocity(dir.clone().multiply(1.2).setY(0.4));
 					victim.damage(3.0, p);
@@ -2013,7 +2453,7 @@ public final class AbilityManager {
 				}
 				case "illusion" -> {
 					// The illusioner's two spells: blind what you look at, or vanish behind mirror images.
-					Entity target = p.getTargetEntity(config.getInt("range", 16));
+					Entity target = aimedAt(p, config.getInt("range", 16));
 					if (target instanceof LivingEntity victim) {
 						victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, config.getInt("blindness-seconds", 20) * 20, 0));
 						p.getWorld().playSound(p.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_BLINDNESS, 1F, 1F);
@@ -2026,7 +2466,7 @@ public final class AbilityManager {
 					}
 				}
 				case "sting" -> {
-					Entity target = p.getTargetEntity(config.getInt("range", 3));
+					Entity target = aimedAtNearBody(p, config.getInt("range", 3));
 					if (!(target instanceof LivingEntity victim)) {
 						// nothing in reach: get angry (an angry bee's red eyes), or calm down again
 						boolean now = !angry.remove(p.getUniqueId());
@@ -2049,8 +2489,11 @@ public final class AbilityManager {
 					boolean mortal = p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE;
 					if (plugin.settings().beeStingKillsUser && stingDeathTicks > 0 && mortal) {
 						p.sendActionBar(Component.text("You lost your stinger. Like a real bee, you won't last long.", NamedTextColor.GOLD));
+						int sting = ++stingSeq;
+						stingTimer.put(p.getUniqueId(), sting);
 						plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-							if (p.isOnline() && !p.isDead() && stung.contains(p.getUniqueId()) && bee != null && bee.equals(plugin.morphs().activeForm(p))) {
+							// only this sting's clock: dropping the bee ended it, and a later sting has its own
+							if (p.isOnline() && !p.isDead() && stingTimer.getOrDefault(p.getUniqueId(), -1) == sting && stung.contains(p.getUniqueId()) && bee != null && bee.equals(plugin.morphs().activeForm(p))) {
 								killSelf(p, "death.attack.generic");
 							}
 						}, stingDeathTicks);
@@ -2081,7 +2524,7 @@ public final class AbilityManager {
 					}
 				}
 				case "infest" -> {
-					Block target = p.getTargetBlockExact(config.getInt("range", 4));
+					Block target = blockAimedNearBody(p, config.getInt("range", 4));
 					org.bukkit.Material infested = target == null ? null : INFESTED.get(target.getType());
 					if (infested == null) {
 						p.sendActionBar(Component.text("Look at stone, cobblestone, stone bricks or deepslate.", NamedTextColor.GRAY));
@@ -2102,7 +2545,7 @@ public final class AbilityManager {
 				}
 				case "sort" -> {
 					// Copper golem: carry a stack out of a copper chest into a nearby chest, one holding the same item if any.
-					Block chest = p.getTargetBlockExact(config.getInt("range", 4));
+					Block chest = blockAimedNearBody(p, config.getInt("range", 4));
 					if (chest == null || !chest.getType().name().endsWith("COPPER_CHEST") || !(chest.getState() instanceof org.bukkit.block.Container from)) {
 						p.sendActionBar(Component.text("Look at a copper chest to sort its items.", NamedTextColor.GRAY));
 						return false;

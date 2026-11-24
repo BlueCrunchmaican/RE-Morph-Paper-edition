@@ -354,7 +354,8 @@
   },
   {
    "type": "minecraft:single",
-   "resource": "minecraft:entity/shulker/shulker"
+   "resource": "minecraft:entity/shulker/shulker",
+   "sprite": "morphreborn:alias/shulker"
   },
   {
    "type": "minecraft:single",

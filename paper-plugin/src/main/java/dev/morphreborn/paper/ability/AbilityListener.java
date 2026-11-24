@@ -1,32 +1,36 @@
 package dev.morphreborn.paper.ability;
 
 import dev.morphreborn.paper.MorphRebornPlugin;
+import dev.morphreborn.paper.arm.look.ShieldGrip;
+import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.data.PlayerMorphData;
 import dev.morphreborn.paper.morph.MorphManager;
 import org.bukkit.Bukkit;
+import org.bukkit.GameEvent;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.world.GenericGameEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 
 /** Event side of {@link AbilityManager}. */
 public final class AbilityListener implements Listener {
@@ -121,7 +125,8 @@ public final class AbilityListener implements Listener {
 			event.setCancelled(true);
 			return;
 		}
-		if (attacker instanceof Player player && event.getEntity() instanceof LivingEntity mob && !(mob instanceof Player)) {
+		// a special's test hit (it only asks protection plugins) is no attack: it provokes nothing
+		if (attacker instanceof Player player && event.getEntity() instanceof LivingEntity mob && !(mob instanceof Player) && !plugin.arms().isProbeHit(event)) {
 			plugin.abilities().provoke(player, mob);
 		}
 	}
@@ -129,6 +134,8 @@ public final class AbilityListener implements Listener {
 	@EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
 	public void onMelee(EntityDamageByEntityEvent event) {
 		if (event.getCause() != EntityDamageEvent.DamageCause.ENTITY_ATTACK) return;
+		// an arm special's cut (Draining Cut) isn't a melee hit: it plays no attack effects, the striker's or the victim's
+		if (plugin.arms().isSpecialHit(event)) return;
 		if (event.getDamager() instanceof Player attacker && event.getEntity() instanceof LivingEntity victim) {
 			plugin.abilities().onMeleeHit(attacker, victim);
 		}
@@ -167,6 +174,7 @@ public final class AbilityListener implements Listener {
 		if (data.carriedBlock == null) {
 			if (!canPickUp(clicked)) return;
 			event.setCancelled(true);
+			ShieldGrip.mainHandUsed(player); // the click was the main hand's (a block picked up), so it does not also raise the Tendril Shield
 			BlockBreakEvent check = new BlockBreakEvent(clicked, player);
 			check.setDropItems(false);
 			check.setExpToDrop(0);
@@ -178,6 +186,7 @@ public final class AbilityListener implements Listener {
 			Block target = clicked.isReplaceable() ? clicked : clicked.getRelative(event.getBlockFace());
 			if (!target.isReplaceable()) return;
 			event.setCancelled(true);
+			ShieldGrip.mainHandUsed(player); // a block put down: the main hand's click, not the shield's
 			BlockData carried;
 			try {
 				carried = Bukkit.createBlockData(data.carriedBlock);
@@ -222,13 +231,18 @@ public final class AbilityListener implements Listener {
 		ItemStack held = event.getPlayer().getInventory().getItemInMainHand();
 		if (held.getType() == Material.SHEARS && plugin.abilities().shearSheep(event.getPlayer(), target)) {
 			event.setCancelled(true);
+			ShieldGrip.mainHandUsed(event.getPlayer()); // shearing a morphed player is the main hand's click, not the shield's
 			held.damage(1, event.getPlayer());
 			return;
 		}
-		if (!plugin.abilities().isMilkable(target)) return;
+		// a villager body is traded with (VillagerTrading, HIGH): the bucket must not take the click first, as only a stick did
+		MorphRef body = plugin.morphs().activeForm(target);
+		if (body != null && body.entityType().equals("minecraft:villager") && plugin.settings().tradingVillagers && !plugin.morphs().isTransitioning(target)) return;
 		Player player = event.getPlayer();
 		ItemStack hand = player.getInventory().getItemInMainHand();
-		String type = plugin.morphs().activeForm(target) == null ? "" : plugin.morphs().activeForm(target).entityType();
+		// a bowl wants the mooshroom wherever it sits in the combination (a cow body with a borrowed mooshroom gives stew)
+		String type = plugin.abilities().milkingForm(target, hand.getType() == Material.BOWL ? "minecraft:mooshroom" : null);
+		if (type == null) return;
 		Material result;
 		Sound sound;
 		if (hand.getType() == Material.BUCKET) {
@@ -241,6 +255,7 @@ public final class AbilityListener implements Listener {
 			return;
 		}
 		event.setCancelled(true);
+		ShieldGrip.mainHandUsed(player); // milking is the main hand's click, not the shield's
 		hand.subtract(1);
 		for (ItemStack overflow : player.getInventory().addItem(new ItemStack(result)).values()) {
 			player.getWorld().dropItemNaturally(player.getLocation(), overflow);
@@ -341,5 +356,23 @@ public final class AbilityListener implements Listener {
 		if (plugin.abilities().isAbilityProjectile(event.getIgnitingEntity()) && !plugin.settings().abilityFire.allows(event.getBlock().getWorld())) {
 			event.setCancelled(true);
 		}
+	}
+
+	/**
+	 * Quiet steps: a soft-footed form's step, swim and soft landing are dropped before any listener is visited, so sculk sensors,
+	 * calibrated sensors and wardens never hear them walk by (the server posts this event first and stops if it is cancelled). A sensor or
+	 * shrieker stood on directly is not reached this way: its block's stepOn acts on the player without any game event, with no sneaking
+	 * check either, so a sneaker sets those off just the same. It fires for every
+	 * game event in every world, so the first lines are cheap: a player check, then the three movement events, compared with equals
+	 * because the constants are registry wrappers. A mount's steps come from the mount, not a player, so they never get here.
+	 */
+	@EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+	public void onGameEvent(GenericGameEvent event) {
+		if (!(event.getEntity() instanceof Player player) || event.isAsynchronous()) return;
+		GameEvent game = event.getEvent();
+		QuietSteps.Move move = GameEvent.STEP.equals(game) ? QuietSteps.Move.STEP
+				: GameEvent.SWIM.equals(game) ? QuietSteps.Move.SWIM
+				: GameEvent.HIT_GROUND.equals(game) ? QuietSteps.Move.LANDING : null;
+		if (move != null && plugin.abilities().quietSteps(player, move, player.getFallDistance())) event.setCancelled(true);
 	}
 }

@@ -5,6 +5,7 @@ import dev.morphreborn.client.ClientConfig;
 import dev.morphreborn.client.MorphClient;
 import dev.morphreborn.client.compat.FirstPersonCompat;
 import dev.morphreborn.client.data.MorphState;
+import dev.morphreborn.client.morph.GiantPlayer;
 import dev.morphreborn.client.morph.MorphSync;
 import dev.morphreborn.client.net.MorphRef;
 import java.util.ArrayList;
@@ -73,19 +74,17 @@ public final class MorphWorldRenderer {
 			EntityRenderState playerState = playerRenderer.createRenderState(player, partialTick);
 			boolean firstPerson = FirstPersonCompat.drawingBody(player);
 			if (!state.isTransitioning()) {
-				EntityRenderState formed = formState(dispatcher, player, state.next, playerState, partialTick);
-				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, formed));
-				// another borrowed form on the same body: a short transformation of its own, old parts into new
+				EntityRenderState formed = pairState(dispatcher, player, state.next, state.borrowed, state.lockFace, playerState, partialTick);
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, state.borrowed, formed), ownShift(state.next, state.borrowed));
+				// another borrowed form on the same body: a short transformation of its own, old parts into new (and a
+				// giant into the giant-sized player it becomes by wearing a player form, or back)
 				if (state.isBorrowChanging() && ClientConfig.INSTANCE.transitionAnimation) {
-					EntityRenderState before = formState(dispatcher, player, state.next, playerState, partialTick);
-					borrow(dispatcher, player, state.next, state.prevBorrowed, before, playerState, partialTick);
-					borrow(dispatcher, player, state.next, state.borrowed, formed, playerState, partialTick);
+					EntityRenderState before = pairState(dispatcher, player, state.next, state.prevBorrowed, state.lockFace, playerState, partialTick);
 					if (before instanceof LivingEntityRenderState f && formed instanceof LivingEntityRenderState t) {
 						float p = state.borrowProgress(partialTick);
 						return transition(dispatcher, playerState, f, t, MorphState.transitionAt(p), MorphState.skinAlphaAt(p));
 					}
 				}
-				borrow(dispatcher, player, state.next, state.borrowed, formed, playerState, partialTick);
 				return formed;
 			}
 			// The player's hitbox (scale attribute) is gameplay only: the server changes it in one step half-way through.
@@ -100,25 +99,27 @@ public final class MorphWorldRenderer {
 				// The old body shrinks, swaps at the midpoint and the new one grows (particles: VanillaStyleEffects).
 				boolean before = state.morphProgress(partialTick) < 0.5F;
 				MorphRef shown = before ? state.prev : state.next;
-				EntityRenderState plain = formState(dispatcher, player, shown, playerState, partialTick);
-				borrow(dispatcher, player, shown, before ? state.prevBorrowed : state.borrowed, plain, playerState, partialTick);
+				MorphRef lent = before ? state.prevBorrowed : state.borrowed;
+				EntityRenderState plain = pairState(dispatcher, player, shown, lent, before ? state.prevLockFace : state.lockFace, playerState, partialTick);
 				if (plain instanceof LivingEntityRenderState living) living.scale *= state.vanillaScale(partialTick);
-				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, shown, plain));
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, shown, lent, plain), ownShift(shown, lent));
 				return plain;
 			}
-			EntityRenderState from = formState(dispatcher, player, state.prev, playerState, partialTick);
-			EntityRenderState to = formState(dispatcher, player, state.next, playerState, partialTick);
-			// multimorph parts morph with the bodies: the old body's borrowed form away, the new one's in
-			borrow(dispatcher, player, state.prev, state.prevBorrowed, from, playerState, partialTick);
-			borrow(dispatcher, player, state.next, state.borrowed, to, playerState, partialTick);
+			// multimorph parts morph with the bodies: the old body's borrowed form away, the new one's in (a giant-sized
+			// player melts as the player it is drawn as)
+			EntityRenderState from = pairState(dispatcher, player, state.prev, state.prevBorrowed, state.prevLockFace, playerState, partialTick);
+			EntityRenderState to = pairState(dispatcher, player, state.next, state.borrowed, state.lockFace, playerState, partialTick);
 			if (!(from instanceof LivingEntityRenderState f) || !(to instanceof LivingEntityRenderState t)) {
-				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, to));
+				if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.next, state.borrowed, to), ownShift(state.next, state.borrowed));
 				return to;
 			}
 			MorphTransitionRenderState out = transition(dispatcher, playerState, f, t, state.transitionSine(partialTick), state.skinAlpha(partialTick));
 			// In first person the animation plays on the body First-person Model draws, heads left out, and the body
 			// slides from the old form's placement to the new one's as the boxes move.
-			if (firstPerson) FirstPersonCompat.place(firstPersonBody(dispatcher, state.prev, f), firstPersonBody(dispatcher, state.next, t), out.transition);
+			if (firstPerson) {
+				FirstPersonCompat.place(firstPersonBody(dispatcher, state.prev, state.prevBorrowed, f), firstPersonBody(dispatcher, state.next, state.borrowed, t),
+						out.transition, ownShift(state.prev, state.prevBorrowed), ownShift(state.next, state.borrowed));
+			}
 			return out;
 		} finally {
 			extracting = false;
@@ -129,10 +130,27 @@ public final class MorphWorldRenderer {
 	 * The local player's morph, about to be drawn as their own body in first person by First-person Model: a mob
 	 * gets its head hidden at draw time, and this returns where to put the body so the camera sits at its head (used
 	 * from the next frame on). Null keeps that mod's own player-shaped placement: player forms, and mobs whose head is
-	 * on top of the body.
+	 * on top of the body. {@code form} is the main body and {@code lent} what it borrows.
+	 * <p>
+	 * A giant wearing a player form (GiantPlayer) is drawn as that player, giant-sized, and is handled as the giant is:
+	 * its head is hidden here (the camera, at the giant body's eye height, is inside that head, and a transformation's
+	 * melt leaves it out too), and like the giant's upright head it keeps that mod's own placement.
 	 */
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static @Nullable Vec3 firstPersonBody(EntityRenderDispatcher dispatcher, @Nullable MorphRef form, EntityRenderState formed) {
+	/**
+	 * How much First-person Model's own (player-shaped) shift is scaled for this body: a giant-sized player is a player
+	 * {@link GiantPlayer#GIANT_PLAYER_SCALE} times bigger, and the mod's fixed quarter-block shift left its chest in front
+	 * of the camera (my call: it should look as a player does, seen only when looking down). 1 for everything else.
+	 */
+	private static float ownShift(@Nullable MorphRef form, @Nullable MorphRef lent) {
+		return GiantPlayer.isGiantPlayer(form, lent) ? GiantPlayer.GIANT_PLAYER_SCALE : 1F;
+	}
+
+	private static @Nullable Vec3 firstPersonBody(EntityRenderDispatcher dispatcher, @Nullable MorphRef form, @Nullable MorphRef lent, EntityRenderState formed) {
+		if (GiantPlayer.isGiantPlayer(form, lent)) {
+			((FirstPersonMorph.Mark) formed).morph$setFirstPersonBody(true);
+			return null;
+		}
 		if (form == null || form.isSelf() || form.isPlayer()) return null;
 		if (formed instanceof LivingEntityRenderState living) {
 			((FirstPersonMorph.Mark) living).morph$setFirstPersonBody(true);
@@ -147,6 +165,23 @@ public final class MorphWorldRenderer {
 
 	private static boolean noFace(EntityRenderState state) {
 		return ((FirstPersonMorph.Mark) state).morph$firstPersonBody();
+	}
+
+	/**
+	 * Render state for a main body {@code form} of {@code player} wearing {@code lent} (null when it borrows nothing): the
+	 * body with the borrowed head and parts on it, or, for a giant wearing a player form, that player drawn at a giant's
+	 * size instead, with nothing attached (GiantPlayer). The player's walk, swing, sneak and look come from the player, as
+	 * for any player-form morph, and its name tag goes above the giant-sized head.
+	 */
+	private static EntityRenderState pairState(EntityRenderDispatcher dispatcher, AbstractClientPlayer player, @Nullable MorphRef form, @Nullable MorphRef lent,
+			net.minecraft.core.@Nullable Direction lockFace, EntityRenderState playerState, float partialTick) {
+		if (GiantPlayer.isGiantPlayer(form, lent)) {
+			LivingEntity giant = MorphClient.ENTITIES.giantPlayerForWorld(player.getUUID(), lent);
+			if (giant != null) return stateOf(dispatcher, player, lent, giant, playerState, partialTick);
+		}
+		EntityRenderState body = bodyState(dispatcher, player, form, lockFace, playerState, partialTick);
+		borrow(dispatcher, player, form, lent, body, playerState, partialTick);
+		return body;
 	}
 
 	/** Multimorph: {@code body} (the form {@code form}) is drawn with {@code lent}'s head and parts, if it can be. */
@@ -178,6 +213,20 @@ public final class MorphWorldRenderer {
 		out.toRenderer = dispatcher.getRenderer(t);
 		out.transition = transition;
 		out.skinAlpha = skinAlpha;
+		return out;
+	}
+
+	/**
+	 * Render state for a main body of {@code player} (the body now, or either end of a transformation; never a borrowed
+	 * form): a shulker is pinned in its block when the server holds it there ({@code lockFace}), and otherwise drawn as
+	 * a free one (ShulkerLock.pin).
+	 */
+	private static EntityRenderState bodyState(EntityRenderDispatcher dispatcher, AbstractClientPlayer player, @Nullable MorphRef form,
+			net.minecraft.core.@Nullable Direction lockFace, EntityRenderState playerState, float partialTick) {
+		EntityRenderState out = formState(dispatcher, player, form, playerState, partialTick);
+		if (out instanceof net.minecraft.client.renderer.entity.state.ShulkerRenderState shulker && form != null && !form.isSelf()) {
+			dev.morphreborn.client.morph.ShulkerLock.pin(shulker, MorphClient.ENTITIES.forWorld(player.getUUID(), form), lockFace, player, partialTick);
+		}
 		return out;
 	}
 
@@ -326,12 +375,13 @@ public final class MorphWorldRenderer {
 				float alpha = Math.clamp((e.age + partialTick) / 10F, 0F, 1F);
 				Vec3 at = e.acquired.getPosition(partialTick).subtract(cam);
 				submitSkin(e.acquiredCapture, at.x, at.y, at.z, poseStack, collector, dispatcher.getPackedLightCoords(e.acquired, partialTick), alpha, true,
-						e.red ? MORPH_SKIN_RED : MORPH_SKIN);
+						e.red ? dev.morphreborn.client.arm.render.ArmTint.redSkinOf(e.origin.getId()) : MORPH_SKIN); // red: the absorber's colour
 			}
 			Vec3 origin = e.renderPos(partialTick).subtract(cam);
 			poseStack.pushPose();
 			poseStack.translate(origin.x, origin.y, origin.z);
-			collector.submitCustomGeometry(poseStack, skinType(e.red ? MORPH_SKIN_RED : MORPH_SKIN, e.firstPersonFade() ? 0F : 1F),
+			collector.submitCustomGeometry(poseStack, skinType(e.red ? dev.morphreborn.client.arm.render.ArmTint.redSkinOf(e.origin.getId()) : MORPH_SKIN,
+					e.firstPersonFade() ? 0F : 1F),
 					(pose, buffer) -> e.render(pose, buffer, light, partialTick));
 			poseStack.popPose();
 		}

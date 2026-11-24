@@ -24,7 +24,7 @@ public final class ClassicMode implements GameplayMode {
 		if (appearance == null) return;
 		var result = plugin.morphs().acquire(killer, appearance);
 		if (result.morph() != null) plugin.morphs().playAcquisition(killer, victim, true); // Classic says nothing about room on a new morph
-		else if (result.status() != null) killer.sendActionBar(result.withHint());
+		else if (result.status() != null) killer.sendActionBar(result.withHint(plugin.tooltips(killer)));
 	}
 
 	@Override

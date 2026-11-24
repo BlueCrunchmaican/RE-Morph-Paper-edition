@@ -26,7 +26,7 @@ import org.jspecify.annotations.Nullable;
  * or morphing into them. For checking that combinations look right: arrows change the forms, dragging turns the pair,
  * scrolling zooms.
  */
-public final class MultimorphPreviewScreen extends Screen {
+public final class MultimorphPreviewScreen extends Screen implements HidesPaperDoll {
 	private final List<String> types = new ArrayList<>();
 	private int main;
 	/** Index into {@link #types}, or -1 for the main body alone. */
@@ -137,10 +137,12 @@ public final class MultimorphPreviewScreen extends Screen {
 		Component pair = lentType == null ? name(mainType).copy().withStyle(ChatFormatting.YELLOW)
 				: Component.translatable("morphreborn.multimorph.pair", name(mainType), name(lentType)).withStyle(ChatFormatting.YELLOW);
 		g.text(font, title, (width - font.width(title)) / 2, 8, 0xFFFFCDD2, true);
-		g.text(font, pair, (width - font.width(pair)) / 2, 22, 0xFFFFFFFF, true);
-		// two short lines, so they fit a small window
-		Component keys = Component.translatable("morphreborn.preview.help").withStyle(ChatFormatting.GRAY);
-		Component mouse = Component.translatable("morphreborn.preview.help_mouse").withStyle(ChatFormatting.GRAY);
+		Component shownPair = UiText.fit(font, pair, width - 8);
+		g.text(font, shownPair, (width - font.width(shownPair)) / 2, 22, 0xFFFFFFFF, true);
+		// two short lines, so they fit a small window; which keys and mouse moves do what is the tip (the Tooltips setting)
+		if (!TipUi.on()) return;
+		Component keys = UiText.fit(font, Component.translatable("morphreborn.preview.help").withStyle(ChatFormatting.GRAY), width - 8);
+		Component mouse = UiText.fit(font, Component.translatable("morphreborn.preview.help_mouse").withStyle(ChatFormatting.GRAY), width - 8);
 		g.text(font, keys, (width - font.width(keys)) / 2, height - 24, 0xFFFFFFFF, true);
 		g.text(font, mouse, (width - font.width(mouse)) / 2, height - 13, 0xFFFFFFFF, true);
 	}

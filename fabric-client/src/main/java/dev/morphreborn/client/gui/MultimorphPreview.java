@@ -1,8 +1,11 @@
 package dev.morphreborn.client.gui;
 
 import dev.morphreborn.client.MorphClient;
+import dev.morphreborn.client.morph.GiantPlayer;
+import dev.morphreborn.client.morph.ShulkerLock;
 import dev.morphreborn.client.net.MorphRef;
 import dev.morphreborn.client.render.HybridMorph;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -12,7 +15,9 @@ import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.entity.state.PhantomRenderState;
+import net.minecraft.client.renderer.entity.state.ShulkerRenderState;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.boss.enderdragon.DragonFlightHistory;
 import org.jspecify.annotations.Nullable;
@@ -67,6 +72,19 @@ public final class MultimorphPreview {
 
 	/** {@code main}'s preview state with {@code borrowed} drawn on it (alone when null); null if it can't be made. */
 	public static @Nullable EntityRenderState hybrid(MorphRef main, @Nullable MorphRef borrowed, float bodyRot, float headYaw, float partialTick) {
+		// a giant wearing a player form is that player at a giant's size, as the world draws it (GiantPlayer), with nothing
+		// borrowed on it; framed by the giant's box (extent), it fills the preview as the giant alone does
+		if (GiantPlayer.isGiantPlayer(main, borrowed)) {
+			LivingEntity player = MorphClient.ENTITIES.forGui(borrowed);
+			if (player == null) return null;
+			EntityRenderState state = guiState(player, bodyRot, headYaw, partialTick);
+			if (state instanceof LivingEntityRenderState l) {
+				l.scale = GiantPlayer.GIANT_PLAYER_SCALE;
+				l.boundingBoxWidth *= l.scale;
+				l.boundingBoxHeight *= l.scale;
+			}
+			return state;
+		}
 		LivingEntity body = MorphClient.ENTITIES.forGui(main);
 		if (body == null) return null;
 		EntityRenderState state = guiState(body, bodyRot, headYaw, partialTick);
@@ -77,6 +95,9 @@ public final class MultimorphPreview {
 			if (baby != null) lent = baby;
 		}
 		if (lent != null) HybridMorph.attach(Minecraft.getInstance().getEntityRenderDispatcher(), state, guiState(lent, bodyRot, headYaw, partialTick));
+		// a shulker body keeps what it borrows inside its shell (HybridMorph.inShell): shut, the preview showed a plain
+		// shulker, so it is shown open, as it is when it shoots
+		if (lent != null && state instanceof ShulkerRenderState shulker) shulker.peekAmount = 1F;
 		return state;
 	}
 
@@ -88,7 +109,11 @@ public final class MultimorphPreview {
 		// the dragon's box (16 by 8) is twice what its model shows in a GUI: framed by it, a dragon body was a speck, and
 		// anything it borrows is small beside it
 		if (main.entityType().equals(DRAGON)) return 8F;
+		// a shulker body with something inside is shown open (hybrid): twice its shut height, and nothing spreads out of it
+		if (borrowed != null && ShulkerLock.isShulker(main)) return 2F;
 		float size = body == null ? 2F : Math.max(body.getBbHeight(), body.getBbWidth());
+		// a giant wearing a player form is that player at about the giant's size (hybrid): the giant's room, nothing spread
+		if (GiantPlayer.isGiantPlayer(main, borrowed)) return size;
 		LivingEntity lent = borrowed == null || borrowed.entityType().equals(DRAGON) ? null : MorphClient.ENTITIES.forGui(borrowed);
 		if (lent != null) size = Math.max(size, Math.max(lent.getBbWidth(), body == null ? 0F : body.getBbWidth()) * 1.6F);
 		return Math.max(size, 0.5F); // a borrowed dragon's parts are scaled to the body
@@ -106,7 +131,11 @@ public final class MultimorphPreview {
 		g.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xC0E53935);
 		g.fill(x, y, x + w, y + h, 0xD0100808);
 		int lineH = font.lineHeight + 1;
-		int textBottom = lines.size() * lineH + 4;
+		// the lines are wrapped to the box (a pair's name such as "Wither Skeleton + Skeleton Horse" was wider than it and spilled over the world),
+		// the last ones dropped when the box would be left with no room for the preview
+		List<FormattedCharSequence> wrapped = new ArrayList<>(UiText.wrapAll(font, lines, w - 8));
+		while (wrapped.size() > 1 && h - (font.lineHeight + 8) - (wrapped.size() * lineH + 4) - 6 < 40) wrapped.removeLast();
+		int textBottom = wrapped.size() * lineH + 4;
 		float area = h - (font.lineHeight + 8) - textBottom - 6;
 		float time = (mc.player == null ? 0 : mc.player.tickCount) + partialTick;
 		float yaw = 180F + 25F + (time * 2.5F) % 360F; // a slow turn, so wings and tails show from every side
@@ -115,9 +144,10 @@ public final class MultimorphPreview {
 		EntityRenderState state = hybrid(main, borrowed, yaw, 0F, partialTick);
 		if (state != null) entities.add(new MorphGuiEntities.Entry(state, x + w / 2F, y + h - textBottom - 6, pixelsPerBlock));
 		overlays.add(() -> {
-			g.text(font, title, x + (w - font.width(title)) / 2, y + 4, 0xFFFFCDD2, true);
+			Component shownTitle = UiText.fit(font, title, w - 8);
+			g.text(font, shownTitle, x + (w - font.width(shownTitle)) / 2, y + 4, 0xFFFFCDD2, true);
 			int ly = y + h - textBottom + 2;
-			for (Component line : lines) {
+			for (FormattedCharSequence line : wrapped) {
 				g.text(font, line, x + (w - font.width(line)) / 2, ly, 0xFFFFFFFF, true);
 				ly += lineH;
 			}

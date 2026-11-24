@@ -20,7 +20,7 @@ warden witch wither wither_skeleton wolf zoglin zombie zombie_horse zombie_nauti
 PASSIVE_NAMES = {
     'flight': 'Flight', 'slow-fall': 'Slow fall', 'fall-immunity': 'No fall damage', 'fire-immunity': 'Fire immune',
     'water-breathing': 'Water breathing', 'water-only-breathing': 'Suffocates on land', 'swim-boost': 'Fast swimmer', 'sink': 'Sinks',
-    'climb': 'Climbs walls', 'sunburn': 'Burns in daylight', 'water-damage': 'Hurt by water', 'milkable': 'Can be milked',
+    'climb': 'Climbs walls', 'quiet-steps': 'Quiet steps', 'sunburn': 'Burns in daylight', 'water-damage': 'Hurt by water', 'milkable': 'Can be milked',
     'snow-trail': 'Snow trail', 'heat-sensitive': 'Melts in heat', 'lava-walk': 'Floats on lava', 'berry-bush-immunity': 'Berry-bush proof',
     'freeze-immunity': 'Powder-snow proof', 'deflect-projectiles': 'Deflects projectiles',
     'teleport-from-projectiles': 'Teleports away from projectiles', 'undead': 'Undead (Healing hurts, Harming heals)',

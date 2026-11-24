@@ -14,6 +14,8 @@ public final class SurvivalData {
 	public double biomass;
 	/** Upgrade id -> level bought. Upgrades not listed are at their start level from survival.yml. */
 	public Map<String, Integer> upgrades = new HashMap<>();
+	/** The biomass passives bought but switched off (8.0.0): a bought passive not listed here is on. */
+	public java.util.Set<String> passivesOff = new java.util.HashSet<>();
 	/**
 	 * Which upgrade tree the levels are for: 0 before 6.6.0, {@link #LAYOUT} since. 6.6.0 changed what some levels
 	 * mean (reach, absorbable mass, morph speeds); older levels are converted once, the first time they're read.

@@ -43,7 +43,14 @@ import org.jspecify.annotations.Nullable;
  * They are never added to the level; ids are negative so they can't collide with real entities.
  */
 public final class MorphEntities {
-	private static final AtomicInteger NEXT_ID = new AtomicInteger(-70_000_000);
+	/** The first id handed out; they count down from here. */
+	private static final int FIRST_ID = -70_000_000;
+	private static final AtomicInteger NEXT_ID = new AtomicInteger(FIRST_ID);
+
+	/** One of these stand-ins (never in the level), not a real entity. */
+	public static boolean isMorph(Entity entity) {
+		return entity.getId() <= FIRST_ID;
+	}
 
 	private final Map<UUID, Map<String, LivingEntity>> world = new HashMap<>();
 	private final Map<String, LivingEntity> gui = new HashMap<>();
@@ -82,8 +89,27 @@ public final class MorphEntities {
 		return babyOrNull(gui.computeIfAbsent(ref.appearanceKey() + BABY, k -> createBaby(lvl, ref)));
 	}
 
+	/**
+	 * The player form {@code ref} at a giant's size, for {@code owner}'s giant body wearing it (GiantPlayer). Kept apart
+	 * from {@link #forWorld}'s instance of the same form, which is drawn at its own size: as a borrowed head on the other
+	 * body of a transformation out of the giant, in the same frame.
+	 */
+	public @Nullable LivingEntity giantPlayerForWorld(UUID owner, MorphRef ref) {
+		ClientLevel lvl = currentLevel();
+		if (lvl == null) return null;
+		return world.computeIfAbsent(owner, k -> new HashMap<>()).computeIfAbsent(ref.appearanceKey() + GIANT, k -> createGiantPlayer(lvl, ref));
+	}
+
 	/** Key suffix for the baby instances. */
 	private static final String BABY = "#baby";
+	/** Key suffix for the giant-sized player instances. */
+	private static final String GIANT = "#giant";
+
+	private LivingEntity createGiantPlayer(ClientLevel level, MorphRef ref) {
+		LivingEntity created = create(level, ref);
+		GiantPlayer.scaleUp(created);
+		return created;
+	}
 
 	private LivingEntity createBaby(ClientLevel level, MorphRef ref) {
 		LivingEntity created = create(level, ref);
@@ -110,7 +136,7 @@ public final class MorphEntities {
 		if (map == null) return;
 		map.keySet().removeIf(k -> {
 			for (MorphRef ref : keep) {
-				if (ref != null && (k.equals(ref.appearanceKey()) || k.equals(ref.appearanceKey() + BABY))) return false;
+				if (ref != null && (k.equals(ref.appearanceKey()) || k.equals(ref.appearanceKey() + BABY) || k.equals(ref.appearanceKey() + GIANT))) return false;
 			}
 			return true;
 		});

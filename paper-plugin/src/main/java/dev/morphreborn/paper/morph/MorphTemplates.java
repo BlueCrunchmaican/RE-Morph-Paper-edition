@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.Bukkit;
+import org.bukkit.Difficulty;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntitySnapshot;
@@ -57,12 +58,33 @@ public final class MorphTemplates {
 			tag.put("Silent", (byte) 1);
 			tag.put("PersistenceRequired", (byte) 1);
 			EntitySnapshot snapshot = Bukkit.getEntityFactory().createEntitySnapshot(Snbt.write(tag));
-			Entity entity = snapshot.createEntity(world);
+			Entity entity = createAllowingPeaceful(snapshot, world);
 			if (entity instanceof LivingEntity living) return living;
 			logger.warning("Morph type " + ref.entityType() + " is not a living entity; it cannot be used.");
 		} catch (RuntimeException e) {
 			logger.log(Level.WARNING, "Could not build morph " + ref.entityType() + " " + ref.snbt(), e);
 		}
 		return null;
+	}
+
+	/**
+	 * {@code snapshot.createEntity(world)}, also on a peaceful world. Vanilla refuses to create the 38 types that aren't
+	 * allowed in peaceful (zombie, creeper, witch, magma cube, ...) while the world is peaceful, and no API passes its
+	 * ignore-checks flag, so on a peaceful world (and only there) the template is built with the difficulty on easy for
+	 * that one call and set straight back, on the main thread, so no tick, spawn or despawn runs in between. Without this a
+	 * peaceful server gave hostile morphs no disguise for players without the mod, no scale, no attributes and no variant
+	 * looks (found on the rig 2026-11-16, whose world is peaceful). Paper's per-world difficulty fires
+	 * WorldDifficultyChangeEvent and sends the players in that world the difficulty both ways; templates are cached, so that
+	 * is once per morph type per world. A locked difficulty stays as it is (and the build fails as before).
+	 */
+	private static @Nullable Entity createAllowingPeaceful(EntitySnapshot snapshot, World world) {
+		Difficulty was = world.getDifficulty();
+		if (was != Difficulty.PEACEFUL) return snapshot.createEntity(world);
+		world.setDifficulty(Difficulty.EASY);
+		try {
+			return snapshot.createEntity(world);
+		} finally {
+			world.setDifficulty(was);
+		}
 	}
 }

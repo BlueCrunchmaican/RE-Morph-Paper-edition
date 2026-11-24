@@ -16,8 +16,12 @@ import net.minecraft.world.phys.Vec3;
 public final class BiomassWisps {
 	static final int DURATION = 14;
 	private static final int STRANDS = 3;
-	private static final DustParticleOptions MOTE = new DustParticleOptions(0xB0202A, 0.8F);
-	private static final DustParticleOptions BRIGHT = new DustParticleOptions(0xE0404A, 0.6F);
+	private static final int MOTE_RGB = 0xB0202A, BRIGHT_RGB = 0xE0404A;
+	private static final DustParticleOptions MOTE_DEFAULT = new DustParticleOptions(MOTE_RGB, 0.8F);
+	private static final DustParticleOptions BRIGHT_DEFAULT = new DustParticleOptions(BRIGHT_RGB, 0.6F);
+
+	/** The motes in the absorbing player's arm colour (ArmTint), worked out once per effect. */
+	private final DustParticleOptions mote, bright;
 
 	private final LivingEntity origin;
 	private final Vec3 from;
@@ -27,6 +31,14 @@ public final class BiomassWisps {
 
 	public BiomassWisps(LivingEntity origin, LivingEntity source) {
 		this.origin = origin;
+		int rgb = dev.morphreborn.client.arm.render.ArmTint.ofEntity(origin.getId());
+		if (rgb == dev.morphreborn.client.arm.ArmProtocol.COLOUR_DEFAULT) {
+			mote = MOTE_DEFAULT;
+			bright = BRIGHT_DEFAULT;
+		} else {
+			mote = new DustParticleOptions(dev.morphreborn.client.arm.render.ArmTint.recolour(MOTE_RGB, rgb) & 0xFFFFFF, 0.8F);
+			bright = new DustParticleOptions(dev.morphreborn.client.arm.render.ArmTint.recolour(BRIGHT_RGB, rgb) & 0xFFFFFF, 0.6F);
+		}
 		this.from = source.position().add(0, source.getBbHeight() / 2D, 0);
 		RandomSource r = RandomSource.create();
 		Vec3 to = target(1F);
@@ -54,13 +66,13 @@ public final class BiomassWisps {
 			for (float back : new float[] {0F, 0.08F}) {
 				float s = Math.max(0F, t - back);
 				Vec3 p = bezier(from, bend, to, s);
-				level.addParticle(back == 0F ? BRIGHT : MOTE, p.x, p.y, p.z, 0, 0, 0);
+				level.addParticle(back == 0F ? bright : mote, p.x, p.y, p.z, 0, 0, 0);
 			}
 		}
 		if (age >= DURATION) {
 			RandomSource r = level.getRandom();
 			for (int i = 0; i < 6; i++) {
-				level.addParticle(MOTE, to.x + r.nextGaussian() * 0.2, to.y + r.nextGaussian() * 0.25, to.z + r.nextGaussian() * 0.2, 0, 0, 0);
+				level.addParticle(mote, to.x + r.nextGaussian() * 0.2, to.y + r.nextGaussian() * 0.25, to.z + r.nextGaussian() * 0.2, 0, 0, 0);
 			}
 			removed = true;
 		}

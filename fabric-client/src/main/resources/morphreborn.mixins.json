@@ -19,7 +19,10 @@
     "ModelPartAccessor",
     "MouseHandlerMixin",
     "PictureInPictureRendererAccessor",
-    "PowderSnowBlockMixin"
+    "PowderSnowBlockMixin",
+    "ShulkerAccessor",
+    "ShulkerMixin",
+    "SnowGolemHeadLayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

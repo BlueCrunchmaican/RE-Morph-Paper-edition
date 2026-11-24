@@ -12,7 +12,7 @@ provides: [MorphReborn]
 commands:
   morph:
     description: Pick, list and manage morphs.
-    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id> | frenzy | mode [classic|survival]
+    usage: /morph list | use <id> | off | ability | fav <id> | biomass | upgrades | upgrade <id> | frenzy | arm [<form>|off|lantern|shield|spyglass|flint|special] | tooltips [on|off] | mode [classic|survival]
     aliases: [remorph, morphreborn]
 permissions:
   morphreborn.use:
@@ -30,6 +30,63 @@ permissions:
   morphreborn.rage:
     description: Devouring Frenzy (many hits in quick succession charge it; set off, it drains the creatures around you), when abilities.yml rage.enabled is on.
     default: true
+  morphreborn.tooltips:
+    description: Switch the Tooltips setting (/morph tooltips on|off), which shows or leaves out the explanation lines in descriptions (how to use a thing, which key).
+    default: true
+  morphreborn.arm:
+    description: Arm forms (your own arm reshaped into tools and weapons), when abilities.yml arms.enabled is on. Each form also needs its own permission below.
+    default: true
+  morphreborn.arm.katana:
+    description: The Tendril Katana arm form (Draining Cut).
+    default: true
+  morphreborn.arm.pickaxe:
+    description: The Tendril Pickaxe arm form (Vein Rip).
+    default: true
+  morphreborn.arm.axe:
+    description: The Tendril War Axe arm form (Fell and Cleave).
+    default: true
+  morphreborn.arm.shovel:
+    description: The Tendril Spade arm form (Burrow).
+    default: true
+  morphreborn.arm.sickle:
+    description: The Tendril Sickle arm form (Reap).
+    default: true
+  morphreborn.arm.bow:
+    description: The Tendril Recurve arm form (Triple Arrow, arrow tips).
+    default: true
+  morphreborn.arm.whip:
+    description: The Tendril Whip arm form.
+    default: true
+  morphreborn.arm.spear:
+    description: The Tendril Spear arm form (Impale).
+    default: true
+  morphreborn.arm.mace:
+    description: The Tendril Mace arm form (Skyward Leap).
+    default: true
+  morphreborn.arm.trident:
+    description: The Tendril Trident arm form (Recall).
+    default: true
+  morphreborn.arm.crossbow:
+    description: The Tendril Crossbow arm form (Spine Burst).
+    default: true
+  morphreborn.arm.claws:
+    description: The Tendril Claws arm form (Rake).
+    default: true
+  morphreborn.arm.lantern:
+    description: The Tendril Lantern.
+    default: true
+  morphreborn.arm.shield:
+    description: The Tendril Shield accessory.
+    default: true
+  morphreborn.arm.spyglass:
+    description: The Tendril Spyglass accessory.
+    default: true
+  morphreborn.arm.flint:
+    description: The Tendril Flint accessory (flint and steel).
+    default: true
+  morphreborn.arm.admin:
+    description: Force, inspect and test other players' arm forms (/morph arm <player> ...), ignoring what they own and what it costs.
+    default: op
   morphreborn.admin:
     description: Grant, revoke, reset and force morphs; switch the gameplay mode; reload the plugin.
     default: op

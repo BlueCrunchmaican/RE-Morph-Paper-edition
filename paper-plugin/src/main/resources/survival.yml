@@ -13,7 +13,7 @@
 # old file stays next to it (named like survival-old-6.1.6.yml). One exception: when a release changes what the
 # upgrade levels mean (6.6.0 did), the whole upgrades section is replaced with the new one; copy back your changes from
 # the old file.
-config-version: 7.4.0
+config-version: 8.0.0
 
 unlock:
   # "A Mutation Complication": have all of these effects at once to unlock the Biomass ability (iChun's rule: Wither
@@ -52,6 +52,53 @@ morph-cost:
   # (both for a new pair; only the borrowed one when the body stays), plus this percent of it on top.
   multimorph-extra: 25
 
+# Arm forms (the Arsenal, abilities.yml arms) spend biomass as their durability: an arm's durability bar is your
+# biomass, and when it runs out the arm melts back and your item returns. Survival only; Classic and creative are free.
+# Amounts can have decimals (0.1 is a tenth of a biomass). Change them in game with /morph cost arm (they are saved here).
+arm-cost:
+  # false: arm forms cost nothing and don't drain, even in Survival.
+  enabled: true
+  # Each block the arm breaks that a tool would wear on (blocks that break at once, like grass and torches, are free).
+  per-block: 0.1
+  # Each melee hit that lands (creatures caught in a sweep are free).
+  per-hit: 0.25
+  # Each strip, till, path or scrape.
+  per-transform: 0.1
+  # Each bolt the bow arm looses.
+  per-bolt: 1
+  # A minute with an arm formed (tool), and with each accessory on (on top of the arm's and of each other: the lantern, the
+  # shield, the spyglass, flint and steel).
+  drain-per-minute: { tool: 1, lantern: 0.5, shield: 0.5, spyglass: 0.25, flint: 0.25 }
+  # Each special, by level (iron, diamond, netherite). The axe has two; the lantern's (its brightness) is free. Nothing is paid
+  # when a special finds no target. The whip's four F moves are whip-snare, whip-disarm, whip-crack and whip-whirl; its
+  # line costs are a cast (whip-cast), a reel-in that grapples you to a block (whip-pull) and a reel-in that yanks a
+  # creature to you or you to it (whip-yank). The new forms (8.0.0): spear (Impale), mace (Skyward Leap), the trident's
+  # recall (trident-recall) and each throw (trident-throw), crossbow (Spine Burst), claws (Rake); and the accessories' per-use
+  # costs: each hit the shield blocks (shield-block) and each ignition of flint and steel (flint-ignite).
+  specials:
+    katana: [12, 15, 18]
+    pickaxe: [8, 10, 12]
+    axe-fell: [10, 12, 14]
+    axe-cleave: [10, 12, 14]
+    shovel: [8, 10, 12]
+    sickle: [8, 10, 12]
+    bow-triple: [6, 8, 10]
+    whip-snare: [6, 7, 8]
+    whip-disarm: [4, 5, 6]
+    whip-crack: [6, 7, 8]
+    whip-whirl: [10, 12, 14]
+    whip-cast: [0.25, 0.25, 0.25]
+    whip-pull: [0.5, 0.5, 0.5]
+    whip-yank: [0.5, 0.5, 0.5]
+    spear: [10, 12, 15]
+    mace: [8, 10, 12]
+    trident-recall: [4, 5, 6]
+    trident-throw: [0.5, 0.5, 0.5]
+    crossbow: [10, 12, 15]
+    claws: [8, 10, 12]
+    shield-block: [1, 1, 1]
+    flint-ignite: [0.5, 0.5, 0.5]
+
 # The upgrade tree. Each upgrade:
 #   name, description, icon (an item)  - how it shows in the chest menu (players without the mod)
 #   effect-icon                        - the status effect icon the client mod's upgrade tree shows instead
@@ -77,14 +124,17 @@ morph-cost:
 #                                        passive names (fire-immunity, climb...), and its constant effects as
 #                                        effect:<name> (effect:night_vision). Traits no upgrade lists are always on,
 #                                        and so are the drawbacks (sunburn, Healing hurting the undead...).
+#                                        quiet-steps (soft-footed forms raise no step vibrations for sculk and
+#                                        wardens) is one of those: listing it here makes it a bought trait.
 #                                        Creatures that can't live out of water (fish, squid, axolotls, nautiluses)
 #                                        always breathe underwater.
 # The upgrade ids are what the plugin understands; remove one and what it unlocks stays locked (or unlimited, for
 # capacities). Upgrades with traits can be renamed, added or removed freely. Changes apply on /morph reload.
 #
-# The tree has three parts. Biomass: how much you can store and absorb. Morph Ability (on its own): the ability to
+# The tree has four parts. Biomass: how much you can store and absorb. Morph Ability (on its own): the ability to
 # morph at all; then how many morphs you can keep, how fast you transform, your morphs' abilities, and combining two
-# morphs (Multimorph). Abilities: one unlock per kind of trait, each opened by Morph Abilities.
+# morphs (Multimorph). Abilities: one unlock per kind of trait, each opened by Morph Abilities. Arm Shaping (also under
+# Morph Ability): the Arsenal, your own arm reshaped into tools and weapons, one upgrade per form with three levels each.
 upgrades:
   biomass_capacity:
     name: Biomass Capacity
@@ -191,7 +241,7 @@ upgrades:
     format: "ability cooldowns {factor}"
   multimorph:
     name: Multimorph
-    description: Combine two morphs. Hold Shift when you pick the first (the body), then pick the second; it lends its head, or its wings, rods or fins, and its traits and ability. A combination costs both forms and a quarter more.
+    description: Combine two morphs. Hold Shift when you pick the first (the body), then pick the second; it lends its head, or its wings, rods or fins, and its traits and ability.
     icon: minecraft:fermented_spider_eye
     effect-icon: minecraft:strength
     parent: morph_ability
@@ -200,9 +250,11 @@ upgrades:
     max-level: 1
     value: [1]
     cost: [1200]
+    # The price is not explanation, so it is the level's own line (Now / Next) and stays when Tooltips are off.
+    format: "a combination costs both forms and a quarter more"
   rage:
     name: Devouring Frenzy
-    description: Taking hits from several attackers in quick succession charges a frenzy. Set it off (the Devouring Frenzy key, or /morph frenzy) and tendrils latch onto the creatures around you and drain them, a hit every half second, and you absorb what dies. Jump while it runs to rise on its tendrils, crouch to come down. Each level reaches further, hits harder, lasts longer and lifts you higher.
+    description: Taking hits from several attackers in quick succession charges a frenzy. Set it off (the Devouring Frenzy key, or /morph frenzy) and tendrils latch onto the creatures around you and drain them, and you absorb what dies. Jump while it runs to rise on its tendrils, crouch to come down. Each level reaches further, hits harder, lasts longer and lifts you higher.
     icon: minecraft:rotten_flesh
     effect-icon: minecraft:hunger
     parent: morph_ability
@@ -259,6 +311,96 @@ upgrades:
     max-level: 1
     cost: [200]
     traits: [fall-immunity, slow-fall]
+  # Biomass passives (8.0.0): bought here once (or from the menu's Passives page), then switched on and off at will there, with the switch on
+  # each bought node of the mod's upgrade tree (8.0.0), or with /morph passive [name] [on|off]. A passive uses no biomass until it acts (2026-11-16; what each costs, and when, is
+  # the passives section below), and with too little biomass to pay it doesn't act and nothing is spent.
+  passive_sustenance:
+    name: Sustenance
+    description: While on, your biomass keeps you fed, so you never need to eat.
+    icon: minecraft:cooked_beef
+    effect-icon: minecraft:saturation
+    parent: biomass_capacity
+    requires: { biomass_capacity: 2 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [600]
+  passive_night_eyes:
+    name: Night Eyes
+    description: While on, you see in the dark.
+    icon: minecraft:ender_eye
+    effect-icon: minecraft:night_vision
+    parent: passive_sustenance
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [400]
+  passive_gills:
+    name: Gills
+    description: While on, you breathe under water.
+    icon: minecraft:heart_of_the_sea
+    effect-icon: minecraft:water_breathing
+    parent: passive_sustenance
+    requires: { biomass_capacity: 6 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [3000]
+  passive_fire_shedding:
+    name: Fire Shedding
+    description: While on, fire and lava can't burn you; the burnt skin falls away.
+    icon: minecraft:magma_cream
+    effect-icon: minecraft:fire_resistance
+    parent: passive_sustenance
+    requires: { biomass_capacity: 7 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [5000]
+  passive_antitoxin:
+    name: Antitoxin
+    description: While on, poison, wither, hunger and nausea wear off at once.
+    icon: minecraft:milk_bucket
+    effect-icon: minecraft:regeneration
+    parent: passive_sustenance
+    requires: { biomass_capacity: 6 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [3500]
+  passive_tendril_sense:
+    name: Tendril Sense
+    description: While on, you feel the creatures round you through walls. Hungry.
+    icon: minecraft:sculk_sensor
+    effect-icon: minecraft:glowing
+    parent: passive_sustenance
+    requires: { biomass_capacity: 6 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [3000]
+  passive_scavenger:
+    name: Scavenger
+    description: While on, small tendrils fetch the items lying round you. Each item fetched costs a little.
+    icon: minecraft:hopper
+    effect-icon: minecraft:luck
+    parent: passive_sustenance
+    start-level: 0
+    max-level: 3
+    value: [6, 10, 16]
+    cost: [800, 1600, 3200]
+    format: "{value} blocks"
+  passive_borrowed_scent:
+    name: Borrowed Scent
+    description: While on, creatures of the kind lent to your own body, or worn with your own head, leave you alone. A morph of creatures alone is Camouflage's job, not this.
+    icon: minecraft:rotten_flesh
+    effect-icon: minecraft:invisibility
+    parent: passive_sustenance
+    requires: { biomass_capacity: 4 }
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [1500]
   morph_flight:
     name: Morph Flight
     description: Flying creatures' morphs can fly. Until then they only glide down slowly.
@@ -326,10 +468,209 @@ upgrades:
     traits: [attack-effects, auras]
   ability_camouflage:
     name: Camouflage
-    description: Mobs see your morph for what it looks like, so hostile mobs leave other monsters alone, and cats scare creepers. Until then they see through it.
+    description: Mobs see a morph made of creatures for what it looks like (any of them counts), so hostile mobs leave other monsters alone, and cats scare creepers. Until then they see through it. With your own body or head in the mix it is Borrowed Scent's job instead.
     icon: minecraft:carved_pumpkin
     effect-icon: minecraft:invisibility
     parent: morph_abilities
     max-level: 1
     cost: [500]
     traits: [hostile-camouflage, intimidate, fear]
+  # Arsenal: Arm Shaping opens it, then each arm form is bought on its own, with three levels: iron, diamond, then
+  # netherite strength and a stronger special. {arm} reads what a level gives; the numbers are in abilities.yml arms,
+  # and what using a form costs is arm-cost above. A form whose code isn't in this release doesn't show.
+  arm_shaping:
+    name: Arm Shaping
+    description: Your own arm learns to reshape itself into tools and weapons of morph tendrils, which opens the Arsenal. Hold J with the client mod to pick a form, or use /morph arm <form>; it takes the slot you hold and gives your item back when it goes. Only in your own body.
+    icon: minecraft:echo_shard
+    parent: morph_ability
+    start-level: 0
+    max-level: 1
+    value: [1]
+    cost: [600]
+  arm_katana:
+    name: Tendril Katana
+    description: Your arm becomes a curved blade. F - Draining Cut, an arc swipe whose tendrils drink from everything it cuts and heal you. Each level is iron, diamond, then netherite strength with a stronger cut.
+    icon: minecraft:iron_sword
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [400, 1500, 5000]
+    format: "{arm}"
+  arm_pickaxe:
+    name: Tendril Pickaxe
+    description: Your arm becomes a talon pick with Fortune and Efficiency. F - Vein Rip, tendrils that tear a whole ore vein out of the rock and carry the drops to you. Each level is iron, diamond, then netherite strength with more Fortune and Efficiency and a bigger vein.
+    icon: minecraft:iron_pickaxe
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [400, 1500, 5000]
+    format: "{arm}"
+  arm_axe:
+    name: Tendril War Axe
+    description: Your arm becomes a war axe with Fortune and Efficiency that sometimes splits off an extra log. F - Fell, which brings a whole tree down from its trunk, or Cleave, a heavy blow that knocks a shield aside. Each level is iron, diamond, then netherite strength with bigger trees and harder blows.
+    icon: minecraft:iron_axe
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [350, 1200, 4000]
+    format: "{arm}"
+  arm_shovel:
+    name: Tendril Spade
+    description: Your arm becomes a spade with Fortune and Efficiency. F - Burrow, a while in which every block you dig takes the eight around it. Each level is iron, diamond, then netherite strength with a longer Burrow.
+    icon: minecraft:iron_shovel
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [250, 900, 3000]
+    format: "{arm}"
+  arm_sickle:
+    name: Tendril Sickle
+    description: Your arm becomes a sickle with Fortune and Efficiency that tills like a hoe. F - Reap, which harvests the ripe crops around you and replants them. Each level is iron, diamond, then netherite strength with a wider Reap.
+    icon: minecraft:iron_hoe
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [250, 900, 3000]
+    format: "{arm}"
+  arm_bow:
+    name: Tendril Recurve
+    description: Your arm becomes a recurve bow that looses bolts of biomass, no arrows needed. F - Triple Arrow, the next full draw looses three bolts in a fan. Sneak+F cycles the arrow tip - Bleed, Slowness or Poison (Fire with flint and steel, Glowing with the spyglass). Each level hits harder and the tips last longer.
+    icon: minecraft:bow
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [450, 1600, 5500]
+    format: "{arm}"
+  arm_whip:
+    name: Tendril Whip
+    description: Your arm becomes a braided whip that casts and fishes like a fishing rod. Reel in with the hook in a block and the line drags you there; reel in a creature and it is yanked to you, or you to it if it is far heavier. Left-click is a regular attack with a long reach. F aimed at a creature snares it, F at a snared creature disarms it, F at nothing cracks a sonic cone that knocks back and scares, and Sneak+F whirls the lash round you. Each level is iron, diamond, then netherite strength with a longer line, reach and moves, plus Lure and then Luck of the Sea for fishing.
+    icon: minecraft:fishing_rod
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [400, 1400, 4800]
+    format: "{arm}"
+  arm_spear:
+    name: Tendril Spear
+    description: Your arm becomes a spear with the iron, diamond or netherite spear's own jab and charge. F - Impale, a short lunge that skewers the first creature, then spikes erupt from the ground round it and pin it where it stands. Each level is iron, diamond, then netherite strength with a longer lunge and a longer hold.
+    icon: minecraft:iron_spear
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [400, 1500, 5000]
+    format: "{arm}"
+  arm_mace:
+    name: Tendril Mace
+    description: Your arm becomes a mace whose smash grows with the fall. F - Skyward Leap, tendrils launch you straight up and the landing does no fall damage, so the fall powers your next mace hit. Each level launches higher.
+    icon: minecraft:mace
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [450, 1600, 5500]
+    format: "{arm}"
+  arm_trident:
+    name: Tendril Trident
+    description: Your arm becomes a trident. Right-click throws it, and a tendril line stays attached and pulls it back to you, never you to it. F - Recall, the tendril snaps it back at once, hitting everything along its path. Each level hits harder.
+    icon: minecraft:trident
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [450, 1600, 5500]
+    format: "{arm}"
+  arm_crossbow:
+    name: Tendril Crossbow
+    description: Your arm becomes a crossbow that looses tendril bolts, no ammunition needed. F - Spine Burst, three bone spines fired one after another in a tight line, each piercing through creatures. Each level hits harder.
+    icon: minecraft:crossbow
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [450, 1600, 5500]
+    format: "{arm}"
+  arm_claws:
+    name: Tendril Claws
+    description: Your arm becomes claws that shear like shears, fast on leaves, wool and cobwebs. F - Rake, a three-slash sweep in front of you that makes what it hits bleed. Each level is iron, diamond, then netherite strength with a longer bleed.
+    icon: minecraft:shears
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [250, 900, 3000]
+    format: "{arm}"
+  arm_lantern:
+    name: Tendril Lantern
+    description: A glowing ball on a chain hanging from your arm lights the area round you, beside any form or a bare hand. How bright it glows and how far it lights is chosen by Sneak+F with no tool out, by scrolling over it in the wheel, or by /morph arm lantern bright. Each level lets it glow brighter, lighting 14, 20 or 30 blocks round you.
+    icon: minecraft:lantern
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [300, 1000, 3000]
+    format: "{arm}"
+  arm_shield:
+    name: Tendril Shield
+    description: A shield of tendrils on your off arm, on beside any form. Switch it on in the Arsenal wheel (or /morph arm shield), then hold right-click to raise it. If the item in your main hand has its own use for the click (a bow, food, a block to place) that goes first, and while the shield is up the off hand is locked. Arrows and projectiles from the front fly back at the shooter and frontal blows are cut. Each blocked hit costs biomass. Each level blocks more. Your own body only.
+    icon: minecraft:shield
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [350, 1200, 4000]
+    format: "{arm}"
+  arm_spyglass:
+    name: Tendril Spyglass
+    description: An eye on a stalk over your arm, on beside any form. Switch it on in the Arsenal wheel (or /morph arm spyglass), then hold the zoom key (Z unless you changed it in Controls, under RE:Morph; it needs the client mod) while you look at a creature. Your view zooms, and what you look at glows for you alone and shows its distance. It gives the bow its Glowing tip. Each level sees further (64, 96, 128 blocks) and marks more at once (1, 2, 3). Your own body only.
+    icon: minecraft:spyglass
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [250, 900, 3000]
+    format: "{arm}"
+  arm_flint:
+    name: Tendril Flint
+    description: A sparking tendril over your arm, on beside any form. Switch it on in the Arsenal wheel (or /morph arm flint); it has no key of its own. While it is on, every melee hit you land sets what it hits alight, and every arrow you shoot from any bow or crossbow, and your thrown trident, burns what it hits (it gives the bow its Fire tip). Right-click a campfire, candle, TNT or portal frame with a formed arm in your main hand to light it like flint and steel. Each ignition costs biomass. Each level burns longer. Your own body only.
+    icon: minecraft:flint_and_steel
+    parent: arm_shaping
+    start-level: 0
+    max-level: 3
+    value: [1, 2, 3]
+    cost: [200, 700, 2400]
+    format: "{arm}"
+
+# What the biomass passives cost (8.0.0), by upgrade id. A passive uses no biomass until it acts (2026-11-16). Each
+# one is billed one of three ways (billing:):
+#   triggered: free until it acts, then a price for each thing it does.
+#   acting:    drains only in the runs (every half second) in which it is doing something.
+#   constant:  drains the whole time it is on (Borrowed Scent: while a creature is combined with you, your own body with one
+#              lent to it or one with your own head; in your own body, or a morph of creatures alone, which is Camouflage's,
+#              or with a creature that never targets players, like a cow, it does nothing and costs nothing).
+# Only Night Eyes, Tendril Sense and Borrowed Scent can be switched between acting and constant ("billing: constant"); for
+# the others the kind is how they work. Prices are biomass: drain-per-minute, per-second (Gills and Fire Shedding), per-food-point
+# and per-saturation (Sustenance: what it costs to fill one point of hunger, and one point of saturation alongside; a full
+# stomach costs nothing), per-effect (Antitoxin), per-item (Scavenger; the reach is by level, the upgrade's value).
+# With too little biomass to pay, a passive doesn't act and nothing is spent: the fire burns, the poison poisons.
+# These are also the built-in defaults, so an old file without them still bills. An entry with no billing: is the older
+# layout (a drain a minute for everything) and is ignored for the defaults.
+passives:
+  passive_sustenance: { billing: acting, per-food-point: 2, per-saturation: 0.5, saturation-floor: 5 }
+  # In the dark: effective light at the eyes of dark-light-level or less (the night and thunderstorms count against the sky
+  # light), and light again at 3 above that; it holds an answer at least 5 seconds so a torch's edge doesn't flicker.
+  passive_night_eyes: { billing: acting, drain-per-minute: 1.5, dark-light-level: 6 }
+  passive_gills: { billing: acting, per-second: 0.15 }
+  passive_fire_shedding: { billing: triggered, per-second: 0.5 }
+  passive_antitoxin: { billing: triggered, per-effect: 1 }
+  # radius: blocks; acting means only while a creature is in range.
+  passive_tendril_sense: { billing: acting, drain-per-minute: 30, radius: 24 }
+  passive_scavenger: { billing: triggered, per-item: 0.05, reach: [6, 10, 16] }
+  passive_borrowed_scent: { billing: constant, drain-per-minute: 6 }

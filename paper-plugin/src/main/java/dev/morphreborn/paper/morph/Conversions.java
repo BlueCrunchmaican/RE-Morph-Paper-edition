@@ -1,6 +1,7 @@
 package dev.morphreborn.paper.morph;
 
 import dev.morphreborn.paper.MorphRebornPlugin;
+import dev.morphreborn.paper.arm.look.ShieldGrip;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.nbt.Snbt;
 import java.util.HashMap;
@@ -98,7 +99,7 @@ public final class Conversions implements Listener {
 			if (look == null) {
 				Watch old = watches.remove(player.getUniqueId());
 				// multimorphs don't convert: a conversion under way when a form is borrowed stops, and so does its shake
-				// (a piglin that borrowed a form shook on for good and never zombified; the user saw it)
+				// (a piglin that borrowed a form shook on for good and never zombified; I saw it)
 				if (old != null && (old.converting >= 0 || old.outsideNether > 0) && !plugin.morphs().isTransitioning(player)) {
 					plugin.morphs().setOverlay(player, "");
 				}
@@ -252,6 +253,7 @@ public final class Conversions implements Listener {
 			// lighting a sulfur cube that holds TNT, as vanilla's (SulfurCube.mobInteract)
 			if (on("sulfur-cube") && plugin.abilities().ignite(target, false)) {
 				event.setCancelled(true);
+				mainHandTook(event, feeder);
 				if (feeder.getGameMode() != GameMode.CREATIVE) {
 					if (item.getType() == Material.FLINT_AND_STEEL) item.damage(1, feeder);
 					else item.subtract();
@@ -265,9 +267,19 @@ public final class Conversions implements Listener {
 		} else if (item.getType().isBlock() && item.getType().isItem() && !item.getType().isAir()) {
 			if (feedBlock(target, item.getType())) {
 				event.setCancelled(true);
+				mainHandTook(event, feeder);
 				if (feeder.getGameMode() != GameMode.CREATIVE) item.subtract();
 			}
 		}
+	}
+
+	/**
+	 * Lighting or feeding a sulfur cube is decided here, on the server: the game predicts neither (flint and a block have no use on a player
+	 * entity), so it sends the click on to the off hand, and a Tendril Shield would go up on the same click. The shield is told the main hand
+	 * took it.
+	 */
+	private static void mainHandTook(PlayerInteractEntityEvent event, Player feeder) {
+		if (event.getHand() == EquipmentSlot.HAND) ShieldGrip.mainHandUsed(feeder);
 	}
 
 	/** A weakened zombie villager morph eats a golden apple itself. */

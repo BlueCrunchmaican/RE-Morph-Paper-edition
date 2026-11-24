@@ -11,13 +11,15 @@ it: an item display showing that head as an item model from RE:Morph's resource 
 - models/part/<mob>/<part>.json (and their items): what a creature lends besides or instead of a head, as the client
   mod grafts it: each wing, tail, fin, rod and stinger on its own, around the point where it joins the body (a bat's
   wings, a cod's fins, a blaze's rods, a wolf's tail, the ender dragon's wings and tail);
-- resourcepack/assets/minecraft/atlases/items.json: adds those textures to the item atlas, so item models can use them;
+- resourcepack/assets/minecraft/atlases/items.json: adds those textures to the item atlas, so item models can use them
+  (a texture another atlas already holds, the shulker's, goes in under an id of our own: see SPRITE_ALIAS);
 - models/skin/*: the morph skin (the mod's textures, copied into textures/skin) as a box and as a tendril segment, for
   the transformations, absorbing and tendrils players without the mod see as the mod draws them;
 - paper-plugin/src/main/resources/morph-boxes.json: every model as boxes (middle, size, turn), for those effects;
 - paper-plugin/src/main/resources/morph-heads.json: for the plugin, where each body's neck and passenger seat are,
   and how big each head is drawn, each body's torso and whole box (where borrowed parts go), where ears sit, and
-  where each part joins its own body. The ender dragon has parts only (no head model, no neck).
+  where each part joins its own body. The ender dragon has parts only (no head model), and the numbers of its own head
+  (neck, anchor, size, crown: the body a borrowed head goes on).
 
 A creature that has babies gets all of the above for its baby too, under <mob>_baby (head/wolf_baby,
 part/wolf_baby/tail, "minecraft:wolf_baby"): 26.3 draws babies with models and textures of their own, in proportions
@@ -43,6 +45,18 @@ PLUGIN_BOXES = os.path.join(ROOT, "paper-plugin", "src", "main", "resources", "m
 # Block-model elements must stay within -16..32; heads that reach further are drawn smaller in the model and the
 # plugin makes up for it with the display's scale.
 LIMIT = 23.9
+# The top of a silverfish's thick segments in blocks from its feet (4 pixels): where a lent head sits on it, as the mod seats it.
+SILVERFISH_SEAT = 0.25
+# Vanilla textures that one of the game's other atlases already stitches under the same id. 26.3 logs "Duplicate sprite ...
+# This will be rejected in a future version" at every reload when the item atlas defines a sprite id another atlas holds
+# (the shulker's texture sits in shulker_boxes). The item atlas takes such a texture under an id of our own instead (the
+# "sprite" field of a single-file source: the same file, nothing copied), and the models point at that id (2026-11-16, rig B2).
+SPRITE_ALIAS = {"minecraft:entity/shulker/shulker": "morphreborn:alias/shulker"}
+
+
+def sprite(texture):
+    """The id a model uses for a texture in the item atlas."""
+    return SPRITE_ALIAS.get(texture, texture)
 
 
 def mobs():
@@ -122,6 +136,7 @@ def double_sided(elements):
 
 def write_model(models_dir, items_dir, kind, name, texture, elements):
     """name may be a path (part/<mob>/<part>): its folders are made."""
+    texture = sprite(texture)
     model = {"textures": {"t": texture, "particle": texture}, "elements": double_sided(elements)}
     for d in (models_dir, items_dir):
         os.makedirs(os.path.dirname(os.path.join(d, name + ".json")), exist_ok=True)
@@ -197,10 +212,12 @@ def main():
             continue
         name = mob.split(":", 1)[1]
         if "elements" not in head:
-            # parts only (the ender dragon): no head model, and no neck, so it is no body for a borrowed head yet
+            # parts only (the ender dragon): it lends no head, so no head model
             if head.get("parts"):
                 textures.add(head["texture"])
                 plugin[mob] = {"height": head["height"], "scale": head["scale"], "lendsHead": False}
+                if "head" in head:
+                    plugin[mob].update(own_head(head["head"]))
                 for key in ("torso", "all"):
                     if key in head:
                         plugin[mob][key] = head[key]
@@ -249,13 +266,41 @@ def main():
         neck_px = [(blo[0] + bhi[0]) / 2, blo[1], (blo[2] + bhi[2]) / 2 if whole else bhi[2]]
         anchor = [(v - 8) / 16 for v in neck_px]
         crown = [[round((blo[i] - neck_px[i]) / 16, 4) for i in range(3)], [round((bhi[i] - neck_px[i]) / 16, 4) for i in range(3)]]
+        # the big blocks you can see: without the inflated copy a skin's overlay draws round the head (a zombie's or a
+        # villager's hat layer, see-through in the game's textures), which counts as a big block above. A borrowed head
+        # hidden in a shulker's shell is drawn just big enough to cover the shulker's own head (BorrowedHeads.innerScale);
+        # sized by its hat layer, a zombie's head came out smaller than the shulker's and didn't show at all
+        # (an overlay is grown about half a pixel all round at the model's own size; a giant's is six times that, so the
+        # allowance grows with the head)
+        def encloses(outer, inner):
+            tol = [max(1.25 * k, 0.08 * (inner[1][i] - inner[0][i])) for i in range(3)]
+            return all(outer[0][i] <= inner[0][i] + 1e-3 and outer[1][i] >= inner[1][i] - 1e-3
+                       and inner[0][i] - outer[0][i] <= tol[i] and outer[1][i] - inner[1][i] <= tol[i] for i in range(3))
+        seen = [b for b in big_boxes if not any(o is not b and o != b and encloses(b, o) for o in big_boxes)] or big_boxes
+        olo = [min(b[0][i] for b in seen) for i in range(3)]
+        ohi = [max(b[1][i] for b in seen) for i in range(3)]
+        # how far the whole drawn model reaches from its big blocks' middle (model blocks): up, down, and out from the
+        # upright axis through it, every element counted (a tadpole's tail, a squid's tentacles, ears) but a hat's brim,
+        # which is see-through in the game's textures (counted, it shrank a villager's head below the shulker's own). A
+        # head hidden in a shut shulker shell is kept small enough that none of it shows through
+        mid = [(blo[i] + bhi[i]) / 2 for i in range(3)]
+        points = [c for e in (elements if whole else core) for c in corners(e)]
+        reach = [round(max(c[1] for c in points) - mid[1], 3) / 16, round(mid[1] - min(c[1] for c in points), 3) / 16,
+                 round(max(math.hypot(c[0] - mid[0], c[2] - mid[2]) for c in points), 3) / 16]
         plugin[mob] = {"neck": head["neck"], "height": head["height"], "scale": round(head["scale"] / k, 4),
                        "whole": whole, "anchor": [round(v, 4) for v in anchor],
+                       "opaque": [[round((olo[i] - neck_px[i]) / 16, 4) for i in range(3)], [round((ohi[i] - neck_px[i]) / 16, 4) for i in range(3)]],
+                       "reach": [round(v, 4) for v in reach],
                        # the head's size (model blocks): a borrowed head smaller than the body's own is drawn big
                        # enough to cover it for players without the mod, whose disguise always draws the body's head
                        "size": [round((hi[i] - lo[i]) / 16, 4) for i in range(3)],
                        # its big blocks' box (model blocks from where it meets its neck; the face towards -z)
                        "crown": crown}
+        if mob == "minecraft:silverfish":
+            # the dump's neck for a whole body is the top of everything it draws, and a silverfish's top is its thin back plates (0.5 block).
+            # The mod seats a head on the thick segments, the top of its core (HybridMorph.collectCore leaves the plates out): 4 pixels, 0.25
+            # block. Seated by the plates, a giant's head hovered 0.3 block over the worm's back in the pack view (rig, 2026-11-22)
+            plugin[mob]["neck"] = [head["neck"][0], SILVERFISH_SEAT, head["neck"][2]]
         if "tilt" in head and not whole:
             # a head tilted at rest (a horse's, 30 degrees): its turn (item space) and its big blocks' box in its own frame,
             # model blocks from its pivot; borrowed ears go on top of that box and turn with the head, as with the mod
@@ -291,7 +336,8 @@ def main():
     json.dump(boxes, open(PLUGIN_BOXES, "w", encoding="utf-8", newline="\n"), separators=(",", ":"), sort_keys=True)
     atlas_dir = os.path.join(PACK, "assets", "minecraft", "atlases")
     os.makedirs(atlas_dir, exist_ok=True)
-    atlas = {"sources": [{"type": "minecraft:single", "resource": t} for t in sorted(textures)]}
+    atlas = {"sources": [dict({"type": "minecraft:single", "resource": t}, **({"sprite": sprite(t)} if t in SPRITE_ALIAS else {}))
+                         for t in sorted(textures)]}
     json.dump(atlas, open(os.path.join(atlas_dir, "items.json"), "w", encoding="utf-8", newline="\n"), indent=1)
     json.dump(plugin, open(PLUGIN_DATA, "w", encoding="utf-8", newline="\n"), indent=1, sort_keys=True)
     babies = sorted(m.split(":", 1)[1][:-5] for m in plugin if m.endswith("_baby"))
@@ -301,6 +347,27 @@ def main():
     count = sum(len(plugin[m].get("parts", [])) for m in plugin)
     print(len(plugin), "entries;", len(textures), "textures;", count, "parts;", "ears and tails:", lending, "parts only:", parts,
           "head and parts:", tails, "no data for:", missing, ";", len(boxes), "box lists;", len(babies), "babies:", babies)
+
+
+def own_head(head):
+    """The numbers of a body's own head as the body a borrowed head goes on, for a body that lends no head and so has no
+    model of its own (the ender dragon; its neck, which a head goes on in the plugin, was missing, so players without the
+    mod saw no lent head on it: 2026-11-17, rig B3-08). {@code head}: the dump's pivot (blocks from the feet, +z forward),
+    the head's whole box and its big blocks' box, item pixels round the pivot at (8, 8, 8). The same numbers as the
+    ones above for a head with a model: where it meets its neck (the middle of its big blocks' bottom, at the back), its
+    size and its big blocks' box from there."""
+    lo, hi = head["box"]
+    blo, bhi = head["core"]
+    neck_px = [(blo[0] + bhi[0]) / 2, blo[1], bhi[2]]
+    own = {"neck": head["neck"], "whole": False,
+            "anchor": [round((v - 8) / 16, 4) for v in neck_px],
+            "size": [round((hi[i] - lo[i]) / 16, 4) for i in range(3)],
+            "crown": [[round((blo[i] - neck_px[i]) / 16, 4) for i in range(3)], [round((bhi[i] - neck_px[i]) / 16, 4) for i in range(3)]]}
+    # the head hangs by its own pose, down by this many radians (the dump's turn about x): the pack's lent head hangs with it,
+    # as the mod's does (2026-11-17, rig B3-08); a head with no turn has no entry
+    if head.get("turn") and abs(head["turn"][0]) > 1e-4:
+        own["tilt"] = round(head["turn"][0], 4)
+    return own
 
 
 def write_skin():

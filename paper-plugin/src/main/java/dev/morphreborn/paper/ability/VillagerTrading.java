@@ -1,6 +1,7 @@
 package dev.morphreborn.paper.ability;
 
 import dev.morphreborn.paper.MorphRebornPlugin;
+import dev.morphreborn.paper.arm.look.ShieldGrip;
 import dev.morphreborn.paper.data.MorphRef;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +36,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Trading with a villager morph, like with a real villager: right-click a player morphed as a villager to open its
  * trades. The game itself generates them for that villager's profession and level (a novice librarian sells books, a
- * master one more), each trade has its limited uses, and they all restock once a Minecraft day. What the buyer pays is
+ * master one more), each trade has its limited uses, and they all restock once a Minecraft day (by the time of day, or
+ * by a day's worth of play where time stands still). What the buyer pays is
  * used up, as with a real villager; the villager player gives and gets nothing. Optionally the villager player is held
  * in place while someone trades with them (config.yml trading.freeze-villager).
  *
@@ -49,13 +51,19 @@ public final class VillagerTrading implements Listener {
 	/** Villager player -> players who have their trades open. */
 	private final Map<UUID, Set<UUID>> customers = new HashMap<>();
 
+	/** A Minecraft day of play, in ticks. */
+	private static final long DAY_TICKS = 24000L;
+
 	private static final class Shop {
 		final Merchant merchant;
+		/** The world's day (by its time of day) and its game time (ticks played) when the trades were last stocked. */
 		long day;
+		long stockedAt;
 
-		Shop(Merchant merchant, long day) {
+		Shop(Merchant merchant, long day, long stockedAt) {
 			this.merchant = merchant;
 			this.day = day;
+			this.stockedAt = stockedAt;
 		}
 	}
 
@@ -71,6 +79,7 @@ public final class VillagerTrading implements Listener {
 		if (form == null || !VILLAGER.equals(form.entityType()) || plugin.morphs().isTransitioning(villager)) return;
 		event.setCancelled(true);
 		Player buyer = event.getPlayer();
+		ShieldGrip.mainHandUsed(buyer); // a trade is the main hand's click, not the shield's
 		Shop shop = shop(villager, form);
 		if (shop == null || shop.merchant.getRecipes().isEmpty()) {
 			buyer.sendActionBar(Component.text("This villager has nothing to trade.", NamedTextColor.GRAY));
@@ -81,18 +90,24 @@ public final class VillagerTrading implements Listener {
 		if (plugin.settings().tradingFreeze) freeze(villager, true);
 	}
 
-	/** This villager player's trades for their current look, restocked if a new day has begun. */
+	/**
+	 * This villager player's trades for their current look, restocked if a new day has begun, or a whole day has been
+	 * played since they were last stocked. The day alone comes from the time of day, which stands still where the
+	 * daylight cycle is off (my test world is held at noon): there a sold-out trade never came back, and the villager
+	 * look was no use for trading until the server restarted (a sold-out trade has to come back).
+	 */
 	private @Nullable Shop shop(Player villager, MorphRef form) {
 		World world = villager.getWorld();
-		long day = world.getFullTime() / 24000L;
+		long day = world.getFullTime() / DAY_TICKS;
+		long played = world.getGameTime();
 		String key = villager.getUniqueId() + "|" + form.variantId();
 		Shop shop = shops.get(key);
 		if (shop == null) {
 			Merchant merchant = generate(villager, form);
 			if (merchant == null) return null;
-			shop = new Shop(merchant, day);
+			shop = new Shop(merchant, day, played);
 			shops.put(key, shop);
-		} else if (shop.day != day) {
+		} else if (shop.day != day || played - shop.stockedAt >= DAY_TICKS || played < shop.stockedAt) {
 			List<MerchantRecipe> restocked = new ArrayList<>();
 			for (MerchantRecipe r : shop.merchant.getRecipes()) {
 				MerchantRecipe copy = copy(r);
@@ -101,6 +116,7 @@ public final class VillagerTrading implements Listener {
 			}
 			shop.merchant.setRecipes(restocked);
 			shop.day = day;
+			shop.stockedAt = played;
 		}
 		return shop;
 	}

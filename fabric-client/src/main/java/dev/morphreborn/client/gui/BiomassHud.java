@@ -1,6 +1,9 @@
 package dev.morphreborn.client.gui;
 
 import dev.morphreborn.client.ClientConfig;
+import dev.morphreborn.client.arm.ArmState;
+import dev.morphreborn.client.arm.Arms;
+import dev.morphreborn.client.arm.gui.ArmWheel;
 import dev.morphreborn.client.net.ClientNet;
 import dev.morphreborn.client.render.MorphWorldRenderer;
 import net.minecraft.client.DeltaTracker;
@@ -9,6 +12,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 /**
  * Survival Mode's biomass bar for players with the mod, in the style of the morph itself: a living lump of biomass
@@ -17,6 +21,10 @@ import net.minecraft.network.chat.Component;
  * shadow so it stays readable on any background; when storage is full, the label reads FULL and the text turns
  * yellow. Bottom left; shown for a few seconds after biomass changes, always, or never (client settings). Players
  * without the mod get the action bar.
+ * <p>
+ * Arm forms (servers from 8.0.0) spend biomass in tenths, so the fill follows it to the thousandth; a spend falls away
+ * past the amount as a dark red "−0.25"; and while something drains it (a formed arm, a lit lantern) the bar stays up,
+ * the arm (or the lantern's lure) sits just past its end, and strands of goo are pulled out of the fill into it.
  */
 public final class BiomassHud {
 	private static final int WIDTH = 100;
@@ -25,10 +33,17 @@ public final class BiomassHud {
 	private static final int FADE_TICKS = 20;
 	/** How long the "+21" floats and the tendrils surge after a gain. */
 	private static final int GAIN_TICKS = 30;
+	/** How long the "−0.25" of a spend takes to fall away, and the least spend that gets one (a tenth: one block). */
+	private static final int SPEND_TICKS = 40;
+	private static final long SPEND_SHOWN_MILLI = 100;
 
 	/** This frame's bar: its opacity (0: not drawn) and the scale it was drawn at, for the rage meter above it. */
 	static int shownAlpha;
 	static float shownScale = 1F;
+	/** How far (screen px) the cluster was raised over the survival HUD this frame, for the frenzy meter that sits with it. */
+	static int shownLift;
+	/** Holds the raise for a while once it was needed, so an offhand item or an arm coming and going does not make the cluster jump. */
+	private static final HudLayout.Latch LIFT = new HudLayout.Latch();
 
 	private BiomassHud() {}
 
@@ -38,15 +53,20 @@ public final class BiomassHud {
 		if (mc.player == null || !ClientNet.isSurvival() || !ClientNet.biomassUnlocked()) return;
 		String mode = ClientConfig.INSTANCE.biomassBar;
 		if (mode.equals("OFF")) return;
+		float pt = deltaTracker.getGameTimeDeltaPartialTick(false);
+		// arm forms (8.0.0): something is draining biomass (a formed arm, a lit lantern), and the last thing that spent it
+		boolean draining = ClientNet.drainMilliPerMinute() > 0;
+		long sinceSpend = Arms.TICK - ClientNet.lastSpendAt();
 		float alpha = 1F;
-		if (!mode.equals("ALWAYS")) {
-			long since = ClientNet.ticksSinceBiomassChange();
+		if (!mode.equals("ALWAYS") && !draining) {
+			// while something drains, biomass is changing all the time, so "when it changes" shows the bar throughout
+			long since = Math.min(ClientNet.ticksSinceBiomassChange(), Math.max(0, sinceSpend));
 			if (since > SHOW_TICKS + FADE_TICKS) return;
 			if (since > SHOW_TICKS) alpha = 1F - (since - SHOW_TICKS) / (float) FADE_TICKS;
 		}
 		int a = Math.round(alpha * 255);
 		if (a < 8) return;
-		float time = mc.player.tickCount + deltaTracker.getGameTimeDeltaPartialTick(false);
+		float time = mc.player.tickCount + pt;
 		Font font = mc.font;
 		int amount = ClientNet.biomass();
 		int capacity = Math.max(1, ClientNet.biomassCapacity());
@@ -58,8 +78,17 @@ public final class BiomassHud {
 		float s = guiScale >= 4 ? (guiScale - 1) / (float) guiScale : 1F;
 		shownAlpha = a;
 		shownScale = s;
+		// the room the hotbar leaves (and what the arm or lure past the bar's end needs): the bar is narrower on a small screen, and the whole
+		// cluster rises over the survival HUD when there is hardly any (it ran over the hotbar's first slots under about 394 scaled px wide)
+		ArmState own = Arms.state(mc.player.getUUID());
+		boolean offhand = !mc.player.getOffhandItem().isEmpty();
+		int past = own != null && ((own.armed() && ArmWheel.hasItem(own.heldForm())) || own.lanternLit) ? 16 : 0;
+		// the bar is never narrower than its widest amount, so the number cannot run off the left edge; when that much room is not beside the hotbar the cluster rises
+		int least = Math.max(HudLayout.MIN_BAR, font.width(Math.max(amount, capacity) + " / " + capacity));
+		int lift = LIFT.apply(HudLayout.lift(g.guiWidth(), s, offhand, least + past), System.nanoTime());
+		shownLift = lift;
 		g.pose().pushMatrix();
-		g.pose().translate(0, g.guiHeight());
+		g.pose().translate(0, g.guiHeight() - lift);
 		g.pose().scale(s, s);
 
 		// "BIOMASS" (or "FULL") on the left, the amount on the right. The bar is as wide as the widest amount this
@@ -67,11 +96,14 @@ public final class BiomassHud {
 		Component label = Component.translatable(full ? "morphreborn.hud.biomass_full" : "morphreborn.hud.biomass_label");
 		String value = amount + " / " + capacity;
 		int labelW = Math.max(font.width(Component.translatable("morphreborn.hud.biomass_label")), font.width(Component.translatable("morphreborn.hud.biomass_full")));
-		int width = Math.max(WIDTH, labelW + 6 + font.width(capacity + " / " + capacity));
-		int x = 6;
+		int width = HudLayout.barWidth(g.guiWidth(), s, offhand, lift > 0, Math.max(WIDTH, labelW + 6 + font.width(capacity + " / " + capacity)), past, least);
+		// a bar too narrow for both keeps the amount and drops the word
+		boolean showLabel = width >= labelW + 6 + font.width(value);
+		int x = HudLayout.LEFT;
 		int barY = -11;
 		int textY = barY - 16; // a gap between the text strip and the bar, where the tendrils sway over the world
-		int filled = Math.round(width * Math.min(1F, amount / (float) capacity));
+		// filled to the thousandth (servers from 8.0.0 send it; arm forms spend tenths), so a block or the drain moves it
+		int filled = Math.round(width * Math.min(1F, ClientNet.biomassMilli() / (capacity * 1000F)));
 		long sinceGain = ClientNet.ticksSinceGain();
 		float surge = sinceGain < GAIN_TICKS ? 1F - sinceGain / (float) GAIN_TICKS : 0F;
 		int frame = (int) (time / 2);
@@ -165,8 +197,21 @@ public final class BiomassHud {
 			}
 		}
 
+		// Arm forms: what is drinking the biomass sits just past the bar's end (your arm, or the lantern's lure), and while
+		// it drains, strands of goo are pulled out of the fill's edge along the bar into it, the reverse of a gain's surge
+		int iconX = x + width + 4;
+		int iconY = barY + BAR_H / 2;
+		if (draining) drainStrands(g, x, filled, width, barY, iconX, time, a);
+		if (alpha >= 0.5F && own != null) {
+			if (own.armed() && ArmWheel.hasItem(own.heldForm())) {
+				ArmWheel.drawIcon(g, own.heldForm(), Math.max(1, own.level), iconX, iconY - 6, 0.75F, ArmWheel.turntable(time), 20F, 0xFFFFFFFF);
+			} else if (own.lanternLit) {
+				lure(g, iconX + 6, iconY, time, a);
+			}
+		}
+
 		// label, amount, and the last gain floating up above the amount
-		g.text(font, label, x, textY, (a << 24) | (full ? 0xFFD54F : 0xBDBDBD), true);
+		if (showLabel) g.text(font, label, x, textY, (a << 24) | (full ? 0xFFD54F : 0xBDBDBD), true);
 		g.text(font, value, x + width - font.width(value), textY, (a << 24) | (full ? 0xFFD54F : 0xEF9A9A), true);
 		if (sinceGain < GAIN_TICKS * 2 && ClientNet.lastGain() > 0) {
 			float t = sinceGain / (GAIN_TICKS * 2F);
@@ -176,7 +221,55 @@ public final class BiomassHud {
 				g.text(font, gain, x + width - font.width(gain), textY - 11 - Math.round(t * 8), (gainAlpha << 24) | 0xFF6E6E, true);
 			}
 		}
+		// and the last spend (a block, a hit, a special: a tenth or more; the drain's own trickle isn't worth a number)
+		// falling away past the amount like a drop, dark red
+		long spent = ClientNet.lastSpendMilli();
+		if (sinceSpend >= 0 && sinceSpend < SPEND_TICKS && spent >= SPEND_SHOWN_MILLI) {
+			float t = Math.min(1F, (sinceSpend + pt) / SPEND_TICKS);
+			int spendAlpha = Math.round(a * (1F - t * t));
+			if (spendAlpha > 8) {
+				Component spend = Component.translatable("morphreborn.hud.arm_spend", ArmWheel.cost(spent));
+				g.text(font, spend, x + width + 4, textY + Math.round(t * t * 10F), (spendAlpha << 24) | 0xE53935, true);
+			}
+		}
 		g.pose().popMatrix();
+	}
+
+	/**
+	 * While something drains biomass: three strands of red goo pulled from the fill's edge along the empty part of the bar
+	 * (or straight off the end when it is full) into whatever drinks it at {@code toX}, in pieces that travel as they go,
+	 * swaying, thinning as they arrive.
+	 */
+	private static void drainStrands(GuiGraphicsExtractor g, int x, int filled, int width, int barY, int toX, float time, int a) {
+		int from = x + Math.max(0, filled - 1);
+		int length = toX - from;
+		if (length < 2) return;
+		for (int j = 0; j < 3; j++) {
+			int sy = barY + 1 + j * 2;
+			for (int k = 0; k < length; k++) {
+				// pieces three pixels long every seven, moving along at about a pixel a tick
+				float phase = k - time * 0.9F - j * 2.3F;
+				if (Math.floorMod((int) Math.floor(phase), 7) > 2) continue;
+				float t = (k + 1) / (float) length;
+				int wy = sy + Math.round(Mth.sin(time * 0.3F + k * 0.6F + j * 1.7F) * 0.8F);
+				int strandA = Math.round(a * (1F - t * 0.5F));
+				g.fill(from + k, wy, from + k + 1, wy + 1, (strandA << 24) | lerp(0xE53935, 0x7A1018, t));
+			}
+		}
+	}
+
+	/** The lantern's lure, as a small dot of light on a curled stalk, for a lantern lit with no arm out. */
+	private static void lure(GuiGraphicsExtractor g, int cx, int cy, float time, int a) {
+		for (int k = 0; k <= 6; k++) {
+			float u = k / 6F;
+			float sx = cx - 5F + 5F * u - 2F * Mth.sin(u * Mth.PI);
+			float sy = cy + 5F - 6F * u;
+			Tendrils.dot(g, sx, sy, 1.6F - 0.6F * u, (a << 24) | lerp(0x1A0406, 0x5A0E16, u));
+		}
+		float pulse = 0.5F + 0.5F * Mth.sin(time * 0.25F);
+		Tendrils.dot(g, cx, cy - 1, 5F + pulse, (Math.round(a * (0.25F + 0.2F * pulse)) << 24) | 0xFF5A4A);
+		Tendrils.dot(g, cx, cy - 1, 2.6F, (a << 24) | 0xFF5A4A);
+		Tendrils.dot(g, cx, cy - 1, 1.2F, (a << 24) | 0xFFD0C0);
 	}
 
 	private static int lerp(int from, int to, float t) {

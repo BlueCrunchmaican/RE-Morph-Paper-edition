@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.morphreborn.paper.arm.ArmForm;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -59,6 +61,43 @@ class UpgradeTreeTest {
 			if (parent.equals(SurvivalConfig.MORPH_ABILITIES) && u.getInt(id + ".max-level") == 1) abilities++;
 		}
 		assertEquals(13, abilities);
+	}
+
+	/** Arm Shaping hangs off Morph Ability (not Morph Abilities, which would make a fourteenth ability) and opens the Arsenal. */
+	@Test
+	void theArsenalHangsOffArmShaping() throws Exception {
+		ConfigurationSection u = upgrades();
+		assertEquals(SurvivalConfig.MORPH_ABILITY, u.getString(SurvivalConfig.ARM_SHAPING + ".parent"));
+		assertEquals(1, u.getInt(SurvivalConfig.ARM_SHAPING + ".max-level"));
+		assertEquals(600, Curve.read(Objects.requireNonNull(u.getConfigurationSection(SurvivalConfig.ARM_SHAPING)), "cost").at(1), 1e-9);
+		List<String> forms = new ArrayList<>();
+		for (String id : u.getKeys(false)) {
+			if (!id.startsWith("arm_") || id.equals(SurvivalConfig.ARM_SHAPING)) continue;
+			forms.add(id);
+			ConfigurationSection form = Objects.requireNonNull(u.getConfigurationSection(id));
+			assertEquals(SurvivalConfig.ARM_SHAPING, form.getString("parent"), id);
+			assertEquals(0, form.getInt("start-level"), id);
+			assertEquals(3, form.getInt("max-level"), id + ": iron, diamond, netherite");
+			assertEquals(List.of(1, 2, 3), form.getIntegerList("value"), id + ": the value is the level, which {arm} describes");
+			List<Integer> cost = form.getIntegerList("cost");
+			assertEquals(3, cost.size(), id);
+			assertTrue(cost.get(0) < cost.get(1) && cost.get(1) < cost.get(2), id + " gets dearer with each level: " + cost);
+			assertEquals("{arm}", form.getString("format"), id);
+			assertNotNull(ArmForm.byUpgrade(id), id + " is an arm form's upgrade");
+			assertFalse(form.getString("description", "").isBlank(), id);
+		}
+		assertEquals(List.of(SurvivalConfig.ARM_KATANA, SurvivalConfig.ARM_PICKAXE, SurvivalConfig.ARM_AXE, SurvivalConfig.ARM_SHOVEL, SurvivalConfig.ARM_SICKLE,
+				SurvivalConfig.ARM_BOW, SurvivalConfig.ARM_WHIP, SurvivalConfig.ARM_SPEAR, SurvivalConfig.ARM_MACE, SurvivalConfig.ARM_TRIDENT,
+				SurvivalConfig.ARM_CROSSBOW, SurvivalConfig.ARM_CLAWS, SurvivalConfig.ARM_LANTERN, SurvivalConfig.ARM_SHIELD, SurvivalConfig.ARM_SPYGLASS,
+				SurvivalConfig.ARM_FLINT), forms, "twelve tools (the new five after the whip) and four accessories (the lantern first)");
+		assertEquals(ArmForm.ARM_SHAPING, SurvivalConfig.ARM_SHAPING);
+		for (ArmForm f : ArmForm.values()) assertTrue(forms.contains(f.upgradeId()), f + " has its upgrade");
+	}
+
+	@Test
+	void everyUpgradeTheCodeKnowsIsInTheBundledTree() throws Exception {
+		ConfigurationSection u = upgrades();
+		for (String id : SurvivalConfig.KNOWN) assertTrue(u.contains(id), id);
 	}
 
 	/** Every trait an unlock lists is a passive abilities.yml really has, so none of them is a typo that never unlocks. */

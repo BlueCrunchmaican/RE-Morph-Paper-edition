@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 def _build_version():
-    """The version in the build files (docs/VERSIONING.md); the plugin's and the client's must match."""
+    """The version in the build files (Semantic Versioning); the plugin's and the client's must match."""
     plugin = re.search(r"^version = '([^']+)'", (ROOT / 'paper-plugin/build.gradle').read_text(encoding='utf-8'), re.M).group(1)
     client = re.search(r"^mod_version=(\S+)", (ROOT / 'fabric-client/gradle.properties').read_text(encoding='utf-8'), re.M).group(1)
     if client.split('+')[0] != plugin:
@@ -48,8 +48,8 @@ shutil.copy2(CLIENT_JAR, OUT / 'client')
 zip_dir(ROOT / 'resourcepack', OUT / 'resourcepack/RE-Morph-pack.zip')
 for name in ('config.yml', 'abilities.yml', 'variants.yml', 'survival.yml'):
     shutil.copy2(ROOT / 'paper-plugin/src/main/resources' / name, OUT / 'default-configs')
-shutil.copy2(ROOT / 'docs/GUIDE.md', OUT / 'README.md')
-for name in ('ABILITIES.md', 'TESTING.md', 'SURVIVAL-MODE.md'):
+shutil.copy2(ROOT / 'README.md', OUT / 'README.md')
+for name in ('GUIDE.md', 'ABILITIES.md', 'MOB-MASSES.md', 'SURVIVAL-MODE.md'):
     shutil.copy2(ROOT / 'docs' / name, OUT)
 for name in ('LICENSE', 'LICENSE-GPL-3.0', 'NOTICE.md'):
     shutil.copy2(ROOT / name, OUT)

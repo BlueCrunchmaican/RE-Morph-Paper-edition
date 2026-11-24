@@ -18,7 +18,10 @@ import net.fabricmc.loader.api.FabricLoader;
  */
 public final class ClientConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("morphreborn-client.json");
+	/** config/morphreborn-client.json; looked up on first use, so the unit tests can make a ClientConfig without the loader. */
+	private static Path file() {
+		return FabricLoader.getInstance().getConfigDir().resolve("morphreborn-client.json");
+	}
 
 	public static ClientConfig INSTANCE = new ClientConfig();
 
@@ -55,6 +58,12 @@ public final class ClientConfig {
 	public boolean transitionAnimation = true;
 	/** Toast when you unlock a morph. */
 	public boolean unlockToasts = true;
+	/**
+	 * Tooltips (decided 2026-11-17, on by default): show the explanation lines in every description (the wheels, the upgrade tree, the hints under
+	 * a screen, the settings' own tooltips): what a thing does in detail, how to use it, which key or button. Off leaves names, levels, state,
+	 * biomass costs and rates. The server is told (C_TOOLTIPS) so the text it builds follows it too.
+	 */
+	public boolean tooltips = true;
 	/** Keep the player name tag above morphed players. */
 	public boolean showNameTags = true;
 	/** Survival Mode biomass bar: OFF, CHANGES (a few seconds after it changes) or ALWAYS. */
@@ -123,20 +132,73 @@ public final class ClientConfig {
 	/** On each join, say in chat if a newer RE:Morph is out or the server's is older than this mod (see UpdateCheck). */
 	public boolean updateCheck = true;
 
+	// Arm forms (the Arsenal, servers from 8.0.0): only what this player sees; the arms themselves are the server's.
+	/** How fine arms are drawn at a distance: HIGH (finer, farther out), MEDIUM or LOW (coarser, and your own arm too). */
+	public String armDetail = "HIGH";
+	/** The glowing red accents (the hamon, runes), drawn full bright. */
+	public boolean armGlow = true;
+	/**
+	 * The fizzing, eroding edge on an arm that is forming, melting or cracking: AUTO (on, but off under a shader pack,
+	 * which may not draw it), ON or OFF (a hard cut edge instead).
+	 */
+	public String armDissolve = "AUTO";
+	/** Biomass drips falling off the arm. */
+	public boolean armDrips = true;
+	/** A vein being ripped out shows through the stone as a red outline. */
+	public boolean armSenseOutline = true;
+	/** The arm's durability bar in the hotbar: GOO (the biomass bar's living static) or VANILLA (the plain bar). */
+	public String armBar = "GOO";
+	/** Arsenal wheel size as a fraction of the screen, like {@link #radialScale}. */
+	public double armWheelScale = 0.75;
+	/** The lantern lights the world around its beam when LambDynamicLights is installed. */
+	public boolean lanternDynamicLight = true;
+	/** Warm red motes drifting in the lantern's beam. */
+	public boolean lanternMotes = true;
+	/**
+	 * The lantern's light takes its owner's arm colour: a soft coloured wash over the surfaces it lights, drawn on top of
+	 * the server's white light for every lantern you see (2026-11-16: blue arm, blue light). Off: the light is
+	 * the game's colourless light only.
+	 */
+	public boolean lanternGlow = true;
+	/** The lantern brightness last chosen in the settings (1 to 5); the server keeps the real one. */
+	public int lanternBrightness = 3;
+	/**
+	 * Your colour for the red parts of your arm forms and the mod's other red accents, as "#RRGGBB". The server passes it
+	 * on, so other players with the mod see you in it; players without the mod always see the default red. The default,
+	 * {@code ArmProtocol.COLOUR_DEFAULT}, is the red the mod has always been.
+	 */
+	public String armColour = dev.morphreborn.client.arm.ArmProtocol.colourHex(dev.morphreborn.client.arm.ArmProtocol.COLOUR_DEFAULT);
+	/**
+	 * How your arm looks while an arm form is out, as everyone with the mod sees it (sent to the server with the colour):
+	 * "arm" the tendril arm, "hand" your own arm with a few tendrils round the hand, "armour" the armoured tendril arm.
+	 */
+	public String armLook = dev.morphreborn.client.arm.ArmProtocol.LOOK_NAMES.get(dev.morphreborn.client.arm.ArmProtocol.LOOK_DEFAULT);
+	// (there was a shieldBands setting here, tendril or classic, for a day: the animated tendril bands are the shield's look and the choice was removed,
+	// 2026-11-24. A saved config that still has the key loads fine, the value ignored: Gson skips fields the class no longer has, and the next save drops it.)
+	/**
+	 * How fast the pulses on your arm forms and lantern run, as a multiple of the usual (2026-11-16: the
+	 * player's choice, shown to everyone): 1.0 is the usual speed, 0.25 slow, 3.0 fast. Sent to the server with the colour
+	 * and look, so everyone with the mod sees your pulses at this speed.
+	 */
+	public float armPulseSpeed = 1F;
+	// (there was a shieldLook setting here, back or morph; I picked morph on 2026-11-16 and it was removed. A saved config that
+	// still has the key loads fine: Gson skips fields the class no longer has, and the next save drops it.)
+
 	/** The vignette slider's top, in screen pixels. */
 	public static final int VIGNETTE_MAX = 32;
 
 	public static void load() {
-		boolean fresh = !Files.exists(FILE);
+		Path file = file();
+		boolean fresh = !Files.exists(file);
 		if (fresh) {
 			INSTANCE.dollScreenPixels = true;
 			INSTANCE.dollVignette = 6;
 		} else {
-			try (Reader r = Files.newBufferedReader(FILE, StandardCharsets.UTF_8)) {
+			try (Reader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
 				ClientConfig loaded = GSON.fromJson(r, ClientConfig.class);
 				if (loaded != null) INSTANCE = loaded;
 			} catch (IOException | JsonParseException e) {
-				MorphClient.LOGGER.warn("Could not read {}, using defaults: {}", FILE, e.toString());
+				MorphClient.LOGGER.warn("Could not read {}, using defaults: {}", file, e.toString());
 			}
 		}
 		INSTANCE.clamp();
@@ -144,17 +206,18 @@ public final class ClientConfig {
 	}
 
 	public static void save() {
+		Path file = file();
 		try {
-			Files.createDirectories(FILE.getParent());
-			try (Writer w = Files.newBufferedWriter(FILE, StandardCharsets.UTF_8)) {
+			Files.createDirectories(file.getParent());
+			try (Writer w = Files.newBufferedWriter(file, StandardCharsets.UTF_8)) {
 				GSON.toJson(INSTANCE, w);
 			}
 		} catch (IOException e) {
-			MorphClient.LOGGER.warn("Could not save {}: {}", FILE, e.toString());
+			MorphClient.LOGGER.warn("Could not save {}: {}", file, e.toString());
 		}
 	}
 
-	private void clamp() {
+	void clamp() {
 		selectorDistanceFromTop = Math.max(0, selectorDistanceFromTop);
 		selectorScale = Math.clamp(selectorScale, 0.25, 4.0);
 		radialScale = Math.clamp(radialScale, 0.2, 1.0);
@@ -181,6 +244,14 @@ public final class ClientConfig {
 		dollSize = Math.clamp(dollSize, dollScreenPixels ? 40 : 20, dollScreenPixels ? 800 : 200);
 		dollOpacity = Math.clamp(dollOpacity, 10, 100);
 		dollAngle = Math.clamp(dollAngle, -180, 180);
+		if (armDetail == null || !java.util.List.of("HIGH", "MEDIUM", "LOW").contains(armDetail)) armDetail = "HIGH";
+		if (armDissolve == null || !java.util.List.of("AUTO", "ON", "OFF").contains(armDissolve)) armDissolve = "AUTO";
+		if (armBar == null || !java.util.List.of("GOO", "VANILLA").contains(armBar)) armBar = "GOO";
+		armWheelScale = Double.isNaN(armWheelScale) ? 0.75 : Math.clamp(armWheelScale, 0.2, 1.0);
+		armColour = dev.morphreborn.client.arm.ArmProtocol.colourHex(dev.morphreborn.client.arm.ArmProtocol.parseColour(armColour));
+		armLook = dev.morphreborn.client.arm.ArmProtocol.LOOK_NAMES.get(dev.morphreborn.client.arm.ArmProtocol.parseLook(armLook));
+		// whole 5% step (the slider's) in the range the wire allows, so a hand edit (NaN, 0, 99) can never stall or race the pulses
+		armPulseSpeed = dev.morphreborn.client.arm.ArmProtocol.pulseSpeedFactor(dev.morphreborn.client.arm.ArmProtocol.pulseSpeedPercent(armPulseSpeed));
 	}
 
 	/**

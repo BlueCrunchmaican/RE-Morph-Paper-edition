@@ -4,8 +4,10 @@ import dev.morphreborn.paper.variant.VariantRules;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.jspecify.annotations.Nullable;
 
 /** Typed view of config.yml. Rebuilt on reload; consumers should re-read {@code plugin.settings()} each use. */
 public final class PluginSettings {
@@ -56,6 +58,14 @@ public final class PluginSettings {
 	public final boolean vanillaAcquisitionEffects;
 	/** Transformations, absorbing and Devouring Frenzy's tendrils in the morph skin for players without the mod who have the pack. */
 	public final boolean vanillaSkinEffects;
+	/** Players without the mod who loaded RE:Morph's pack see an arm form as the living arm model, not a plain tool. */
+	public final boolean vanillaArmModels;
+	/**
+	 * appearance.resource-pack-ids: the UUIDs or SHA-1 hashes RE:Morph's pack is sent with, lower case and without dashes.
+	 * A server that sends several packs (a map's, a building plugin's) names ours here, so a player who loaded only
+	 * another pack doesn't count as having it and isn't shown models they can't draw. Empty: any loaded pack counts.
+	 */
+	public final java.util.Set<String> resourcePackIds;
 	public final String morphSound;
 	public final String morphSoundFallback;
 	public final float morphSoundVolume;
@@ -176,6 +186,15 @@ public final class PluginSettings {
 		vanillaTransition = c.getBoolean("appearance.vanilla-transition", true);
 		vanillaAcquisitionEffects = c.getBoolean("appearance.vanilla-acquisition-effects", true);
 		vanillaSkinEffects = c.getBoolean("appearance.vanilla-skin-effects", true);
+		vanillaArmModels = c.getBoolean("appearance.vanilla-arm-models", true);
+		java.util.List<String> packIds = c.isList("appearance.resource-pack-ids") ? c.getStringList("appearance.resource-pack-ids")
+				: c.isString("appearance.resource-pack-ids") ? java.util.List.of(c.getString("appearance.resource-pack-ids", "")) : java.util.List.of();
+		java.util.Set<String> ids = new java.util.LinkedHashSet<>();
+		for (String id : packIds) {
+			String n = packId(id);
+			if (!n.isEmpty()) ids.add(n);
+		}
+		resourcePackIds = java.util.Collections.unmodifiableSet(ids);
 		morphSound = c.getString("appearance.morph-sound", "morphreborn:morph");
 		morphSoundFallback = c.getString("appearance.morph-sound-fallback", "minecraft:entity.illusioner.mirror_move");
 		morphSoundVolume = (float) c.getDouble("appearance.morph-sound-volume", 1.0);
@@ -216,5 +235,19 @@ public final class PluginSettings {
 
 	public int requiredKills(String entityType) {
 		return requiredKillsPerType.getOrDefault(entityType, requiredKills);
+	}
+
+	/**
+	 * A pack a player loaded is RE:Morph's, by the UUID it was sent with or its SHA-1 hash (either may be null when the
+	 * event doesn't say): always with no resource-pack-ids set, otherwise only when one of them is listed.
+	 */
+	public boolean isOurPack(@Nullable UUID id, @Nullable String hash) {
+		if (resourcePackIds.isEmpty()) return true;
+		return id != null && resourcePackIds.contains(packId(id.toString())) || hash != null && resourcePackIds.contains(packId(hash));
+	}
+
+	/** Lower case, no dashes or spaces: a UUID written either way, or a hash in either case, compares equal. */
+	private static String packId(@Nullable String raw) {
+		return raw == null ? "" : raw.trim().toLowerCase(java.util.Locale.ROOT).replace("-", "").replace(" ", "");
 	}
 }

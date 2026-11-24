@@ -46,8 +46,11 @@ public final class ClientTraits {
 	 * speed by 0.6 every tick in the air). Only the vertical speed changes, so jumping and running keep their momentum.
 	 */
 	public static void tickSlowFall(@Nullable LocalPlayer player) {
-		if (player == null || !has(player, Wire.TRAIT_SLOW_FALL) || player.onGround() || player.getAbilities().flying || player.isInWater()
-				|| player.isFallFlying() || player.onClimbable()) return;
+		if (player == null) return;
+		// a chicken, or a flier that can't fly yet: always; a flier that can (hold-jump-glide): while jump is held
+		boolean glide = has(player, Wire.TRAIT_SLOW_FALL)
+				|| has(player, Wire.TRAIT_GLIDE_ON_JUMP) && net.minecraft.client.Minecraft.getInstance().options.keyJump.isDown();
+		if (!glide || player.onGround() || player.getAbilities().flying || player.isInWater() || player.isFallFlying() || player.onClimbable()) return;
 		Vec3 movement = player.getDeltaMovement();
 		if (movement.y < 0.0) {
 			player.setDeltaMovement(movement.multiply(1.0, 0.6, 1.0));

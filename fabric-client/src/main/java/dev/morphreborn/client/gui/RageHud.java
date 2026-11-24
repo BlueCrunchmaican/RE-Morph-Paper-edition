@@ -26,6 +26,8 @@ public final class RageHud {
 	private static final int BAR = 40;
 
 	private static boolean hintShown;
+	/** Holds the raise for a while once it was needed (see {@link HudLayout.Latch}). */
+	private static final HudLayout.Latch LIFT = new HudLayout.Latch();
 
 	private RageHud() {}
 
@@ -37,7 +39,7 @@ public final class RageHud {
 		boolean raging = ClientNet.raging();
 		boolean ready = ClientNet.rageReady();
 		long since = ClientNet.ticksSinceRageChange();
-		if (ready && Keys.RAGE.isUnbound() && !hintShown) {
+		if (ready && Keys.RAGE.isUnbound() && !hintShown && TipUi.on()) { // how to bind and set it off is a tip (the Tooltips setting)
 			hintShown = true; // once a game: the key starts unbound. In chat: on the action bar the server's lines hid it
 			// servers before 7.3.0 have /morph rage only
 			String hint = ClientNet.serverAtLeast("7.3.0-beta.1") ? "morphreborn.rage.bind_hint" : "morphreborn.rage.bind_hint_old";
@@ -56,10 +58,7 @@ public final class RageHud {
 
 		int guiScale = (int) Math.round(mc.getWindow().getGuiScale());
 		float s = withBar ? BiomassHud.shownScale : guiScale >= 4 ? (guiScale - 1) / (float) guiScale : 1F;
-		g.pose().pushMatrix();
-		g.pose().translate(0, g.guiHeight());
-		g.pose().scale(s, s);
-		int x = 6;
+		int x = HudLayout.LEFT;
 		// the biomass bar's label strip sits at -27; this goes on top of it, or in its place
 		int y = withBar ? -27 - 13 : -27;
 
@@ -78,6 +77,13 @@ public final class RageHud {
 		int meterW = raging || waiting ? BAR : segments * 4 - 1;
 		int width = labelW + 4 + meterW + (status.isEmpty() ? 0 : 5 + font.width(status));
 
+		// it rises when it would run over the hotbar (the bar's rule, for this strip's own width: it is wider than the bar's text and
+		// sits above it), and with the biomass bar when that rose
+		int lift = LIFT.apply(HudLayout.lift(g.guiWidth(), s, !mc.player.getOffhandItem().isEmpty(), width), System.nanoTime());
+		if (withBar) lift = Math.max(lift, BiomassHud.shownLift);
+		g.pose().pushMatrix();
+		g.pose().translate(0, g.guiHeight() - lift);
+		g.pose().scale(s, s);
 		g.fill(x - 2, y - 2, x + width + 2, y + 9, scaled(0x90, a) << 24);
 		float pulse = 0.5F + 0.5F * (float) Math.sin(time * (raging ? 0.9 : 0.25));
 		int labelColor = raging || ready ? lerp(0xC62828, 0xFF5252, pulse) : hits > 0 ? 0xE57373 : 0xBDBDBD;

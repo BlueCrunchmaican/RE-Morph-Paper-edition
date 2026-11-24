@@ -15,9 +15,10 @@
   "icon": "assets/morphreborn/icon.png",
   "environment": "client",
   "entrypoints": {
-    "client": ["dev.morphreborn.client.MorphClient"]
+    "client": ["dev.morphreborn.client.MorphClient", "dev.morphreborn.client.arm.ArmClientInit"],
+    "lambdynlights:initializer": ["dev.morphreborn.client.arm.compat.ArmLdl"]
   },
-  "mixins": ["morphreborn.mixins.json"],
+  "mixins": ["morphreborn.mixins.json", "morphreborn.arm.mixins.json"],
   "accessWidener": "morphreborn.accesswidener",
   "depends": {
     "fabricloader": ">=0.20.0",
@@ -26,6 +27,7 @@
     "java": ">=25"
   },
   "suggests": {
-    "firstperson": "*"
+    "firstperson": "*",
+    "lambdynlights": "*"
   }
 }

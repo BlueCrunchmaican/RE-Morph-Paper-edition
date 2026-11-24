@@ -7,19 +7,20 @@ import net.minecraft.client.renderer.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.HumanoidRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.monster.CrossbowAttackMob;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps a morph entity moving with its player (port of the original MorphState.tick / syncEntityWithPlayer):
@@ -33,7 +34,15 @@ public final class MorphSync {
 	private MorphSync() {}
 
 	public static void tick(LivingEntity morph, Player player) {
-		syncPosition(morph, player);
+		tick(morph, player, null);
+	}
+
+	/**
+	 * One tick of a morph entity; {@code hold} is set for a main body that is a shulker (ShulkerLock): attached and
+	 * opened as the server says both before its own tick (its lid animates toward that) and after.
+	 */
+	public static void tick(LivingEntity morph, Player player, ShulkerLock.@Nullable Hold hold) {
+		syncPosition(morph, player, hold);
 		if (!NO_TICK.contains(morph.getType())) {
 			try {
 				morph.tick();
@@ -41,25 +50,41 @@ public final class MorphSync {
 				NO_TICK.add(morph.getType());
 			}
 		}
-		syncPosition(morph, player);
+		syncPosition(morph, player, hold);
 		syncStatus(morph, player);
 		MorphAnimations.tickSwing(morph, player);
 	}
 
 	public static void syncPosition(LivingEntity morph, Player player) {
-		morph.setPos(player.getX(), player.getY(), player.getZ());
-		morph.xo = player.xo;
-		morph.yo = player.yo;
-		morph.zo = player.zo;
-		morph.xOld = player.xOld;
-		morph.yOld = player.yOld;
-		morph.zOld = player.zOld;
+		syncPosition(morph, player, null);
+	}
+
+	/**
+	 * A shulker held in a block's space ({@code hold} with a face) stays in its block, body turned to 0 as vanilla
+	 * keeps a shulker's, instead of following the player's exact place and turn.
+	 */
+	private static void syncPosition(LivingEntity morph, Player player, ShulkerLock.@Nullable Hold hold) {
+		boolean held = hold != null && hold.face() != null;
+		Vec3 at = held ? ShulkerLock.anchor(player) : player.position();
+		morph.setPos(at.x, at.y, at.z);
+		if (held) {
+			morph.xo = morph.xOld = at.x;
+			morph.yo = morph.yOld = at.y;
+			morph.zo = morph.zOld = at.z;
+		} else {
+			morph.xo = player.xo;
+			morph.yo = player.yo;
+			morph.zo = player.zo;
+			morph.xOld = player.xOld;
+			morph.yOld = player.yOld;
+			morph.zOld = player.zOld;
+		}
 		morph.setYRot(player.getYRot());
 		morph.setXRot(player.getXRot());
 		morph.yRotO = player.yRotO;
 		morph.xRotO = player.xRotO;
-		morph.yBodyRot = player.yBodyRot;
-		morph.yBodyRotO = player.yBodyRotO;
+		morph.yBodyRot = held ? 0F : player.yBodyRot;
+		morph.yBodyRotO = held ? 0F : player.yBodyRotO;
 		morph.yHeadRot = player.yHeadRot;
 		morph.yHeadRotO = player.yHeadRotO;
 		if (morph instanceof EnderDragon) {
@@ -72,7 +97,10 @@ public final class MorphSync {
 		// some mobs animate from it (a walking bee's wings).
 		morph.setDeltaMovement(player == Minecraft.getInstance().player ? player.getDeltaMovement()
 				: new Vec3(player.getX() - player.xo, player.getY() - player.yo, player.getZ() - player.zo));
+		boolean fresh = morph.tickCount == 0; // a morph entity made this tick (read before it takes the player's count)
 		morph.tickCount = player.tickCount;
+		// after setPos, which shuts a shulker's lid whenever its block changes
+		if (hold != null) ShulkerLock.apply(morph, hold, fresh);
 	}
 
 	private static void syncStatus(LivingEntity morph, Player player) {

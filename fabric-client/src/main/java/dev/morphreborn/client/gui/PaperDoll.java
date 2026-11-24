@@ -6,8 +6,12 @@ import com.mojang.math.Axis;
 import dev.morphreborn.client.ClientConfig;
 import dev.morphreborn.client.MorphClient;
 import dev.morphreborn.client.data.MorphState;
+import dev.morphreborn.client.morph.ShulkerLock;
 import dev.morphreborn.client.net.MorphRef;
+import dev.morphreborn.client.render.ModelCapture;
 import dev.morphreborn.client.render.MorphTransitionRenderState;
+import dev.morphreborn.client.render.MorphWorldRenderer;
+import dev.morphreborn.client.render.RageTethers;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.DeltaTracker;
@@ -20,6 +24,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.entity.state.ShulkerRenderState;
 import net.minecraft.client.renderer.state.gui.pip.PictureInPictureRenderState;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.util.Mth;
@@ -56,8 +61,7 @@ public final class PaperDoll {
 	 * The situations that show the doll in "While Active" mode, in settings order: the player's own movement and
 	 * actions first, then the morph-specific ones.
 	 */
-	public static final java.util.List<String> TRIGGERS = java.util.List.of("WALKING", "CROUCHING", "SPRINTING", "AIRBORNE", "ELYTRA", "SWIMMING",
-			"FLYING", "CLIMBING", "RIDING", "BLOCKING", "USING_ITEM", "SWINGING", "HURT", "ON_FIRE", "POWDER_SNOW", "SLEEPING", "TRANSFORMING", "ABILITY");
+	public static final java.util.List<String> TRIGGERS = SettingsLayout.DOLL_TRIGGERS;
 
 	private static long activeUntil;
 	/** Smoothed zoom, so the doll doesn't jump when the shown body changes size (transformations, vehicles). */
@@ -107,11 +111,20 @@ public final class PaperDoll {
 			maxY = Math.max(maxY, (float) offset.y + size[1]);
 			radius = Math.max(radius, (float) Math.sqrt(offset.x * offset.x + offset.z * offset.z) + size[0] / 2F);
 		}
+		// hovering in a frenzy: the tendril legs too, standing a block below (my idea)
+		RageTethers.DollLegs legs = RageTethers.dollLegs(player, partialTick);
+		Vec3 legsAt = player.getPosition(partialTick).subtract(origin);
+		if (legs != null) {
+			minY = Math.min(minY, (float) legsAt.y + legs.low());
+			radius = Math.max(radius, (float) Math.sqrt(legsAt.x * legsAt.x + legsAt.z * legsAt.z) + legs.wide());
+		}
 
 		// The doll's settings are screen pixels, so the GUI scale doesn't make it bigger or smaller; it has its own Size.
 		ClientConfig.dollToScreenPixels();
 		float guiScale = (float) Math.max(1.0, mc.getWindow().getGuiScale());
-		int box = Math.max(4, Math.round(c.dollSize / guiScale));
+		// the settings go up to 800 px and 1200 px of offset: more than a small window has, where the doll was bigger than the window or
+		// silently off it. Kept to half the window's height, and inside the window (the doll is never drawn off screen)
+		int box = Math.max(4, Math.min(Math.round(c.dollSize / guiScale), Math.round(g.guiHeight() * 0.5F)));
 		// One scale for every form, set by a player-sized body, so a rabbit looks small and a baby half its adult size.
 		// Only a scene bigger than that (a ghast, a boat with passengers) zooms out to fit.
 		float fit = c.dollScale.equals("FILL")
@@ -127,15 +140,20 @@ public final class PaperDoll {
 		int dy = Math.round(c.dollY / guiScale);
 		int x = left ? dx : screenW - dx - box;
 		int y = top ? dy : screenH - dy - box;
+		// the top right is where the status effect icons are (two rows, 25 px each): under them while there are any
+		if (!left && top && !player.getActiveEffects().isEmpty()) y = Math.max(y, 52);
+		x = Math.max(0, Math.min(x, screenW - box));
+		y = Math.max(0, Math.min(y, screenH - box));
 		float centerX = x + box / 2F;
 		float feetY = y + box - smoothedFit * (-minY) - box * 0.06F;
-		float yaw = rootYaw(root, partialTick) - 180F - c.dollAngle;
+		float yaw = (root == player ? playerYaw(player, partialTick) : rootYaw(root, partialTick)) - 180F - c.dollAngle;
 		// The texture reaches past the box on every side so arms, tails and wings that stick out aren't cut off.
 		int pad = box / 2;
 		int x0 = Math.max(0, x - pad), y0 = Math.max(0, y - pad), x1 = Math.min(screenW, x + box + pad), y1 = Math.min(screenH, y + box + pad);
 		if (x1 <= x0 || y1 <= y0) return;
 		float outline = c.dollVignette / guiScale; // vignette radius, from screen pixels to GUI pixels
-		g.guiRenderState.addPicturesInPictureState(new State(parts, centerX, feetY, smoothedFit, yaw, c.dollTilt, c.dollOpacity / 100F, outline,
+		g.guiRenderState.addPicturesInPictureState(new State(parts, legs == null ? List.of() : legs.boxes(), legsAt, centerX, feetY, smoothedFit, yaw,
+				c.dollTilt, c.dollOpacity / 100F, outline,
 				c.dollOutlineStrength / 100F, x0, y0, x1, y1, null, new ScreenRectangle(x0, y0, x1 - x0, y1 - y0)));
 	}
 
@@ -146,6 +164,8 @@ public final class PaperDoll {
 		if (c.dollHideDebug && mc.getDebugOverlay().showDebugScreen()) return false;
 		if (c.dollHideThirdPerson && !mc.options.getCameraType().isFirstPerson()) return false;
 		if (!c.dollInMenus && mc.gui.screen() != null) return false;
+		// RE:Morph's own full-window screens (the upgrade tree...): the doll sat on the tree's title with Show in Menus on (the rig, 2026-11-16)
+		if (mc.gui.screen() instanceof HidesPaperDoll) return false;
 		if (c.dollHideMusic && musicToastShowing(mc)) return false;
 		if (SelectorHud.INSTANCE.showSelector || SelectorHud.INSTANCE.showRadial) return false; // they share the left side
 		MorphState state = MorphClient.STATES.get(player.getUUID());
@@ -229,6 +249,12 @@ public final class PaperDoll {
 		state.scoreText = null;
 		if (c.dollLight.equals("BRIGHT")) state.lightCoords = FULL_BRIGHT;
 		if (player != null && state instanceof LivingEntityRenderState living) head(living, c, player);
+		if (player != null && state instanceof ShulkerRenderState shulker) {
+			// a shulker's model turns its head by these, not by yRot; and the doll stays on the player, so a held shell's
+			// slide in from the block it teleported from (up to 8 blocks away) is left to the world
+			shulker.yHeadRot = shulker.yBodyRot + shulker.yRot;
+			shulker.renderOffset = Vec3.ZERO;
+		}
 	}
 
 	/**
@@ -261,6 +287,9 @@ public final class PaperDoll {
 			}
 		}
 		if ((player.isFallFlying() && c.dollLockElytra) || (player.isAutoSpinAttack() && c.dollLockSpin)) living.xRot = 0F;
+		// a shulker carrying a borrowed head never nods it, or what is inside its shell swings out (HybridMorph.attach)
+		if (living instanceof net.minecraft.client.renderer.entity.state.ShulkerRenderState
+				&& ((dev.morphreborn.client.render.HybridMorph.Mark) living).morph$borrowed() != null) living.xRot = 0F;
 	}
 
 	/**
@@ -279,11 +308,33 @@ public final class PaperDoll {
 	private static float[] standing(LocalPlayer player, @Nullable MorphRef form) {
 		if (form != null && !form.isSelf()) {
 			LivingEntity morph = MorphClient.ENTITIES.forWorld(player.getUUID(), form);
-			if (morph != null) return new float[] {morph.getBbWidth(), morph.getBbHeight()};
+			// a shulker's box grows as its lid opens: framed by it, the doll zoomed out and back each time it shoots
+			if (morph != null) return ShulkerLock.size(morph);
 		}
 		var dims = player.getDimensions(Pose.STANDING);
 		float scale = player.getScale() > 0F ? player.getScale() : 1F;
 		return new float[] {dims.width() / scale, dims.height() / scale};
+	}
+
+	/**
+	 * The direction the scene is turned from for the player (not riding): their body, or for a shulker held in its block
+	 * the shell, which never turns: from the side on a floor or ceiling, its opening toward the viewer on a wall. Through
+	 * a transformation into or out of one, the turn goes from the old body's to the new one's with the animation.
+	 */
+	private static float playerYaw(LocalPlayer player, float partialTick) {
+		float own = rootYaw(player, partialTick);
+		MorphState state = MorphClient.STATES.get(player.getUUID());
+		if (state == null || !state.isMorphed()) return own;
+		float to = shellYaw(state.next, state.lockFace, own);
+		if (!state.isTransitioning()) return to;
+		float from = shellYaw(state.prev, state.prevLockFace, own);
+		return Mth.rotLerp(state.transitionSine(partialTick), from, to);
+	}
+
+	/** The scene's turn for a main body {@code form}: {@code own} unless it is a shulker held by {@code face}. */
+	private static float shellYaw(@Nullable MorphRef form, net.minecraft.core.@Nullable Direction face, float own) {
+		if (face == null || !ShulkerLock.isShulker(form)) return own;
+		return face.getAxis().isHorizontal() ? face.getOpposite().toYRot() : 0F;
 	}
 
 	/** The direction the scene is turned from: the player's body, or their vehicle. */
@@ -295,7 +346,8 @@ public final class PaperDoll {
 	/** One entity of the scene and where it is relative to the root (the player, or the vehicle they ride). */
 	public record Part(EntityRenderState state, Vec3 offset) {}
 
-	public record State(List<Part> parts, float centerX, float feetY, float pixelsPerBlock, float yaw, float tilt, float opacity, float outline,
+	public record State(List<Part> parts, List<ModelCapture.Box> legs, Vec3 legsAt, float centerX, float feetY, float pixelsPerBlock, float yaw,
+			float tilt, float opacity, float outline,
 			float outlineStrength, int x0, int y0, int x1, int y1,
 			@Nullable ScreenRectangle scissorArea, @Nullable ScreenRectangle bounds) implements PictureInPictureRenderState {
 		@Override
@@ -332,6 +384,16 @@ public final class PaperDoll {
 			poseStack.rotate(Axis.YP.rotationDegrees(state.yaw()));
 			for (Part part : state.parts()) {
 				dispatcher.submit(part.state(), camera, part.offset().x, part.offset().y, part.offset().z, poseStack, collector);
+			}
+			if (!state.legs().isEmpty()) {
+				List<ModelCapture.Box> legs = state.legs();
+				poseStack.pushPose();
+				poseStack.translate(state.legsAt().x, state.legsAt().y, state.legsAt().z);
+				collector.submitCustomGeometry(poseStack, net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(
+						dev.morphreborn.client.arm.render.ArmTint.redSkin(dev.morphreborn.client.arm.ArmColours.own())), // the doll is you: your colour
+						(pose, buffer) -> ModelCapture.render(legs, pose, buffer, FULL_BRIGHT, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 1F,
+								false));
+				poseStack.popPose();
 			}
 			poseStack.popPose();
 		}

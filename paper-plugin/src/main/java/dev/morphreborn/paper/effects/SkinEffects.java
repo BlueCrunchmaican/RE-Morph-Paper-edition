@@ -7,6 +7,8 @@ import com.google.gson.JsonParser;
 import dev.morphreborn.paper.MorphRebornPlugin;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.disguise.BorrowedHeads;
+import dev.morphreborn.paper.disguise.BorrowedHeads.Shell;
+import dev.morphreborn.paper.disguise.GiantPlayer;
 import dev.morphreborn.paper.morph.ActiveMorph;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -18,10 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.LivingEntity;
@@ -30,6 +34,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MainHand;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
@@ -56,8 +61,13 @@ public final class SkinEffects implements Listener {
 		}
 
 		/** A box of no size where {@code other} would grow from or shrink into: the model's middle. */
-		static Box empty(float midY, Box other) {
-			return new Box(new Vector3f(0, midY, 0), new Vector3f(), other.turn);
+		static Box empty(Vector3f middle, Box other) {
+			return new Box(new Vector3f(middle), new Vector3f(), other.turn);
+		}
+
+		/** The box as its model stands in {@code pose}; as it is with none. */
+		Box posed(@Nullable Pose pose) {
+			return pose == null ? this : new Box(pose.place(centre), new Vector3f(size), new Quaternionf(pose.turn()).mul(turn));
 		}
 
 		static Box lerp(Box a, Box b, float t) {
@@ -67,6 +77,16 @@ public final class SkinEffects implements Listener {
 
 	private record Model(float height, List<Box> boxes) {}
 
+	/**
+	 * How a model stands in a melt whose displays face south, where it would otherwise face the way the displays do:
+	 * turned by {@code turn} about {@code pivot} (blocks from the feet).
+	 */
+	record Pose(Quaternionf turn, Vector3f pivot) {
+		Vector3f place(Vector3f point) {
+			return new Quaternionf(turn).transform(new Vector3f(point).sub(pivot)).add(pivot);
+		}
+	}
+
 	/** Blocks the skin stands out from the body it covers on every side, so the body's own faces don't show through. */
 	private static final float COVER = 0.015F;
 	/** Ticks a display glides to where its body moved (as the borrowed heads do). */
@@ -75,12 +95,22 @@ public final class SkinEffects implements Listener {
 	private static final int TETHER_SEGMENTS = 5, TETHER_GROW = 6;
 	private static final double VIEW_RANGE_SQ = 64 * 64;
 	private static final NamespacedKey MARKER = MorphRebornPlugin.key("skin_effect");
+	/** The player model's boxes: player forms', and a giant's drawn as the player it borrows from (GiantPlayer). */
+	private static final String PLAYER = "minecraft:player";
 
 	private final MorphRebornPlugin plugin;
 	private final Map<String, Model> models = new HashMap<>();
-	/** Who sees a display: everyone who draws the skin but {@code hideFrom}, or only {@code onlyFor}. */
-	private record Audience(@Nullable UUID hideFrom, @Nullable UUID onlyFor) {
+	/**
+	 * Who sees a display: everyone who draws the skin but {@code hideFrom}, or only {@code onlyFor}; never a viewer
+	 * {@code natives} picks out (an arm effect leaves out players whose game draws arms itself).
+	 */
+	private record Audience(@Nullable UUID hideFrom, @Nullable UUID onlyFor, @Nullable Predicate<Player> natives) {
+		Audience(@Nullable UUID hideFrom, @Nullable UUID onlyFor) {
+			this(hideFrom, onlyFor, null);
+		}
+
 		boolean includes(Player viewer) {
+			if (natives != null && natives.test(viewer)) return false;
 			UUID id = viewer.getUniqueId();
 			return onlyFor != null ? onlyFor.equals(id) : !id.equals(hideFrom);
 		}
@@ -205,12 +235,26 @@ public final class SkinEffects implements Listener {
 		absorbs.clear();
 		tethers.clear();
 		legs.clear();
+		held.clear();
+		lentBefore.clear();
+		strands.clear();
+		armModels.clear();
 	}
 
 	// ------------------------------------------------------------------ models
 
+	/** The boxes {@code form} is drawn with as a main body borrowing {@code lent}: a giant drawn as a player (GiantPlayer) is that player's. */
+	private @Nullable Model model(Player owner, MorphRef form, @Nullable MorphRef lent) {
+		return GiantPlayer.applies(form, lent) ? models.get(PLAYER) : model(owner, form);
+	}
+
+	/** How big {@code form} borrowing {@code lent} is drawn against its boxes: a giant drawn as a player is that player, a giant's size. */
+	private float sizeOf(Player owner, MorphRef form, @Nullable MorphRef lent, Model model) {
+		return GiantPlayer.applies(form, lent) ? (float) GiantPlayer.GIANT_PLAYER_SCALE : sizeOf(owner, form, model);
+	}
+
 	private @Nullable Model model(Player owner, MorphRef form) {
-		if (form.isPlayer() || form.isSelf()) return models.get("minecraft:player");
+		if (form.isPlayer() || form.isSelf()) return models.get(PLAYER);
 		// a baby's own boxes (26.3's babies have models of their own), where there are any
 		if (plugin.templates().get(form, owner.getWorld()) instanceof org.bukkit.entity.Ageable a && !a.isAdult()) {
 			Model baby = models.get(form.entityType() + "_baby");
@@ -231,15 +275,67 @@ public final class SkinEffects implements Listener {
 	/** A transformation's boxes, from the old body's to the new body's. */
 	private final class Melt {
 		final MorphRef from, to;
+		/** What each body borrowed as the melt began (null: nothing), which can change how it is drawn (GiantPlayer). */
+		final @Nullable MorphRef fromLent, toLent;
 		final List<ItemDisplay> displays = new ArrayList<>();
 		final List<Box> start = new ArrayList<>(), end = new ArrayList<>();
 		/** The skin is off (the mod fades it off the new body over the last eighth; this takes it off half way through). */
 		boolean done;
+		/**
+		 * Into a shulker, or out of one held to a block (see {@link #startMelt}): each body's pose, the displays facing
+		 * south throughout. Both null otherwise, the displays turning with the player as any melt's do.
+		 */
+		@Nullable Pose fromPose, toPose;
+		/** The held shulker on each side, or null. */
+		@Nullable Shell fromShell, toShell;
+		/** The face the new body's boxes were last put on (null: a free body), so a hold that comes or moves is seen. */
+		@Nullable BlockFace filledFace;
 
-		Melt(MorphRef from, MorphRef to) {
+		Melt(MorphRef from, @Nullable MorphRef fromLent, MorphRef to, @Nullable MorphRef toLent) {
 			this.from = from;
 			this.to = to;
+			this.fromLent = fromLent;
+			this.toLent = toLent;
 		}
+
+		boolean fixed() {
+			return fromPose != null;
+		}
+	}
+
+	/**
+	 * Each held shulker's hold (see {@link BorrowedHeads.Shell}) as it was when a transformation began: the transformation
+	 * clears it at once, and a melt out of a wall or ceiling starts from there.
+	 */
+	private final Map<UUID, Shell> held = new HashMap<>();
+	/**
+	 * What each player's body borrowed as a transformation began: the transformation gives the new body its borrowed form
+	 * at once, and a melt out of a giant drawn as the player it borrowed from (GiantPlayer) starts from that player.
+	 */
+	private final Map<UUID, MorphRef> lentBefore = new HashMap<>();
+
+	/** Every tick, outside transformations: who holds on to which face, and what each body borrows. */
+	private void trackHolds() {
+		for (Player p : plugin.getServer().getOnlinePlayers()) {
+			if (plugin.morphs().isTransitioning(p)) continue; // what it held and borrowed before it began
+			Shell shell = heldBy(plugin.morphs().activeForm(p), plugin.morphs().overlay(p));
+			if (shell == null) held.remove(p.getUniqueId());
+			else held.put(p.getUniqueId(), shell);
+			MorphRef lent = plugin.borrowedHeads().borrowed(p);
+			if (lent == null) lentBefore.remove(p.getUniqueId());
+			else lentBefore.put(p.getUniqueId(), lent);
+		}
+	}
+
+	/** The hold on {@code form} as the main body, from its overlay: only a shulker is ever held to a block. */
+	private static @Nullable Shell heldBy(@Nullable MorphRef form, String overlay) {
+		if (form == null || form.isPlayer() || !BorrowedHeads.SHULKER.equals(form.entityType())) return null;
+		return Shell.of(overlay);
+	}
+
+	/** The face {@code shell} holds on to; null for none. Only the face poses a body (the peek doesn't). */
+	private static @Nullable BlockFace faceOf(@Nullable Shell shell) {
+		return shell == null ? null : shell.face();
 	}
 
 	/**
@@ -260,7 +356,7 @@ public final class SkinEffects implements Listener {
 			melt = null;
 		}
 		if (melt == null) {
-			melt = startMelt(player, from, to);
+			melt = startMelt(player, s, from, to);
 			if (melt == null) return false;
 			melts.put(player.getUniqueId(), melt);
 		}
@@ -270,37 +366,118 @@ public final class SkinEffects implements Listener {
 			melt.done = true;
 			return true;
 		}
-		Location at = player.getLocation();
-		at.setYaw(BorrowedHeads.drawnYaw(player, to));
+		Location at;
+		if (melt.fixed()) {
+			// facing south, the poses hold each body's turn; on the side that shows now, a held shell is where its block is
+			melt.toShell = heldBy(to, s.overlay);
+			at = (s.morphProgress() < 0.5F ? melt.fromShell : melt.toShell) != null ? BorrowedHeads.anchor(player.getLocation()) : player.getLocation();
+			at.setYaw(0F);
+		} else {
+			at = player.getLocation();
+			at.setYaw(BorrowedHeads.drawnYaw(player, to, melt.toLent));
+		}
 		at.setPitch(0);
 		for (ItemDisplay d : melt.displays) {
 			if (d.isValid() && d.getWorld() == at.getWorld()) d.teleport(at);
 		}
 		int first = Math.max(2, Math.round(s.duration * 0.125F)), stroke = Math.max(1, Math.round(s.duration * 0.25F));
 		if (s.time >= first && (s.time - first) % stroke == 0 && (s.time - first) / stroke < 3) {
+			// the hold may have moved to another face (or gone) since the melt began: the new body ends on the one it has
+			if (melt.fixed()) fill(player, melt);
 			float t = ActiveMorph.sineify(((s.time - first) / stroke + 1) / 3F);
 			for (int i = 0; i < melt.displays.size(); i++) moveTo(melt.displays.get(i), boxAt(Box.lerp(melt.start.get(i), melt.end.get(i), t)), stroke);
+		} else if (melt.fixed() && s.time > first && faceOf(melt.toShell) != melt.filledFace) {
+			// The hold came (most often with the half-way swap, which lands mid-stroke) or moved: the stroke under way goes
+			// on to the new body on that face, in the ticks it has left (or a short glide once the strokes are over),
+			// rather than to the free body it set out for.
+			fill(player, melt);
+			int k = Math.min(2, (s.time - first) / stroke), left = first + (k + 1) * stroke - s.time;
+			float t = ActiveMorph.sineify((k + 1) / 3F);
+			for (int i = 0; i < melt.displays.size(); i++) {
+				moveTo(melt.displays.get(i), boxAt(Box.lerp(melt.start.get(i), melt.end.get(i), t)), left > 0 ? left : GLIDE);
+			}
 		}
 		return true;
 	}
 
-	private @Nullable Melt startMelt(Player player, MorphRef from, MorphRef to) {
-		Model a = model(player, from), b = model(player, to);
+	/**
+	 * The melt's displays and first boxes. A shulker held to a block on either side (the old body's hold as it was, the
+	 * new body's as it comes) is drawn as players without the mod see it: never turned by the player's look, square in its
+	 * block and turned onto its face about the block's middle (ShulkerRenderer.setupRotations). The displays then face
+	 * south throughout, each body standing in its own pose: a held shell in its block's frame, a free body turned the way
+	 * it faced as the melt began.
+	 * <p>
+	 * Every melt into a shulker is drawn that way, held yet or not: the lock gives the new body its hold as the
+	 * transformation begins only when it could put the player in the cell then, and otherwise with the half-way swap. The
+	 * melt reads the hold every tick and its last stroke lands the shell on the face it holds by then; one that turned with
+	 * the player's look would end on the floor, turned, where the shell is on its wall. A shulker that never holds on is
+	 * still right: the viewers' games never turn a shulker's shell.
+	 */
+	private @Nullable Melt startMelt(Player player, ActiveMorph s, MorphRef from, MorphRef to) {
+		// the old body with what it borrowed before the transformation, the new one with what it borrows now
+		MorphRef fromLent = lentBefore.get(player.getUniqueId()), toLent = plugin.borrowedHeads().borrowed(player);
+		Model a = model(player, from, fromLent), b = model(player, to, toLent);
 		if (a == null || b == null) return null;
-		Melt melt = new Melt(from, to);
-		float sa = sizeOf(player, from, a), sb = sizeOf(player, to, b);
-		int n = Math.max(a.boxes.size(), b.boxes.size());
-		for (int i = 0; i < n; i++) {
-			Box ba = i < a.boxes.size() ? a.boxes.get(i).scaled(sa) : null, bb = i < b.boxes.size() ? b.boxes.get(i).scaled(sb) : null;
-			melt.start.add(ba != null ? ba : Box.empty(a.height * sa / 2F, bb));
-			melt.end.add(bb != null ? bb : Box.empty(b.height * sb / 2F, ba));
+		Melt melt = new Melt(from, fromLent, to, toLent);
+		melt.fromShell = BorrowedHeads.SHULKER.equals(from.entityType()) ? held.get(player.getUniqueId()) : null;
+		melt.toShell = heldBy(to, s.overlay);
+		if (melt.fromShell != null || BorrowedHeads.SHULKER.equals(to.entityType())) {
+			melt.fromPose = pose(player, from, fromLent, a, melt.fromShell);
+			melt.toPose = pose(player, to, toLent, b, melt.toShell);
 		}
-		Location at = player.getLocation();
-		at.setYaw(BorrowedHeads.drawnYaw(player, from));
+		fill(player, melt);
+		Location at;
+		if (melt.fixed()) {
+			at = melt.fromShell != null ? BorrowedHeads.anchor(player.getLocation()) : player.getLocation();
+			at.setYaw(0F);
+		} else {
+			at = player.getLocation();
+			at.setYaw(BorrowedHeads.drawnYaw(player, from, fromLent));
+		}
 		at.setPitch(0);
 		// never to the player themself: from inside it the boxes hid their view (the mod draws none around your camera)
-		for (int i = 0; i < n; i++) melt.displays.add(spawn(at, "box_" + (i % 4), boxAt(melt.start.get(i)), GLIDE, player));
+		for (int i = 0; i < melt.start.size(); i++) melt.displays.add(spawn(at, "box_" + (i % 4), boxAt(melt.start.get(i)), GLIDE, player));
 		return melt;
+	}
+
+	/**
+	 * How {@code form} stands in a melt facing south: a held shell turned onto its face about its middle, a free shulker
+	 * as it is (the viewers' games never turn a shulker's shell either), anything else turned the way it faces now, as a
+	 * display at its yaw would turn it.
+	 */
+	private Pose pose(Player player, MorphRef form, @Nullable MorphRef lent, Model model, @Nullable Shell shell) {
+		if (shell != null) return new Pose(shell.turn(), new Vector3f(0F, model.height * sizeOf(player, form, lent, model) / 2F, 0F));
+		if (BorrowedHeads.SHULKER.equals(form.entityType())) return new Pose(new Quaternionf(), new Vector3f());
+		return new Pose(new Quaternionf().rotationY((float) Math.toRadians(-BorrowedHeads.drawnYaw(player, form, lent))), new Vector3f());
+	}
+
+	/**
+	 * Both bodies' boxes, in pairs: a box with nothing to become grows from (or shrinks into) the other body's middle. In
+	 * a melt facing south, a new shulker body lands on the face it holds on to now (another body keeps the yaw it had as
+	 * the melt began).
+	 */
+	private void fill(Player player, Melt melt) {
+		Model a = model(player, melt.from, melt.fromLent), b = model(player, melt.to, melt.toLent);
+		if (a == null || b == null) return;
+		if (melt.fixed() && BorrowedHeads.SHULKER.equals(melt.to.entityType())) melt.toPose = pose(player, melt.to, melt.toLent, b, melt.toShell);
+		melt.filledFace = faceOf(melt.toShell);
+		float sa = sizeOf(player, melt.from, melt.fromLent, a), sb = sizeOf(player, melt.to, melt.toLent, b);
+		Vector3f midA = new Vector3f(0F, a.height * sa / 2F, 0F), midB = new Vector3f(0F, b.height * sb / 2F, 0F);
+		if (melt.fromPose != null) midA = melt.fromPose.place(midA);
+		if (melt.toPose != null) midB = melt.toPose.place(midB);
+		int n = Math.max(a.boxes.size(), b.boxes.size());
+		List<Box> start = new ArrayList<>(n), end = new ArrayList<>(n);
+		for (int i = 0; i < n; i++) {
+			start.add(i < a.boxes.size() ? a.boxes.get(i).scaled(sa).posed(melt.fromPose) : null);
+			end.add(i < b.boxes.size() ? b.boxes.get(i).scaled(sb).posed(melt.toPose) : null);
+		}
+		melt.start.clear();
+		melt.end.clear();
+		for (int i = 0; i < n; i++) {
+			Box ba = start.get(i), bb = end.get(i);
+			melt.start.add(ba != null ? ba : Box.empty(midA, bb));
+			melt.end.add(bb != null ? bb : Box.empty(midB, ba));
+		}
 	}
 
 	/** The transformation ended (or was cut short): its skin comes off. */
@@ -403,7 +580,8 @@ public final class SkinEffects implements Listener {
 			Model m = a.victim instanceof org.bukkit.entity.Ageable young && !young.isAdult() && models.containsKey(key + "_baby") ? models.get(key + "_baby")
 					: models.get(key);
 			if (m != null) {
-				float size = m.height <= 0 ? 1F : (float) (a.victim.getHeight() / m.height);
+				float size = a.victim instanceof Player p && giantPlayer(p) ? (float) GiantPlayer.GIANT_PLAYER_SCALE
+						: m.height <= 0 ? 1F : (float) (a.victim.getHeight() / m.height);
 				Location at = a.victim.getLocation();
 				at.setYaw(a.victim.getBodyYaw());
 				at.setPitch(0);
@@ -455,7 +633,12 @@ public final class SkinEffects implements Listener {
 
 	private String modelKey(Player p) {
 		MorphRef form = plugin.morphs().activeForm(p);
-		return form == null || form.isSelf() || form.isPlayer() ? "minecraft:player" : form.entityType();
+		return form == null || form.isSelf() || form.isPlayer() || giantPlayer(p) ? PLAYER : form.entityType();
+	}
+
+	/** Whether {@code p} is a giant drawn as the player it borrows from (GiantPlayer): it is covered as that player. */
+	private boolean giantPlayer(Player p) {
+		return GiantPlayer.applies(plugin.morphs().activeForm(p), plugin.borrowedHeads().borrowed(p));
 	}
 
 	// ------------------------------------------------------------------ Devouring Frenzy
@@ -638,6 +821,8 @@ public final class SkinEffects implements Listener {
 	/** Every tick: absorbs and tendrils advance; displays of a world a player left go. */
 	public void tick() {
 		ticks++;
+		if (enabled()) trackHolds();
+		else held.clear();
 		for (Iterator<Absorb> it = absorbs.iterator(); it.hasNext(); ) {
 			Absorb a = it.next();
 			if (!a.origin.isOnline() || a.age >= GONE) {
@@ -648,6 +833,8 @@ public final class SkinEffects implements Listener {
 			tickAbsorb(a);
 		}
 		tickTethers();
+		tickStrands();
+		if (ticks % ARM_AUDIT_TICKS == 0) auditArmDisplays();
 		for (Iterator<Map.Entry<UUID, Melt>> it = melts.entrySet().iterator(); it.hasNext(); ) {
 			Map.Entry<UUID, Melt> e = it.next();
 			Player p = plugin.getServer().getPlayer(e.getKey());
@@ -663,6 +850,8 @@ public final class SkinEffects implements Listener {
 	public void onQuit(PlayerQuitEvent event) {
 		endTransition(event.getPlayer());
 		legsEnd(event.getPlayer());
+		held.remove(event.getPlayer().getUniqueId());
+		lentBefore.remove(event.getPlayer().getUniqueId());
 		Map<UUID, Tether> mine = tethers.remove(event.getPlayer().getUniqueId());
 		if (mine != null) {
 			for (Tether t : mine.values()) {
@@ -670,6 +859,358 @@ public final class SkinEffects implements Listener {
 				for (ItemDisplay d : t.own) remove(d);
 			}
 		}
+		removeArmEffectsOf(event.getPlayer().getUniqueId());
 	}
 
+	// ------------------------------------------------------------------ arm forms (8.0.0)
+
+	/** Segments of an arm tendril: more than a frenzy tendril's five, for the arm's finer look. */
+	public static final int ARM_SEGMENTS = 8;
+	/** Ticks an arm tendril takes to grow out to its far end, and to draw back once ended. */
+	private static final int STRAND_GROW = 4, STRAND_RETRACT = 3;
+	/** An arm tendril nobody refreshed for this long draws back by itself (its special ended without saying so). */
+	private static final int STRAND_STALE = 5;
+	/**
+	 * How often the arm's displays are shown to viewers who came into range since they appeared, and hidden from
+	 * viewers whose game now draws arms itself (its mod finished its handshake). The frenzy's tendrils are too short-lived
+	 * to need it; a lit lantern's lure stays for minutes.
+	 */
+	private static final int ARM_AUDIT_TICKS = 10;
+	/** The longest glide a display's teleport can have (Display.setTeleportDuration). */
+	private static final int MAX_GLIDE = 59;
+
+	/**
+	 * An arm tendril (Draining Cut's healing tendrils, Vein Rip's root, later the harpoon's line): segments from one
+	 * point to another on a wave that is still at both ends, as everyone sees it, and as its owner does when the end at
+	 * their arm is drawn for them from below their view.
+	 */
+	private static final class Strand {
+		final UUID owner;
+		final String model;
+		final boolean ownerCopy;
+		final List<ItemDisplay> shared = new ArrayList<>(), own = new ArrayList<>();
+		final float phase;
+		final long born;
+		long seen;
+		/** Ticks since it started drawing back; -1 while it holds. */
+		int retract = -1;
+
+		Strand(UUID owner, String model, boolean ownerCopy, float phase, long born) {
+			this.owner = owner;
+			this.model = model;
+			this.ownerCopy = ownerCopy;
+			this.phase = phase;
+			this.born = born;
+			this.seen = born;
+		}
+	}
+
+	/** Arm tendrils by the key their special gave them. */
+	private final Map<Object, Strand> strands = new HashMap<>();
+
+	/** A free-standing arm model (the lantern's lure, phase 2), and who it belongs to. */
+	private static final class ArmModel {
+		final UUID owner;
+		final String model;
+		final Predicate<Player> natives;
+		ItemDisplay display;
+
+		ArmModel(UUID owner, String model, Predicate<Player> natives, ItemDisplay display) {
+			this.owner = owner;
+			this.model = model;
+			this.natives = natives;
+			this.display = display;
+		}
+	}
+
+	private final Map<Object, ArmModel> armModels = new HashMap<>();
+
+	/**
+	 * One step of an arm tendril from {@code from} to {@code to} for players without the mod who have the pack (call it
+	 * every other tick while it lasts, as the frenzy's tendrils are; the viewers' games glide between the steps). It
+	 * grows out from {@code from} over its first {@value #STRAND_GROW} ticks and thins from {@code widthFromPx} to
+	 * {@code widthToPx} pixels. A key that isn't refreshed for {@value #STRAND_STALE} ticks draws back on its own;
+	 * {@link #tendrilEnd} draws it back at once.
+	 * <p>
+	 * {@code ownerCopy}: the end nearer the owner's arm tip ({@link #armTip}) is their arm, and the owner gets their own copy with that end
+	 * moved in front of them and below their view, half as thick ({@link #ownArmTip}), as the mod draws a first-person
+	 * tendril (from the arm as others see it, it would fill their view). Without it the owner sees the same tendril as
+	 * everyone else. {@code drawsNative} leaves out the viewers whose game draws arms itself.
+	 *
+	 * @param model a skin model ({@code stick} black, {@code red_stick} red), or a pack model path ({@link #armItem})
+	 */
+	public void tendril(Player owner, Object key, Location from, Location to, String model, int segments, float widthFromPx, float widthToPx, boolean ownerCopy,
+			Predicate<Player> drawsNative) {
+		if (!enabled() || from.getWorld() == null || from.getWorld() != to.getWorld() || from.getWorld() != owner.getWorld()) {
+			Strand gone = strands.remove(key);
+			if (gone != null) drop(gone);
+			return;
+		}
+		int n = Math.clamp(segments, 1, 32);
+		Strand s = strands.get(key);
+		if (s != null && (s.retract >= 0 || s.shared.size() != n || !s.model.equals(model) || s.ownerCopy != ownerCopy || !s.owner.equals(owner.getUniqueId())
+				|| (!s.shared.isEmpty() && s.shared.get(0).getWorld() != from.getWorld()))) {
+			strands.remove(key);
+			drop(s);
+			s = null;
+		}
+		// the arm's end is the one nearer where the arm tip is taken to be (not the eyes: a creature cut up close can be
+		// nearer the eyes than the blade is)
+		Location tip = armTip(owner);
+		boolean ownFrom = from.distanceSquared(tip) <= to.distanceSquared(tip);
+		Location own = ownArmTip(owner);
+		if (s == null) {
+			s = new Strand(owner.getUniqueId(), model, ownerCopy, (key.hashCode() % 997) * 1.7F, ticks);
+			ItemStack item = armItem(model);
+			Transformation none = segment(new Vector3f(), new Vector3f(0, 0, 0.01F), 0.05F);
+			Audience everyone = new Audience(ownerCopy ? owner.getUniqueId() : null, null, drawsNative);
+			for (int i = 0; i < n; i++) s.shared.add(spawnArm(flat(from), item, none, 2, everyone));
+			if (ownerCopy && drawsFor(owner) && !drawsNative.test(owner)) {
+				Audience mine = new Audience(null, owner.getUniqueId(), drawsNative);
+				for (int i = 0; i < n; i++) s.own.add(spawnArm(flat(ownFrom ? own : from), item, none, 2, mine));
+			}
+			strands.put(key, s);
+		}
+		s.seen = ticks;
+		float reach = Math.min(1F, (ticks - s.born + 1) / (float) STRAND_GROW);
+		lay(s.shared, s.phase, from, to, reach, widthFromPx, widthToPx);
+		if (!s.own.isEmpty()) lay(s.own, s.phase, ownFrom ? own : from, ownFrom ? to : own, reach, widthFromPx * 0.5F, widthToPx * 0.5F);
+	}
+
+	/** The arm tendril with this key draws back into its start over {@value #STRAND_RETRACT} ticks, then goes. */
+	public void tendrilEnd(Object key) {
+		Strand s = strands.get(key);
+		if (s != null && s.retract < 0) retract(s);
+	}
+
+	/**
+	 * A free-standing arm model at {@code at} for players without the mod who have the pack (the lantern's lure, phase
+	 * 2), {@code scale} times its size, until {@link #removeModel}. A key already in use is replaced. Viewers who come
+	 * into range later are shown it within half a second; its owner's quitting removes it.
+	 *
+	 * @param model a pack model path ({@code arm/lantern_lure}) or a skin model; see {@link #armItem}
+	 */
+	public void spawnModel(Player owner, Object key, String model, Location at, float scale, Predicate<Player> drawsNative) {
+		removeModel(key);
+		if (!enabled() || at.getWorld() == null) return;
+		ItemDisplay d = spawnArm(flat(at), armItem(model), scaled(new Quaternionf(), scale), 2, new Audience(null, null, drawsNative));
+		armModels.put(key, new ArmModel(owner.getUniqueId(), model, drawsNative, d));
+	}
+
+	/**
+	 * Move an arm model to {@code at}, turned by {@code rotation} and {@code scale} times its size, gliding there over
+	 * {@code ticks} in the viewers' games. A model whose owner went to another world is made again there.
+	 */
+	public void moveModel(Object key, Location at, Quaternionf rotation, float scale, int ticks) {
+		ArmModel m = armModels.get(key);
+		if (m == null || at.getWorld() == null) return;
+		Transformation t = scaled(rotation, scale);
+		if (!m.display.isValid() || m.display.getWorld() != at.getWorld()) {
+			remove(m.display);
+			m.display = spawnArm(flat(at), armItem(m.model), t, Math.clamp(ticks, 0, MAX_GLIDE), new Audience(null, null, m.natives));
+			return;
+		}
+		m.display.setTeleportDuration(Math.clamp(ticks, 0, MAX_GLIDE));
+		m.display.teleport(flat(at));
+		moveTo(m.display, t, ticks);
+	}
+
+	public void removeModel(Object key) {
+		ArmModel m = armModels.remove(key);
+		if (m != null) remove(m.display);
+	}
+
+	/**
+	 * Where the server takes an armed player's arm tip to be as others see it (the mod knows exactly; the server only
+	 * estimates): 1.1 blocks along the look, 0.35 to the arm's side and 0.3 below the eyes. Facing south, as a
+	 * tendril's frame is the world's.
+	 */
+	public static Location armTip(Player p) {
+		Location eye = p.getEyeLocation();
+		Location at = eye.clone().add(eye.getDirection().multiply(1.1)).add(armSide(p).multiply(0.35)).add(0, -0.3, 0);
+		return flat(at);
+	}
+
+	/**
+	 * The arm tip as its owner sees it: half a block ahead along the ground, 0.7 below the eyes and 0.3 to the arm's
+	 * side, so a tendril from it starts below their view rather than in the middle of it.
+	 */
+	public static Location ownArmTip(Player p) {
+		Location eye = p.getEyeLocation();
+		Vector look = eye.getDirection().setY(0);
+		if (look.lengthSquared() < 1e-6) look = new Vector(0, 0, 1);
+		Location at = eye.clone().add(look.normalize().multiply(0.5)).add(0, -0.7, 0).add(armSide(p).multiply(0.3));
+		return flat(at);
+	}
+
+	/** The player's right along the ground, or their left for a left-handed player: the side the arm is on. */
+	private static Vector armSide(Player p) {
+		double yaw = Math.toRadians(p.getLocation().getYaw());
+		Vector right = new Vector(-Math.cos(yaw), 0, -Math.sin(yaw));
+		return p.getMainHand() == MainHand.LEFT ? right.multiply(-1) : right;
+	}
+
+	/** A copy facing south and level: a display's own turn would turn everything drawn on it. */
+	private static Location flat(Location at) {
+		Location out = at.clone();
+		out.setYaw(0F);
+		out.setPitch(0F);
+		return out;
+	}
+
+	private static Transformation scaled(Quaternionf rotation, float scale) {
+		float s = Math.max(0F, scale);
+		return new Transformation(new Vector3f(), new Quaternionf(rotation), new Vector3f(s, s, s), new Quaternionf());
+	}
+
+	/**
+	 * The item an arm display shows: a bare name is a skin model ({@code red_stick} is {@code morphreborn:skin/red_stick}),
+	 * a path is one of RE:Morph's ({@code arm/lantern_lure}), and a full id is used as it is.
+	 */
+	private static ItemStack armItem(String model) {
+		if (model.indexOf(':') < 0 && model.indexOf('/') < 0) return skin(model);
+		NamespacedKey key;
+		try {
+			key = model.indexOf(':') >= 0 ? NamespacedKey.fromString(model) : new NamespacedKey(MorphRebornPlugin.NAMESPACE, model);
+		} catch (IllegalArgumentException e) {
+			key = null;
+		}
+		if (key == null) return skin(model);
+		ItemStack item = new ItemStack(Material.PAPER);
+		ItemMeta meta = item.getItemMeta();
+		meta.setItemModel(key);
+		item.setItemMeta(meta);
+		return item;
+	}
+
+	/** An arm display: as {@link #spawnFor}, showing {@code item}. */
+	private ItemDisplay spawnArm(Location at, ItemStack item, Transformation t, int glide, Audience audience) {
+		ItemDisplay display = at.getWorld().spawn(at, ItemDisplay.class, d -> {
+			d.setPersistent(false);
+			d.setVisibleByDefault(false);
+			d.getPersistentDataContainer().set(MARKER, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
+			d.setItemStack(item);
+			d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
+			d.setBillboard(Display.Billboard.FIXED);
+			d.setTeleportDuration(glide);
+			d.setTransformation(t);
+		});
+		live.put(display, audience);
+		for (Player v : at.getWorld().getPlayers()) {
+			if (audience.includes(v) && v.getLocation().distanceSquared(at) <= VIEW_RANGE_SQ && drawsFor(v)) v.showEntity(plugin, display);
+		}
+		return display;
+	}
+
+	/**
+	 * The segments along the wave from {@code from} to {@code to}, drawn out to {@code reach} of the way, thinning from
+	 * {@code widthFromPx} to {@code widthToPx} pixels: the frenzy's {@link #place} with both widths given.
+	 */
+	private void lay(List<ItemDisplay> segments, float phase, Location from, Location to, float reach, float widthFromPx, float widthToPx) {
+		if (segments.isEmpty()) return;
+		Vector3f line = offset(from, to);
+		float length = line.length();
+		if (length < 0.05F) return;
+		Vector3f dir = new Vector3f(line).div(length);
+		Vector3f side = new Vector3f(dir).cross(0F, 1F, 0F);
+		if (side.lengthSquared() < 1e-4F) side.set(1F, 0F, 0F);
+		side.normalize();
+		Vector3f up = new Vector3f(side).cross(dir).normalize();
+		float amp = Math.min(0.35F, 0.06F * length + 0.05F);
+		float time = ticks;
+		int n = segments.size();
+		Location origin = flat(from);
+		Vector3f prev = new Vector3f();
+		for (int i = 1; i <= n; i++) {
+			float s = i / (float) n * reach;
+			float wave = (float) Math.sin(s * Math.PI) * amp;
+			Vector3f p = new Vector3f(dir).mul(length * s)
+					.add(new Vector3f(side).mul(wave * (float) Math.sin(phase + s * 7F + time * 0.35F)))
+					.add(new Vector3f(up).mul(wave * 0.6F * (float) Math.cos(phase * 0.8F + s * 5F + time * 0.28F)));
+			float mid = (i - 0.5F) / n;
+			float width = (widthFromPx + (widthToPx - widthFromPx) * mid) / 16F;
+			ItemDisplay d = segments.get(i - 1);
+			if (d.isValid()) {
+				d.teleport(origin);
+				moveTo(d, segment(prev, p, width), 2);
+			}
+			prev = p;
+		}
+	}
+
+	/** Draw a strand back into its start: every segment shrinks to nothing where the tendril began. */
+	private static void retract(Strand s) {
+		s.retract = 0;
+		for (List<ItemDisplay> set : List.of(s.shared, s.own)) {
+			for (ItemDisplay d : set) {
+				if (!d.isValid()) continue;
+				moveTo(d, new Transformation(new Vector3f(), d.getTransformation().getLeftRotation(), new Vector3f(), new Quaternionf()), STRAND_RETRACT);
+			}
+		}
+	}
+
+	private void drop(Strand s) {
+		for (ItemDisplay d : s.shared) remove(d);
+		for (ItemDisplay d : s.own) remove(d);
+	}
+
+	/** Every tick: strands nobody refreshes draw back, and drawn-back ones go. */
+	private void tickStrands() {
+		for (Iterator<Strand> it = strands.values().iterator(); it.hasNext(); ) {
+			Strand s = it.next();
+			if (plugin.getServer().getPlayer(s.owner) == null) {
+				drop(s);
+				it.remove();
+				continue;
+			}
+			if (s.retract < 0 && ticks - s.seen > STRAND_STALE) retract(s);
+			if (s.retract >= 0 && ++s.retract > STRAND_RETRACT + 1) {
+				drop(s);
+				it.remove();
+			}
+		}
+		for (Iterator<ArmModel> it = armModels.values().iterator(); it.hasNext(); ) {
+			ArmModel m = it.next();
+			if (plugin.getServer().getPlayer(m.owner) == null || !m.display.isValid()) {
+				remove(m.display);
+				it.remove();
+			}
+		}
+	}
+
+	/** Show the arm's displays to viewers who now qualify, and hide them from viewers who no longer do. */
+	private void auditArmDisplays() {
+		for (Strand s : strands.values()) {
+			for (ItemDisplay d : s.shared) audit(d);
+			for (ItemDisplay d : s.own) audit(d);
+		}
+		for (ArmModel m : armModels.values()) audit(m.display);
+	}
+
+	private void audit(ItemDisplay d) {
+		Audience a = live.get(d);
+		if (a == null || !d.isValid()) return;
+		Location at = d.getLocation();
+		for (Player v : d.getWorld().getPlayers()) {
+			boolean wanted = a.includes(v) && drawsFor(v);
+			if (wanted && v.getLocation().distanceSquared(at) <= VIEW_RANGE_SQ) v.showEntity(plugin, d);
+			else if (!wanted) v.hideEntity(plugin, d);
+		}
+	}
+
+	/** A player left: their arm tendrils and models go at once. */
+	private void removeArmEffectsOf(UUID owner) {
+		for (Iterator<Strand> it = strands.values().iterator(); it.hasNext(); ) {
+			Strand s = it.next();
+			if (!s.owner.equals(owner)) continue;
+			drop(s);
+			it.remove();
+		}
+		for (Iterator<ArmModel> it = armModels.values().iterator(); it.hasNext(); ) {
+			ArmModel m = it.next();
+			if (!m.owner.equals(owner)) continue;
+			remove(m.display);
+			it.remove();
+		}
+	}
 }

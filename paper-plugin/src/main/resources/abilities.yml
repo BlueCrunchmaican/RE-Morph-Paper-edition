@@ -4,10 +4,10 @@
 # Every ability needs the permission morphreborn.ability (default: everyone). Set a section's types to []
 # to disable it. Entity types may omit "minecraft:".
 
-# The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, it
-# replaces this one on startup and keeps yours next to it (named like abilities-old-5.0.0.yml), so copy back any
-# changes you made.
-config-version: 7.4.0
+# The RE:Morph release this file comes from; don't change it. When a newer release ships a newer abilities.yml, a file
+# from 7.4.0 or later is updated on startup: the new settings are added with their defaults and everything you set
+# stays. An older file is replaced instead. Either way yours is kept next to it (named like abilities-old-7.4.0.yml).
+config-version: 8.0.0
 
 enabled: true
 
@@ -24,6 +24,9 @@ passive:
     fly-speed: 0.05
     # The original 1.7 mod only allowed flight after the player had been to the Nether once.
     require-nether-visit: false
+    # Once a flier's morph may fly (in Survival, after Morph Flight): when not flying, hold jump to glide down, let go
+    # to drop. Off: it drops (no fall damage either way).
+    hold-jump-glide: true
   # Chicken-style flapping: you fall slowly.
   slow-fall: [chicken]
   # No fall damage.
@@ -31,6 +34,18 @@ passive:
   # frogs and goats shrug off falls from their own jumps).
   fall-immunity: [cat, ocelot, chicken, iron_golem, copper_golem, snow_golem, magma_cube, slime, sulfur_cube, frog, goat, shulker, breeze,
     allay, bat, bee, blaze, ghast, happy_ghast, parrot, phantom, wither]
+  # Soft-footed forms raise no step, swim or soft-landing vibrations: sculk sensors, calibrated sculk sensors and wardens do not hear them move.
+  # (A sensor or shrieker stood on directly is told by the block itself, not by a vibration, and still goes off, as it does for a sneaker.)
+  # Hits, eating, blocks, doors, item use and abilities stay as loud as ever, and the footstep sound is unchanged. It is on from the start
+  # in both modes (no unlock, no biomass); the body decides, so a fox with a creeper head is quiet and a creeper with a fox head is not.
+  # Edit the list to taste.
+  quiet-steps:
+    types: [allay, armadillo, axolotl, bat, bee, cat, cave_spider, chicken, cod, endermite, fox, frog, glow_squid, ocelot, parrot, phantom,
+      pufferfish, rabbit, salmon, shulker, silverfish, spider, squid, tadpole, tropical_fish, vex, warden, wolf]
+    # A landing from this many blocks or less is silent too (3 = the fall that never hurts). 0: every landing is heard. 1000: all are silent.
+    soft-landing: 3
+    # Moving through water is silent for these forms too.
+    swimming: true
   # Immune to fire and lava, like the original traitImmunityFire.
   # Exactly the mobs Minecraft 26.3 marks fireImmune().
   fire-immunity: [blaze, ender_dragon, ghast, magma_cube, shulker, strider, vex, warden, wither, wither_skeleton, zoglin, zombified_piglin]
@@ -191,7 +206,9 @@ passive:
   # Mobs that hit you in melee get these: type -> [effect:amplifier:seconds]
   retaliate-effects:
     pufferfish: [poison:0:6]
-  # While morphed into a hostile mob, hostile mobs leave you alone until you attack them (traitHostile).
+  # While morphed into a hostile mob, hostile mobs leave you alone until you attack them (traitHostile). Only for a body made of
+  # creatures (either one counts); with your own body or head in it, Borrowed Scent (survival.yml passives) is the one that
+  # hides you, from the creature's own kind (2026-11-17).
   hostile-camouflage: true
   # These morphs scare the listed mobs away from targeting you (traitIntimidate).
   intimidate:
@@ -344,7 +361,8 @@ active:
     range: 16
     # Webs stay, like ones a real spider would leave. Set seconds here to have them disappear again (0 = they stay).
     duration: 0
-  # Camels dash on land; dolphins and nautiluses dash only through water.
+  # Camels dash on land; dolphins and nautiluses dash only through water. A multimorph with both kinds (a camel and a
+  # dolphin) dashes by where it is: the water dash in water, the land dash out of it, whichever form is the main one.
   dash:
     types: [camel, camel_husk, dolphin, nautilus, zombie_nautilus]
     water-only: [dolphin, nautilus, zombie_nautilus]
@@ -531,6 +549,21 @@ jockeys:
   chicken: [baby zombie, baby husk, baby drowned, baby zombie_villager, baby zombified_piglin, baby piglin]
   hoglin: [baby piglin]
 
+# A shulker body (not a shulker head borrowed by another body) clings to a block like a real shulker: on a floor, a wall
+# or a ceiling, square in the block's space. It clings to the face you look at within reach when you become one or
+# arrive after a teleport, otherwise the floor under you; with nowhere to cling to (in the air, in water) you move
+# freely until you land. Others bump into it and can stand on it. Sneak + jump teleports onto the face you look at.
+# The shell is closed (extra armour, arrows and tridents bounce off) until you use an ability, which opens it for a
+# while; a creature's head borrowed by a shulker body hides inside the shell and pops out to use its ability.
+shulker:
+  # How far the sneak + jump teleport reaches (blocks), and the wait between teleports (seconds).
+  teleport-range: 8
+  teleport-cooldown-seconds: 1
+  # How long the shell stays open after using an ability (seconds); using one again keeps it open.
+  open-seconds: 3
+  # Armour points while the shell is closed (vanilla shulkers get 20).
+  closed-armor: 20
+
 # Devouring Frenzy evens the odds when a crowd turns on you: take enough hits in a short time from more than one
 # attacker and a frenzy is charged; set off (the Devouring Frenzy key with the client mod, /morph frenzy without),
 # tendrils latch onto the creatures around you and drain their health with a hit every half second while they live.
@@ -541,9 +574,9 @@ rage:
   enabled: true
   # What charges it: this many hits taken within `window` seconds, from at least `attackers` different creatures or
   # players. Charged, it waits for the player to set it off, as long as they like.
-  hits: 6
+  hits: 8
   window: 6
-  attackers: 2
+  attackers: 3
   # Its levels, weakest first: how far the tendrils reach (radius, in blocks; a skeleton shoots from up to 15), how much
   # health each hit takes (damage; a hit every half second; a zombie has 20; armour points don't lessen it, Protection
   # and Resistance do) and how long it lasts (duration, in seconds). In Survival a player has the level they bought
@@ -551,7 +584,7 @@ rage:
   levels:
     - { radius: 10, damage: 2, duration: 5, hover: 4 }
     - { radius: 16, damage: 2.5, duration: 8, hover: 6 }
-    - { radius: 20, damage: 3.5, duration: 10, hover: 8 }
+    - { radius: 20, damage: 3.5, duration: 15, hover: 8 }
   classic-level: 2
   # How many creatures the tendrils hold at once: 0 for every one in reach and in sight (the default), or a number to
   # take only that many (whoever hit you first, then the nearest), one that dies freeing its tendril for the next.
@@ -568,13 +601,404 @@ rage:
   # Players are drained too (true), but never below `player-floor` health (2 is one heart).
   players: true
   player-floor: 2
+  # Health the player gets back for every hit the tendrils land, on anything (1 is half a heart; 0 for none): the more
+  # it holds, the faster they heal.
+  heal-per-hit: 1
+  # Seconds a full charge keeps before it fades if it isn't set off (0: until it is).
+  charge-lasts: 30
   # Seconds after a frenzy before hits count toward the next one.
   cooldown: 20
   # In a frenzy, Space lifts the player on the tendrils up to its level's "hover" blocks above the ground (0: none;
   # a level without one gets two fifths of its radius), crouching lets them down, and they go over the terrain on the
-  # tendrils' legs; when the frenzy ends they drift down unhurt. How fast they move while hovering (the game's flying
-  # speed: 0.1 is creative flight):
-  hover-speed: 0.05
+  # tendrils' legs; when the frenzy ends they drift down unhurt. How fast they move while hovering, as a share of their
+  # walking speed (a morph's own, a Speed effect; sprinting doesn't add to it):
+  hover-speed: 1
   # For balancing: true tells the console and the player when each creature was absorbed and, when it ends, how many it
   # held and absorbed, how much health it drained, and what was left of the ones that lived.
   report: false
+
+# Arm forms (the Arsenal): your own arm reshaped into tools and weapons of morph tendrils. Own body only: starting a
+# morph puts the arm away at once. With the client mod, hold J for the Arsenal wheel (tap J to put the arm away, or to
+# form the last one again); without it, /morph arm <form> and /morph arm off. A formed arm takes the hotbar slot you
+# hold and that slot stays bound to it: scrolling away puts the item that was there back, scrolling onto the slot forms
+# the arm again (bindings last through death, leaving and world changes). The item under the arm is kept safe and comes
+# back when the arm goes, and the arm itself can't be dropped, stored, moved or lost. F uses the form's special and
+# Sneak+F its second move (the whip's Whirl, the bow's arrow tip), whatever accessories are on; with no tool out, Sneak+F
+# steps the lantern's brightness (or scroll over the lantern in the wheel, /morph arm special, /morph arm lantern bright 1-5).
+# The accessories (lantern, shield, spyglass, flint and steel) are switched on in the wheel's inner ring or with
+# /morph arm <accessory> [on|off], several at once, and drain biomass while on (survival.yml arm-cost).
+# In Survival the forms are bought in the upgrade tree (Arm Shaping, then each form's three levels: iron, diamond, then
+# netherite strength with a stronger special) and spend biomass as their durability (survival.yml arm-cost). In
+# Classic everyone has every form at `classic-level`, free. Permissions: morphreborn.arm and morphreborn.arm.<form>
+# (everyone by default).
+arms:
+  enabled: true
+  # For balancing: true logs every cost (in thousandths of a biomass), drain, special target, heal and drop to the
+  # console.
+  report: false
+  # Classic: every form at this level (1 iron, 2 diamond, 3 netherite).
+  classic-level: 2
+  # Ticks after forming, reshaping or putting the arm away before it can change again.
+  reform-lockout-ticks: 10
+  # No longer used: arm slots replaced the recall. Forming an arm binds the hotbar slot you hold to that form; scrolling
+  # away puts the arm away but keeps the binding, and scrolling onto a bound slot forms it again, with no time limit.
+  # Putting the arm away (J tap, the wheel's centre, /morph arm off) frees the held slot; /morph arm off all frees every
+  # slot. The setting is still read so an old file keeps loading.
+  recall-seconds: 8
+  # The biomass a Survival player needs to form an arm.
+  min-biomass-to-form: 1
+  # The biggest item (its saved size, in bytes) an arm may take the place of; a bigger one has to leave the hand first.
+  stash-max-bytes: 524288
+  # Put the arm away (its item back in the hand) before a world or game-mode change, so a per-world inventory plugin
+  # never keeps it: on, off, or auto (only when one is installed: Multiverse-Inventories, PerWorldInventory, MyWorlds,
+  # WorldInventories). Spectator mode always puts it away.
+  inventory-safety: auto
+  # Commands that act on the item in your hand (selling, hats, repairs, renames, enchanting...) would act on the arm,
+  # so the arm is put away first and the command gets the real item. listed: before the commands below; all: before
+  # every command except `keep`; off: never. Aliases and plugin prefixes (essentials:hat) count as the command.
+  command-guard:
+    mode: listed
+    commands: [sell, sellhand, sellall, ah, auction, auctionhouse, hat, repair, fix, itemname, iname, rename, lore, itemlore, enchant, ench, clear, ci, clearinventory, trade]
+    keep: [morph, msg, tell, w, r, reply, me, list, help, spawn, home, homes, tpa, tpahere, tpaccept, tpdeny, back, warp, warps]
+  # Whether the specials that break blocks (Vein Rip, Fell, Burrow, Reap) may: on, off, or gamerule (the world's
+  # mobGriefing).
+  block-specials: on
+  # Draining Cut and Cleave may hit players (PvP rules and plugins still decide), never taking them below
+  # `player-floor` health (2 is one heart).
+  players: true
+  player-floor: 2
+  # Healing from what a special drains: from players, bosses, villagers, name-tagged creatures and other players' pets
+  # at `lesser-rate`, from creatures that aren't hostile at `passive-rate`, from hostile ones in full.
+  lesser-rate: 0.5
+  passive-rate: 0.5
+  # In Survival an arm steps down a level as its biomass drops below each third of the bar, and back up as it refills,
+  # never above the level you bought. false: an arm keeps the level you bought, whatever its biomass.
+  tier-follows-biomass: true
+  # Each form. A list has one number for each level: iron, diamond, netherite. `enabled: false` takes a form out of the
+  # game. Distances are in blocks, damage and healing in health points (2 is one heart), cooldowns in seconds.
+  forms:
+    katana:
+      enabled: true
+      # Blocks of extra reach while the katana is out (its blade is longer than a sword's), by level. 0 turns it off,
+      # for servers whose anticheat flags reach past vanilla's.
+      extra-reach: [0.5, 0.75, 1.0]
+      # F: a swipe across the arc in front of you. Tendrils grow from everything it cuts back into the blade, and what
+      # they drink heals you.
+      special:
+        name: Draining Cut
+        # How far it reaches, how wide the arc is (degrees), and how far above or below your eyes a target may be.
+        reach: [4.5, 5.0, 5.5]
+        arc: [120, 135, 150]
+        band: 2.5
+        max-targets: [4, 6, 8]
+        damage: [6, 7, 8]
+        # After the cut, the tendrils stay latched and drain this many more times, half a second apart.
+        latch-pulses: [0, 1, 2]
+        latch-damage: [0, 1.5, 2.0]
+        # Healing: this share of the health each tendril drains, at most heal-per-pulse at a time, heal-per-target from
+        # one creature and heal-cap from one cut.
+        heal-ratio: 0.5
+        heal-per-pulse: [1.0, 1.5, 2.0]
+        heal-per-target: [2, 3, 4]
+        heal-cap: [6, 9, 12]
+        cooldown: [7, 6, 5]
+    pickaxe:
+      enabled: true
+      # Fortune, on the arm's own mining and Vein Rip alike.
+      fortune: [1, 2, 3]
+      # Efficiency, by level: how fast the arm digs (0 turns it off).
+      efficiency: [1, 2, 3]
+      # F on an ore: tendrils tear the whole vein out of the rock, ore by ore, and carry the drops to you.
+      special:
+        name: Vein Rip
+        reach: [5, 6, 7]
+        # The most ores one rip takes, and how far from the first one it may go along each axis.
+        max-blocks: [8, 16, 32]
+        max-offset: 6
+        # Ores torn out per tick.
+        per-tick: [1.0, 1.5, 2.0]
+        # The drops are carried to your feet (false: they fall where the ore was).
+        pull-drops: true
+        cooldown: [8, 6, 4]
+        # More kinds of vein, as a name and the blocks it is made of, e.g. { obsidian: [obsidian, crying_obsidian] }.
+        # A vein never mixes kinds; deepslate ores are the same kind as their stone ones.
+        extra-ore-groups: {}
+    axe:
+      enabled: true
+      # The chance that a log the arm cuts gives one more (Fortune does nothing for logs).
+      extra-log-chance: [0.20, 0.30, 0.40]
+      # Fortune and Efficiency, by level; 0 turns one off. (Fortune does what vanilla's does on an axe; logs use the chance
+      # above.) The war axe's head reaches a little further than an axe's: blocks of extra reach by level, 0 for none.
+      fortune: [1, 2, 3]
+      efficiency: [1, 2, 3]
+      extra-reach: [0.2, 0.3, 0.4]
+      # F at a tree's trunk: Fell brings the whole tree down, top first. Only real trees fall (at least min-leaves
+      # leaves, or wart blocks and shroomlights on a huge fungus, touching the logs), never log buildings.
+      fell: { name: Fell, reach: 5, max-logs: [32, 64, 128], radius: 8, height: 32, per-tick: 8, min-leaves: 3 }
+      # F with no trunk in sight: Cleave, a heavy blow at what you look at; a blocking player's shield is down for
+      # shield-ticks.
+      cleave: { name: Cleave, reach: [3.5, 4.0, 4.5], damage: [12, 14, 16], knockback: 0.8, shield-ticks: 100 }
+      cooldown: [8, 7, 6]
+    shovel:
+      enabled: true
+      # Fortune and Efficiency, on the arm's own digging (and Burrow), by level; 0 turns one off. The spade's leaf reaches
+      # a little further than a shovel's: blocks of extra reach by level, 0 for none.
+      fortune: [1, 2, 3]
+      efficiency: [1, 2, 3]
+      extra-reach: [0.2, 0.25, 0.3]
+      # F opens a window of `window` seconds: every block you dig takes the eight around it, across the face you dig.
+      # Its cooldown is the window and extra-cooldown seconds more.
+      burrow: { name: Burrow, window: [10, 15, 20], extra-cooldown: 10 }
+    sickle:
+      enabled: true
+      # Fortune and Efficiency, on the arm's own mining (and Reap), by level; 0 turns one off. The curled blade reaches
+      # a little further than a hoe's: blocks of extra reach by level, 0 for none.
+      fortune: [1, 2, 3]
+      efficiency: [1, 2, 3]
+      extra-reach: [0, 0.25, 0.5]
+      # F harvests the ripe crops within `radius` and replants each one from its own seeds.
+      reap: { name: Reap, radius: [3, 5, 7], per-tick: 16, cooldown: [6, 5, 4] }
+    bow:
+      enabled: true
+      # Draw and loose bolts of biomass, no arrows needed. `bolt-damage` is the arrow's base damage (an arrow's own is 2); the game multiplies it by
+      # the bolt's speed, so a full draw hits for about three times it (6 / 8 / 9 at point-blank, rounded up), and a shorter draw or a long flight hits less.
+      # A bolt is never critical (no crit stars, no random bonus).
+      bolt-damage: [2.0, 2.5, 3.0]
+      # F: Triple Arrow (2026-11-16, in place of the Harpoon Shot): the next full draw looses three bolts in a fan,
+      # `spread` degrees apart, each a normal bolt. F again puts it away. It stays ready `armed-seconds`; the biomass
+      # (survival.yml arm-cost.specials: bow-triple) and the `cooldown` (seconds) are paid when the volley is loosed, and a draw
+      # that is not full is a normal shot that leaves it ready. The volley is paid for only once at least two of its three bolts
+      # are there to fly (2026-11-16 review).
+      triple: { name: Triple Arrow, spread: 15, armed-seconds: 30, cooldown: [6, 5, 4] }
+      # Sneak+F cycles the arrow tip: Bleed (the default), Slowness, Poison, and Fire while the flint and steel accessory is
+      # on and Glowing while the spyglass is on. The tip is on every bolt, normal shots too, but the bolt that kills carries none.
+      # Sneak+F works through the volley's cooldown (it is free). Times are in seconds by level.
+      #   bleed: a damage over time, `damage` a pulse every `interval` seconds for `seconds` (armour doesn't stop it).
+      #   slowness, poison: the potion effect for `seconds` at `amplifier` (0 is level I).
+      #   fire: sets the creature alight for `seconds`; each ignition costs biomass (arm-cost.specials: flint-ignite), taken only
+      #   when it can burn, isn't in water or alight already and no other plugin stopped the fire.
+      #   glowing: the creature glows for `seconds`.
+      tips:
+        bleed: { seconds: [3, 4, 5], damage: [0.5, 0.75, 1], interval: 1 }
+        slowness: { seconds: [3, 4, 5], amplifier: 1 }
+        poison: { seconds: [4, 5, 6], amplifier: 0 }
+        fire: { seconds: [4, 5, 6] }
+        glowing: { seconds: [6, 8, 10] }
+    whip:
+      enabled: true
+      # Casting and fishing are a fishing rod's own (Lure I from diamond, Lure II and Luck of the Sea I from netherite).
+      # Reel in with the hook stuck in a block (or a wall) and the line drags you toward it: `range` is how far the hook
+      # may be, the pull's speed is `speed-per-block` a block of distance between `min-speed` and `max-speed`, and it
+      # lifts you `lift` more when the hook is above your eyes. A hook further than `range` only reels in.
+      grapple: { range: [12, 16, 20], speed-per-block: 0.18, min-speed: 0.6, max-speed: [1.8, 2.0, 2.2], lift: 0.25 }
+      # Reel in a creature and it is pulled `factor` times as hard as a fishing rod pulls it. A creature of `max-mass` kg
+      # or more (a player is 648) pulls you to it instead. Players are pulled at `arms.lesser-rate` of this, and only
+      # when arms.players allows it; bosses, other players' pets and ridden or saddled mounts are never yanked.
+      yank: { factor: [2.0, 2.4, 2.8], max-mass: 1200 }
+      # Left-click is a regular attack with a long reach: the arm adds `extra-reach` blocks to your own 3 (so 6 / 6.5 / 7),
+      # and the item carries a whip's attack damage and speed, so vanilla clients and the server agree. 0 turns the reach off.
+      extra-reach: [3, 3.5, 4]
+      # F has four moves, all there from level 1 (levels raise the numbers), picked by what you aim at. Each has its own
+      # cooldown (seconds) and its own biomass cost (survival.yml arm-cost.specials: whip-snare, whip-disarm, whip-crack,
+      # whip-whirl); a move that finds nothing costs nothing. shared-cooldown is the short pause every move starts on
+      # the whole form (the arm keeps one cooldown per form).
+      #   Snare: aimed at a creature within `reach`: the lash holds it where it stands for `seconds` (no walking, no
+      #     jumping; it keeps its target). Bosses are never held.
+      #   Disarm: aimed at a creature you have snared: its held item (main hand, then off hand) is ripped away and flung to
+      #     you, if it would have dropped (the mob's own drop chance, rolled; a picked-up item always drops), else destroyed.
+      #   Crack: aimed at nothing the lash can hold: a sonic cone `range` blocks long and `half-angle` degrees either side of
+      #     your look, hurting a little (`damage`), knocking back (`knockback`, blocks a tick) and making mobs run from
+      #     you for `flee-seconds`.
+      #   Whirl (Sneak+F): the lash spins round you, hurting and knocking back everything within `radius` blocks.
+      moves:
+        name: Whip moves
+        reach: [8, 10, 12]
+        shared-cooldown: 0.4
+        snare: { seconds: [2, 2.5, 3], cooldown: [6, 5, 4] }
+        disarm: { cooldown: [4, 3.5, 3] }
+        crack: { range: [6, 7, 8], half-angle: 35, damage: [2, 2.5, 3], knockback: [0.6, 0.73, 0.87], flee-seconds: 3, cooldown: [5, 4.5, 4] }
+        whirl: { radius: [4, 4.5, 5], damage: [4, 5, 6], knockback: [0.6, 0.73, 0.87], cooldown: [10, 9, 8] }
+      # Whether the Snare may hold players, and the Disarm rip a held item from a snared player (it drops at their own
+      # feet, never to you). Both also need arms.players; the Crack and the Whirl hurt players as ordinary PvP.
+      snare-players: false
+      disarm-players: false
+      # A fish caught with the whip has this chance (0 to 1) of giving you fish-biomass biomass. Survival only; arms that
+      # cost nothing (creative, or arm-cost off) gain nothing.
+      fish-biomass-chance: 0.2
+      fish-biomass: 0.5
+    # The new forms (8.0.0). Each is hidden until its code is in the build; these are the settings
+    # it will read, the numbers the design gives, by level (iron, diamond, netherite). Biomass costs are in survival.yml
+    # arm-cost.specials: spear, mace, trident-recall, trident-throw, crossbow, claws.
+    spear:
+      enabled: true
+      # The iron, diamond and netherite spear's own jab and charge (the vanilla numbers per tier), left-click and hold
+      # right-click. F, Impale: you aim at a creature and lunge along the ground at it (`lunge` blocks at most, stopping at walls,
+      # ceilings and ledges), skewer it for `damage`, then spikes erupt from the ground round it and pin it (it can't move for
+      # `root-seconds`). With nothing in reach F does nothing and costs nothing: there is no lunge without a creature. The lunge is
+      # capped at 6.6 blocks (what a lunge can cover in its longest run) and the pin at 5 seconds (what the clients draw); a pinned
+      # player can't lunge out of it.
+      special:
+        name: Impale
+        lunge: [3, 4, 5]
+        root-seconds: [1.5, 2, 2.5]
+        damage: [4, 5, 6]
+        cooldown: [8, 7, 6]
+        # How far past the end of the lunge the spear still reaches (blocks, from your middle to the creature's near side).
+        reach: 2.5
+        # Whether the spikes may pin a player (they are skewered for `damage` either way, when arms.players and the PvP rules
+        # allow it); off, as the whip's snare-players. Bosses and other players' pets are never pinned.
+        pin-players: false
+    mace:
+      enabled: true
+      # The vanilla mace: its smash grows with the fall. F, Skyward Leap: tendrils launch you straight up `height` blocks; the
+      # landing does no fall damage (a fall of up to `height` + 2 blocks; stepping off an edge mid-air forgives only `height`), and the
+      # fall powers the smash of your next mace hit. F needs you on the ground, out of cobwebs and berry bushes. The smash's knockback
+      # is vanilla's (it shoves players and pets within 3.5 blocks, and no protection plugin can veto it).
+      special:
+        name: Skyward Leap
+        height: [6, 8, 10]
+        cooldown: [10, 9, 8]
+        # The leap's no-fall protection ends when you land; this is only the most it lasts from the launch (a leap that never lands:
+        # over a void, a very long flight). It never touches your fall distance, which is what the mace's smash reads.
+        protect-seconds: 30
+    trident:
+      enabled: true
+      # Right-click throws it: a tendril line stays attached and pulls it back (never you), and it can't be picked up. F, Recall:
+      # the tendril snaps it back at once, hitting creatures along its path. No Riptide, no Loyalty. The arm item itself never leaves
+      # your hand: it only reads "thrown" (no second throw) until the trident is back. Each throw costs arm-cost.specials.trident-throw
+      # and each hit per-hit; Recall costs trident-recall. Both the throw and Recall strike only what a tendril may (never you, your
+      # pets, NPCs, mounts, armour stands or boats, and players only when arms.players is on); Recall also spares anything you can't
+      # see from where you stand (the reel goes through blocks, the blow doesn't). The trident goes through no portal.
+      special:
+        name: Recall
+        damage: [4, 5, 6]
+        cooldown: [4, 3.5, 3]
+        # How far (blocks) either side of the way back still counts as on it.
+        width: 0.8
+      # The flight: what the thrown trident does by tier (vanilla's is 8), its speed (blocks a tick, vanilla's is 2.5), and when the
+      # tendril takes it back: after it strikes a creature, after `stuck-ticks` in a block, after `flight-ticks`, or past `range` blocks.
+      throw:
+        damage: [8, 9, 10]
+        speed: 2.5
+        flight-ticks: 40
+        range: [32, 40, 48]
+        stuck-ticks: 10
+      # The tendril's pull back: it speeds up by `accel` each tick to the tier's `speed` (blocks a tick), and ends at `max-ticks` at
+      # the latest. It brings the trident to your hand; it never pulls you.
+      reel:
+        speed: [2.0, 2.4, 2.8]
+        accel: 0.3
+        max-ticks: 80
+    crossbow:
+      enabled: true
+      # A real crossbow that loads itself (2026-11-16): the bolt of tendrils is whole when you form it, a right-click
+      # fires it at once, and after every shot it grows back out of the weapon over `regrow-seconds` (the game's own charge time,
+      # 1.25 s = 25 ticks; shorter with Quick Charge). Right-clicking before it is whole does nothing; no arrows are ever used.
+      # `bolt-damage` is what a bolt does (flat, by level) and `bolt-speed` its speed in blocks a tick (the game's crossbow: 3.15).
+      # F, Spine Burst: needs the whole bolt and takes it; `spines` bone spines are fired one after another, `gap-ticks` apart,
+      # in a tight line along your aim, each piercing up to `pierce` creatures for `damage` and flying `speed` blocks a tick up to
+      # `range` blocks; then the bolt regrows.
+      bolt-damage: [7.0, 8.0, 9.0]
+      bolt-speed: 3.15
+      regrow-seconds: 1.25
+      special:
+        name: Spine Burst
+        spines: 3
+        pierce: 3
+        damage: [3, 4, 5]
+        speed: 3.5
+        range: 48
+        gap-ticks: 2
+        cooldown: [8, 7, 6]
+    claws:
+      enabled: true
+      # Shears' speed on leaves, wool and cobweb (Efficiency by level), and they shear sheep. F, Rake: a three-slash sweep in
+      # front of you, a `arc`-degree fan out to `reach` blocks (2026-11-16: 100 degrees, 3.5 / 4 / 4.5); every slash
+      # hits everything in the fan for `damage` (the nearest `max-targets` of them), and what it hits Bleeds: `bleed-damage` every
+      # `bleed-interval` seconds for `bleed-seconds` (3 / 4 / 5 s), generic damage that armour doesn't stop; three slashes of one Rake
+      # are one bleed, not three. With nothing in the fan that the claws may touch (a PvP-off player, a teammate, a claim's animal and
+      # any boss are out) F does nothing and costs nothing. Only the first slash knocks a creature
+      # back: the later ones of a Rake clear its hurt window and keep it where it stands, so all three land.
+      efficiency: [1, 2, 3]
+      special:
+        name: Rake
+        slashes: 3
+        damage: [1.5, 2, 2.5]
+        reach: [3.5, 4, 4.5]
+        arc: 100
+        # How far above or below your eyes a creature's middle may be and still be raked.
+        band: 2
+        max-targets: [4, 6, 8]
+        bleed-seconds: [3, 4, 5]
+        bleed-damage: 1
+        # Never under 0.5: a creature shrugs off a second hit inside its hurt window.
+        bleed-interval: 1
+        cooldown: [7, 6, 5]
+  # The lantern: a glowing ball on a chain hanging from your arm, beside any form or a bare hand (the small orb under the
+  # Arsenal wheel, or /morph arm lantern). It lights the area round you; the light is shown to the players around you,
+  # and nothing is placed in the world.
+  lantern:
+    enabled: true
+    # How far (blocks) the light round you reaches at each brightness a player can choose (Sneak+F with the lantern lit and no
+    # tool out, scrolling over the lantern in the wheel, or /morph arm lantern bright 1-5). Up to 14 it is one light where you are; further, more lights stand round you
+    # every 5 blocks, fading with distance (2026-11-16). A lantern of level 1 goes up to brightness 3, level 2 to 4, level 3 to 5. (Its old reach, lure-light,
+    # mid-light and flare settings went with the Flare in 8.0.0 and are ignored if still here.)
+    brightness-reach: [8, 11, 14, 20, 30]
+    # Ticks between light updates as you move, and how far away (blocks) players see its light.
+    update-ticks: 2
+    viewer-range: 64
+  # The other accessories (8.0.0), switched on in the wheel's inner ring or with
+  # /morph arm <accessory> [on|off], several at once with the lantern. Each is hidden until its code is in the build; these
+  # are the settings it will read. What each drains a minute is survival.yml arm-cost.drain-per-minute, and a blocked hit or an
+  # ignition is shield-block and flint-ignite in arm-cost.specials.
+  accessories:
+    # An off-hand shield (a tendril one for modded viewers, a shield in the off hand for the rest; the off-hand item is never
+    # touched). Holding sneak raises it, for every form: it reflects arrows and projectiles from the front back at the shooter
+    # and cuts frontal melee damage by `reduction`.
+    shield:
+      enabled: true
+      # The share of a frontal blow's damage it cuts, by level (2026-11-16: 50 / 60 / 70%).
+      reduction: [0.5, 0.6, 0.7]
+      reflect-projectiles: true
+      # How far from where you look a blow may come and still be frontal, either side (vanilla's shield is 90; my brief said about 100).
+      cone-degrees: 100
+      # Ticks the shield takes to hold once right-click is down (sneak, for a player who has no other way: no PacketEvents, Bedrock, creative) (vanilla's is 5).
+      raise-delay-ticks: 3
+      # A sent-back arrow, trident or fireball leaves at the speed it came with, kept between these (blocks a tick; a full arrow is 3).
+      reflect-min-speed: 1.2
+      reflect-max-speed: 3.0
+    # Holding the zoom key (Z) zooms your view (client side) and marks what you look at within `range` blocks: it glows for you
+    # alone and its distance shows on the HUD. It also gives the bow its Glowing tip. (2026-11-16: 64 / 96 / 128 blocks, up
+    # to 1 / 2 / 3 marks at once.) Needs PacketEvents for the glow; without it the HUD still shows the marks. A creature has to be one the
+    # server sends you (spigot.yml's entity-tracking-range) and within the chunks you were sent, so the range may reach less than it says.
+    spyglass:
+      enabled: true
+      range: [64, 96, 128]
+      # How many creatures may be marked at once, by level.
+      marks: [1, 2, 3]
+      # How long a mark lasts after you last looked at it, and how often the server looks along your eyes while you zoom.
+      mark-seconds: 5
+      scan-ticks: 4
+      # How much wider than its body a creature counts when you aim (blocks, either side): far creatures are specks.
+      ray-width: 0.4
+      # A zoom the client has not repeated for this long is over (the client repeats a held key every 10 seconds), so a lost release can't leave it on.
+      # Kept to 15 seconds at the least, so a zoom that is still held is never ended.
+      zoom-timeout-seconds: 30
+      # Other players may be marked too (only where arms.players, the world's PvP and teams would let you strike them); their outline
+      # shows through walls to you, so a server may switch it off.
+      mark-players: true
+    # Your melee hits set targets alight for `ignite-seconds` (one ignition each, billed: arm-cost.specials flint-ignite; not for
+    # a creature that is fire-immune, in water or already alight, nor when a protection plugin or PvP stops the fire), and the
+    # crossbow's bolts burn for `bolt-seconds`; so does every arrow you shoot from any bow or crossbow (vanilla ones too) and your
+    # thrown trident, as Flame would (one ignition per creature set alight, a miss is free; an arrow that is on fire itself, from a
+    # Flame bow, is left to the game). It gives the bow its Fire tip (that tip's length is arms.forms.bow tips.fire).
+    flint:
+      enabled: true
+      # How long a melee hit sets its target alight, by level (2026-11-16: 3 / 4 / 5 s).
+      ignite-seconds: [3, 4, 5]
+      # How long a shot sets its target alight: the crossbow's bolts by the crossbow's level, any other arrow or a thrown trident
+      # by the flint and steel's level when it was loosed (the bow's Fire tip numbers).
+      bolt-seconds: [4, 5, 6]
+      # With the arm in your main hand, a right-click lights an unlit campfire, candle or candle cake, TNT, or the face of an
+      # obsidian block (a portal frame) like flint and steel, for one ignition's price. Any other click is left alone.
+      light-blocks: true

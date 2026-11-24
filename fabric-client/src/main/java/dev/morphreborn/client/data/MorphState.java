@@ -20,6 +20,20 @@ public final class MorphState {
 	/** A borrowed-form change on the same body plays its own short transformation: ticks so far, and how long. */
 	public int borrowTime;
 	public int borrowDuration;
+	/**
+	 * A shulker main body held in a block's space by the server (its overlay keys AttachFace and Peek, see
+	 * {@code ShulkerLock}): the face it is attached by, or null while it is free (pending, or not a shulker). Kept out of
+	 * {@link #next}'s data, so the morph entity stays the same one and its lid animates instead of snapping.
+	 */
+	public net.minecraft.core.@Nullable Direction lockFace;
+	/** The shell's opening the server wants for the held shulker, 0 (closed) to 100. */
+	public int peek;
+	/**
+	 * During a transformation: the old body's {@link #lockFace} and {@link #peek}, carried from the state before (the
+	 * server only sends the keys for the new body), so the melt out of a wall or ceiling starts from there.
+	 */
+	public net.minecraft.core.@Nullable Direction prevLockFace;
+	public int prevPeek;
 	public int time;
 	public int duration;
 	/** Client tick at which the last server update arrived (for debugging drift). */
@@ -40,6 +54,8 @@ public final class MorphState {
 			if (time >= duration) {
 				prev = null;
 				prevBorrowed = null;
+				prevLockFace = null;
+				prevPeek = 0;
 				if (next != null && next.isSelf()) next = null;
 			}
 		}

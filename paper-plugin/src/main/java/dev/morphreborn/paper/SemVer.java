@@ -30,11 +30,23 @@ public final class SemVer {
 		String[] pre2 = y.substring(dy + 1).split("\\.");
 		for (int i = 0; i < Math.min(pre1.length, pre2.length); i++) {
 			boolean n1 = pre1[i].matches("\\d+"), n2 = pre2[i].matches("\\d+");
-			int c = n1 && n2 ? Long.compare(Long.parseLong(pre1[i]), Long.parseLong(pre2[i]))
+			int c = n1 && n2 ? Long.compare(numericId(pre1[i]), numericId(pre2[i]))
 					: n1 != n2 ? (n1 ? -1 : 1) : pre1[i].compareTo(pre2[i]);
 			if (c != 0) return c;
 		}
 		return Integer.compare(pre1.length, pre2.length);
+	}
+
+	/**
+	 * A numeric pre-release identifier as a number; one too long for a long (a client's version string is its own word) counts as the
+	 * largest, rather than throwing out of a comparison that runs in every broadcast loop.
+	 */
+	private static long numericId(String digits) {
+		try {
+			return Long.parseLong(digits);
+		} catch (NumberFormatException e) {
+			return Long.MAX_VALUE;
+		}
 	}
 
 	private static long number(String[] parts, int i) {

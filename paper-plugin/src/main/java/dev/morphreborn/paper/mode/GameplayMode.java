@@ -1,5 +1,6 @@
 package dev.morphreborn.paper.mode;
 
+import dev.morphreborn.paper.arm.rules.ArmLedger;
 import dev.morphreborn.paper.data.MorphRef;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -72,6 +73,42 @@ public interface GameplayMode {
 
 	/** Take {@code cost} biomass (a multimorph's prices together); false when the player can't afford it (nothing is taken). */
 	default boolean payBiomass(Player player, int cost) {
+		return true;
+	}
+
+	/**
+	 * The level of an arm form ("katana") the player has bought (Survival: its arm_* upgrade, once Arm Shaping is
+	 * bought); 0 here. Classic's level (abilities.yml arms.classic-level) and creative's minimum are applied by the arm
+	 * code itself, so this only ever answers what was bought.
+	 */
+	default int armLevel(Player player, String form) {
+		return 0;
+	}
+
+	/** The biomass arm forms spend, in milli (thousandths); {@link Long#MAX_VALUE} when the mode has none (arms are free). */
+	default long armBalanceMilli(Player player) {
+		return Long.MAX_VALUE;
+	}
+
+	/**
+	 * Bill an arm form's use: all or nothing ({@code partial} false: specials, bow bolts) or whatever the biomass covers.
+	 * Free here. Arm code always bills through the mode, after taking creative players out (free, as vanilla's infinite
+	 * materials), so a mode decides only for survival and adventure players.
+	 */
+	default ArmLedger.Spend armSpend(Player player, long milli, boolean partial) {
+		return ArmLedger.Spend.free(Long.MAX_VALUE);
+	}
+
+	/**
+	 * Give an arm form's owner biomass, in milli, as a kill does (the bar and its gain pulse update); returns what fit.
+	 * Nothing here: only Survival has biomass.
+	 */
+	default long armGain(Player player, long milli) {
+		return 0;
+	}
+
+	/** Arm forms cost this player nothing now: no biomass bar, no drain, no melt. Always, here. */
+	default boolean armsFree(Player player) {
 		return true;
 	}
 

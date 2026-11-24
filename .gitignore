@@ -15,3 +15,16 @@ __pycache__/
 .idea/
 .vscode/
 *.iml
+
+# Working notes that stay on the author's disk and are not published
+docs/VERSIONING.md
+docs/TESTING.md
+docs/ROADMAP.md
+docs/PROTOCOL.md
+docs/MODRINTH.md
+docs/MOB-REVIEW.md
+
+# Game logs and scratch files from local testing (they hold local paths and names)
+fabric-client/logs/
+bright.py
+p3.sh

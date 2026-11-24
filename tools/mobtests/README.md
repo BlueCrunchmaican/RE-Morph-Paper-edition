@@ -12,7 +12,6 @@ server's config.yml, then `/morph reload`) and put it back to 100 afterwards.
   "no damage" result.
 - `deathdrops.py`: dies eight ways in full netherite with keepInventory off and counts what drops.
 
-See `docs/MOB-REVIEW.md` for the 2026-11-02 results.
 - `fixtests.py`: one check per fix from the 2026-11-02 review (armor-safe creeper death, sulfur cube, webs, powder snow,
   lava, drying out, undead potions, creaking, witch, guardian, new abilities). MorphTester1 must run the client mod.
   Two checks are timing-sensitive (a hit right before Harming, and an ability still on cooldown); re-run those alone

@@ -1,6 +1,7 @@
 package dev.morphreborn.paper.ability;
 
 import dev.morphreborn.paper.MorphRebornPlugin;
+import dev.morphreborn.paper.arm.look.ShieldGrip;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.variant.VariantRules;
 import java.util.HashMap;
@@ -90,6 +91,7 @@ public final class Jockeys implements Listener {
 			return;
 		}
 		event.setCancelled(true);
+		ShieldGrip.mainHandUsed(player); // getting on a mount is the main hand's click, not the shield's
 		if (!mob.addPassenger(player)) return;
 		mob.setAware(false);
 		mob.setTarget(null);

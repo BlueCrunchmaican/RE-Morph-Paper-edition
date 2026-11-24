@@ -31,7 +31,7 @@ public final class SurvivalListener implements Listener {
 		SurvivalMenu menu = SurvivalMenu.of(event.getView().getTopInventory().getHolder(false));
 		if (menu == null) return;
 		event.setCancelled(true);
-		if (event.getClickedInventory() == event.getView().getTopInventory()) menu.click(event.getRawSlot());
+		if (event.getClickedInventory() == event.getView().getTopInventory()) menu.click(event.getRawSlot(), event.getClick());
 	}
 
 	@EventHandler(priority = EventPriority.HIGHEST)

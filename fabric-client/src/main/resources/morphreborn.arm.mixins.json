@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.morphreborn.client.mixin.arm",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "AbstractClientPlayerMixin",
+    "AvatarRendererMixin",
+    "FirstPersonHandsAndItemsMixin",
+    "FirstPersonHandsAndItemsRendererMixin",
+    "FishingHookRendererMixin",
+    "HudMixin",
+    "ItemModelResolverMixin",
+    "LevelRendererArmMixin",
+    "MinecraftUseItemMixin",
+    "BoltArrowHideMixin",
+    "PlayerModelArmMixin",
+    "PlayerScopeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

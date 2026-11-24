@@ -4,7 +4,7 @@
 # The RE:Morph release this file's layout comes from; don't change it. When a newer release adds settings, it updates
 # this file on startup: new settings appear with their defaults and comments, and every value you set is kept. Your
 # old file stays next to it (named like config-old-6.1.4.yml).
-config-version: 7.4.0
+config-version: 8.0.0
 
 # survival: (the default since 7.2.0) iChun's planned "Default Mode". Morphing is earned: unlock the Biomass ability
 #           (Wither and Regeneration at the same time), absorb creatures' biomass and spend it on upgrades, including
@@ -97,13 +97,22 @@ appearance:
   # transformations, absorbing and Devouring Frenzy's tendrils drawn in the morph skin, as the mod draws them, instead
   # of the particles above. The two settings above still switch transformations and absorbing off for everyone.
   vanilla-skin-effects: true
+  # Players without the client mod whose game loaded RE:Morph's pack see an arm form (abilities.yml arms) as the living
+  # arm model, or everyone without the mod when multimorph.vanilla-heads is "pack"; otherwise everyone else sees a plain
+  # iron, diamond or netherite tool, or a bow.
+  vanilla-arm-models: true
+  # The UUID or SHA-1 of RE:Morph's pack as your server sends it, for servers that send several packs: only that pack
+  # counts as "loaded RE:Morph's pack" (for the arm models and multimorph heads). Empty: any loaded pack counts (fine
+  # for one-pack servers).
+  resource-pack-ids: []
   # Sound played half-way through a transformation. "morphreborn:morph" comes from the optional resource
   # pack (resourcepack/ in the download) and from the Fabric mod; unmodded clients without the pack hear
-  # the fallback instead.
+  # the fallback instead. An arm tool or accessory forming and retracting plays the same recordings (the events
+  # "morphreborn:arm_form" and "morphreborn:arm_retract", from the same pack and mod), with the same fallback.
   morph-sound: morphreborn:morph
   morph-sound-fallback: minecraft:entity.illusioner.mirror_move
   morph-sound-volume: 1.0
-  # Send the custom sound to unmodded players (only enable if your server resource pack contains it).
+  # Send the custom sounds (the morph and the arm's) to unmodded players (only enable if your server resource pack contains them).
   vanilla-clients-have-sound-pack: false
 
 attributes:
@@ -178,6 +187,14 @@ multimorph:
   #   auto - shown to players whose game loaded the server's resource pack
   #   pack - shown to everyone (when the server requires the pack)
   #   off  - never
+  # Use "pack" only when the pack is a server-enforced resource pack that every player has loaded (server.properties
+  # require-resource-pack=true): the models are sent to everyone, and a player whose game lacks the pack sees them as
+  # purple and black cubes (missing model). "auto" is the safe choice for an optional pack.
+  # The same setting decides who sees the pack's arm models (appearance.vanilla-arm-models, abilities.yml arms): with
+  # "pack" the 12 arm forms are the pack's models for everyone without the client mod, so a player without the pack
+  # sees them as purple and black cubes too. The morph-skin effects (appearance.vanilla-skin-effects: transformations,
+  # absorbing, Devouring Frenzy's tendrils) follow it as well, so they show as purple and black cubes the same way.
+  # "off" means no pack models at all, arm forms and skin effects included: a plain tool and the particles.
   vanilla-heads: auto
 
 conversions:

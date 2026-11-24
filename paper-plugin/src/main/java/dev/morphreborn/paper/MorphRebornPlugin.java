@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -55,13 +56,17 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	private VanillaEffects effects;
 	private dev.morphreborn.paper.effects.SkinEffects skin;
 	private AbilityManager abilities;
+	private dev.morphreborn.paper.survival.Passives passives;
 	private MorphManager morphs;
 	private SurvivalMode survival;
 	private dev.morphreborn.paper.ability.Jockeys jockeys;
 	private dev.morphreborn.paper.ability.Rage rage;
+	private dev.morphreborn.paper.ability.ShulkerLock shulkerLock;
 	private dev.morphreborn.paper.ability.VillagerTrading trading;
 	/** config.yml gameplay-mode; switched live by /morph mode or /morph reload ({@link #switchMode}). */
 	private GameplayMode mode;
+	/** Arm forms (the Arsenal); {@link dev.morphreborn.paper.arm.api.ArmService#NONE} until enabled, or when not in this build. */
+	private dev.morphreborn.paper.arm.api.ArmService arms = dev.morphreborn.paper.arm.api.ArmService.NONE;
 
 	@Override
 	public void onLoad() {
@@ -104,8 +109,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		}
 		saveDefaultConfig();
 		upgradeConfig();
-		installOrUpgrade("variants.yml");
-		installOrUpgrade("abilities.yml");
+		installOrUpgrade("variants.yml", null);
+		installOrUpgrade("abilities.yml", ConfigUpgrade.ABILITIES_MERGE_FROM);
 		mergeUpgrade("survival.yml", "pre-6.1.6", SURVIVAL_REPLACED);
 		settings = new PluginSettings(getConfig());
 		try {
@@ -125,20 +130,28 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		skin = new dev.morphreborn.paper.effects.SkinEffects(this);
 		getServer().getPluginManager().registerEvents(skin, this);
 		abilities = new AbilityManager(this);
-		abilities.load(yaml("abilities.yml"));
+		abilities.load(yaml("abilities.yml"), bundled("abilities.yml", "passive.quiet-steps"));
 		jockeys = new dev.morphreborn.paper.ability.Jockeys(this);
 		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
 		rage = new dev.morphreborn.paper.ability.Rage(this);
 		rage.load(yaml("abilities.yml").getConfigurationSection("rage"));
+		shulkerLock = new dev.morphreborn.paper.ability.ShulkerLock(this);
+		shulkerLock.load(yaml("abilities.yml").getConfigurationSection("shulker"));
 		morphs = new MorphManager(this);
 		survival = new SurvivalMode(this, new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		mode = settings.gameplayMode.equals("survival") ? survival : new ClassicMode(this);
+		arms = dev.morphreborn.paper.arm.ArmModules.service(this);
+		arms.enable(yaml("abilities.yml").getConfigurationSection("arms"), yaml("survival.yml").getConfigurationSection("arm-cost"), bundled("abilities.yml", "arms"));
 
 		channel.register();
 		getServer().getPluginManager().registerEvents(new MorphListener(this), this);
+		passives = new dev.morphreborn.paper.survival.Passives(this);
+		getServer().getPluginManager().registerEvents(passives, this);
 		getServer().getPluginManager().registerEvents(new AbilityListener(this), this);
 		getServer().getPluginManager().registerEvents(jockeys, this);
 		getServer().getPluginManager().registerEvents(rage, this);
+		getServer().getPluginManager().registerEvents(shulkerLock, this);
+		shulkerLock.sweep();
 		trading = new dev.morphreborn.paper.ability.VillagerTrading(this);
 		getServer().getPluginManager().registerEvents(trading, this);
 		getServer().getPluginManager().registerEvents(new SurvivalListener(this), this);
@@ -154,26 +167,40 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		Bukkit.getScheduler().runTaskTimer(this, () -> {
 			morphs.tick();
 			abilities.tick();
+			shulkerLock.tick();
 			jockeys.tick();
 			rage.tick();
+			passives.tick();
+			arms.tick();
 			borrowedHeads.tick();
 			skin.tick();
 			conversions.tick();
 		}, 1L, 1L);
 		scheduleAutosave();
 
-		for (Player p : Bukkit.getOnlinePlayers()) morphs.onJoin(p); // /reload safety
+		for (Player p : Bukkit.getOnlinePlayers()) { // /reload safety
+			arms.reconcile(p); // as at a join, before the morph handling: strays purged, a saved session's item given back
+			morphs.onJoin(p);
+		}
 		getLogger().info("RE:Morph enabled: " + mode.id() + " mode, protocol v" + dev.morphreborn.paper.net.Wire.PROTOCOL_VERSION + ", transition "
 				+ settings.transitionTicks + " ticks.");
 	}
 
 	@Override
 	public void onDisable() {
+		// first, while everything it bills and tells still works: every arm retracted, its item back in the hand or kept
+		// for the next join
+		arms.disable();
+		// the passives' glow and hidden night vision go with them (a reload would leave them on until the next resend)
+		if (passives != null) passives.shutdown();
 		if (jockeys != null) jockeys.releaseAll();
 		if (rage != null) rage.releaseAll();
 		if (trading != null) trading.releaseAll();
 		if (borrowedHeads != null) borrowedHeads.removeAll();
 		if (skin != null) skin.removeAll();
+		// flight back and helpers gone before the bodies reset; normally already done at PluginDisableEvent, while the
+		// plugin channel could still tell the clients (ShulkerLock.onDisabling), so this only catches what is left
+		if (shulkerLock != null) shulkerLock.releaseAll();
 		if (morphs != null) morphs.shutdown();
 		if (channel != null) channel.unregister();
 		if (store != null) store.shutdown();
@@ -191,19 +218,22 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		upgradeConfig();
 		reloadConfig();
 		settings = new PluginSettings(getConfig());
-		installOrUpgrade("variants.yml");
-		installOrUpgrade("abilities.yml");
+		installOrUpgrade("variants.yml", null);
+		installOrUpgrade("abilities.yml", ConfigUpgrade.ABILITIES_MERGE_FROM);
 		mergeUpgrade("survival.yml", "pre-6.1.6", SURVIVAL_REPLACED);
 		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger()));
 		if (!settings.gameplayMode.equals(mode.id())) switchMode(settings.gameplayMode, false);
 		capture.setRules(VariantRules.load(yaml("variants.yml"), getConfig()));
-		abilities.load(yaml("abilities.yml"));
+		abilities.load(yaml("abilities.yml"), bundled("abilities.yml", "passive.quiet-steps"));
 		jockeys.load(yaml("abilities.yml").getConfigurationSection("jockeys"));
 		rage.load(yaml("abilities.yml").getConfigurationSection("rage"));
+		shulkerLock.load(yaml("abilities.yml").getConfigurationSection("shulker"));
+		arms.reload(yaml("abilities.yml").getConfigurationSection("arms"), yaml("survival.yml").getConfigurationSection("arm-cost"), bundled("abilities.yml", "arms"));
 		templates.clear();
 		scheduleAutosave();
 		for (Player p : Bukkit.getOnlinePlayers()) {
-			abilities.onFormChanged(p, morphs.activeForm(p));
+			morphs.dropUnearnedCombo(p); // multimorph.enabled or survival.yml may have changed: a combination the rules no longer allow comes apart now
+			abilities.onFormChanged(p, morphs.activeForm(p), true);
 			channel.fullSync(p);
 			survival.sync(p);
 			rage.sync(p);
@@ -257,16 +287,12 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		if (order > 0) {
 			getLogger().warning(name + " is from RE:Morph " + currentVersion + ", newer than this one (" + bundledVersion + "). Leaving it as it is.");
 		}
-		if (order >= 0) return;
-		List<String> reset = new java.util.ArrayList<>();
-		for (Map.Entry<String, String> r : replaced.entrySet()) {
-			if (current.contains(r.getKey()) && compareVersions(currentVersion, r.getValue()) < 0) {
-				current.set(r.getKey(), null);
-				reset.add(r.getKey());
-			}
-		}
-		List<String> added = new java.util.ArrayList<>(ConfigMerge.merge(bundled, current, CONFIG_VERSION));
-		added.removeIf(key -> reset.stream().anyMatch(r -> key.equals(r) || key.startsWith(r + ".")));
+		// A file marked with this release's version can still be an earlier beta's, which a version bump cannot tell apart.
+		boolean sameVersionGap = order == 0 && name.equals("survival.yml") && ConfigUpgrade.lacksBeta2ArmUpgrades(current);
+		if (order >= 0 && !sameVersionGap) return;
+		ConfigUpgrade.Result result = ConfigUpgrade.upgrade(bundled, current, replaced);
+		List<String> reset = result.reset();
+		List<String> added = result.added();
 		bundled.options().width(1000); // long messages stay on one line
 		String from = currentVersion.isEmpty() ? unversioned : currentVersion;
 		File backup = new File(getDataFolder(), stem + "-old-" + from + ".yml");
@@ -279,7 +305,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 					+ " defaults until you add them by hand.");
 			return;
 		}
-		getLogger().info("Updated " + name + " from RE:Morph " + from + " to " + bundledVersion + ". Your settings are unchanged"
+		getLogger().info((sameVersionGap ? "Completed " + name + ", which came from an earlier beta of RE:Morph " + bundledVersion
+				: "Updated " + name + " from RE:Morph " + from + " to " + bundledVersion) + ". Your settings are unchanged"
 				+ (reset.isEmpty() ? ". " : " except the replaced sections below. ")
 				+ (added.isEmpty() ? "No new settings." : "New settings, at their defaults: " + String.join(", ", added) + ".")
 				+ " Your old file is " + backup.getName() + ".");
@@ -294,15 +321,19 @@ public final class MorphRebornPlugin extends JavaPlugin {
 	 * Morph Abilities became "% of Classic", reach and absorbable mass got new levels) and the ability unlocks were added.
 	 * 7.3.0: Rage became Devouring Frenzy, with three levels.
 	 */
-	private static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0", "upgrades.rage", "7.4.0");
+	static final Map<String, String> SURVIVAL_REPLACED = Map.of("upgrades", "6.6.0", "upgrades.rage", "7.4.0");
 
 	/**
 	 * Write the bundled file if it's missing, or replace it when it comes from an older release (its config-version,
 	 * the RE:Morph version that last changed the file, is lower; files from before 5.0.0 have none). Abilities get
 	 * renamed and reshaped between releases, and an old file silently keeps them broken: a witch whose ability no
 	 * longer exists does nothing. The old file is kept as {@code <name>-old-<version>.yml} for admins to copy back from.
+	 * <p>
+	 * {@code mergeFrom}: a file marked with this version or a later one is not replaced but merged like config.yml (see
+	 * {@link #mergeUpgrade} and {@link ConfigUpgrade#decide}), so a server's hand edits stay in the live file and only the
+	 * new keys arrive; null always replaces.
 	 */
-	private void installOrUpgrade(String name) {
+	private void installOrUpgrade(String name, @org.jspecify.annotations.Nullable String mergeFrom) {
 		File file = new File(getDataFolder(), name);
 		if (!file.exists()) {
 			saveResource(name, false);
@@ -316,11 +347,15 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			return;
 		}
 		String current = yaml(name).getString(CONFIG_VERSION, "");
-		int order = compareVersions(current, bundled);
-		if (order > 0) {
+		ConfigUpgrade.Action action = ConfigUpgrade.decide(current, bundled, mergeFrom);
+		if (compareVersions(current, bundled) > 0) {
 			getLogger().warning(name + " is from RE:Morph " + current + ", newer than this one (" + bundled + "). Keeping it, but some entries may not work.");
 		}
-		if (order >= 0) return;
+		if (action == ConfigUpgrade.Action.KEEP) return;
+		if (action == ConfigUpgrade.Action.MERGE) {
+			mergeUpgrade(name, "pre-5.0.0", Map.of());
+			return;
+		}
 		String from = current.isEmpty() ? "pre-5.0.0" : current;
 		String stem = name.substring(0, name.lastIndexOf('.'));
 		File backup = new File(getDataFolder(), stem + "-old-" + from + ".yml");
@@ -358,10 +393,30 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		}
 	}
 
-	private static final String CONFIG_VERSION = "config-version";
+	static final String CONFIG_VERSION = "config-version";
 
 	private FileConfiguration yaml(String name) {
 		return YamlConfiguration.loadConfiguration(new File(getDataFolder(), name));
+	}
+
+	/**
+	 * A section of the plugin's own copy of a file, or null. Arms lay it under the server's: a server's abilities.yml
+	 * from an 8.0.0 beta has the same config-version as this release's, so it isn't replaced and may lack new sections.
+	 */
+	private @org.jspecify.annotations.Nullable ConfigurationSection bundled(String name, String section) {
+		java.io.InputStream in = getResource(name);
+		if (in == null) return null;
+		try (java.io.Reader reader = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
+			return YamlConfiguration.loadConfiguration(reader).getConfigurationSection(section);
+		} catch (IOException e) {
+			getLogger().warning("Could not read the bundled " + name + ": " + e);
+			return null;
+		}
+	}
+
+	/** Arm forms (the Arsenal); never null: {@link dev.morphreborn.paper.arm.api.ArmService#NONE} when they aren't in this build. */
+	public dev.morphreborn.paper.arm.api.ArmService arms() {
+		return arms;
 	}
 
 	public void debug(String message) {
@@ -374,6 +429,19 @@ public final class MorphRebornPlugin extends JavaPlugin {
 
 	public DataStore store() {
 		return store;
+	}
+
+	/** The player's Tooltips setting: explanation lines in the descriptions the server builds for them (default on). */
+	public boolean tooltips(org.bukkit.entity.Player player) {
+		return dev.morphreborn.paper.tips.TooltipPrefs.on(store.get(player.getUniqueId()).tooltipsOff);
+	}
+
+	/** Sets the player's Tooltips setting and keeps it with their data. */
+	public void setTooltips(org.bukkit.entity.Player player, boolean on) {
+		var data = store.get(player.getUniqueId());
+		if (data.tooltipsOff == !on) return;
+		data.tooltipsOff = !on;
+		store.markDirty(player.getUniqueId());
 	}
 
 	public VariantCapture capture() {
@@ -415,6 +483,16 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		return rage;
 	}
 
+	/** A shulker main body clinging to a block: the hold, its helper, its shell and its teleport. */
+	public dev.morphreborn.paper.ability.ShulkerLock shulkerLock() {
+		return shulkerLock;
+	}
+
+	/** The biomass passives (Survival Mode). */
+	public dev.morphreborn.paper.survival.Passives passives() {
+		return passives;
+	}
+
 	public AbilityManager abilities() {
 		return abilities;
 	}
@@ -433,6 +511,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		GameplayMode next = id.equals("survival") ? survival : new ClassicMode(this);
 		if (next.id().equals(mode.id())) return false;
 		String from = mode.id();
+		arms.beforeModeSwitch(); // every arm retracted and lantern out while the old mode still bills their drain
 		mode = next;
 		if (save) {
 			getConfig().set("gameplay-mode", next.id());
@@ -444,7 +523,8 @@ public final class MorphRebornPlugin extends JavaPlugin {
 			if (mode.cannotMorph(p) != null && morphs.activeForm(p) != null) {
 				morphs.demorph(p, false);
 			} else {
-				abilities.onFormChanged(p, morphs.activeForm(p));
+				morphs.dropUnearnedCombo(p); // the new mode may not let this combination stand (Survival without Multimorph)
+				abilities.onFormChanged(p, morphs.activeForm(p), true);
 			}
 			channel.resendHello(p);
 			channel.fullSync(p);
@@ -475,7 +555,7 @@ public final class MorphRebornPlugin extends JavaPlugin {
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Could not save survival.yml: " + e.getMessage());
 		}
-		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger()));
+		survival.setConfig(new SurvivalConfig(yaml("survival.yml"), getLogger(), false)); // the file's notices are for starts and reloads, not for each price
 		for (Player p : Bukkit.getOnlinePlayers()) survival.sendCosts(p);
 	}
 

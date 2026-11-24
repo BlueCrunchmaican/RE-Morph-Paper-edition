@@ -7,6 +7,7 @@ import dev.morphreborn.client.gui.MorphSettingsScreen;
 import dev.morphreborn.client.gui.SelectorHud;
 import dev.morphreborn.client.morph.MorphEntities;
 import dev.morphreborn.client.morph.MorphSync;
+import dev.morphreborn.client.morph.ShulkerLock;
 import dev.morphreborn.client.net.ClientNet;
 import dev.morphreborn.client.net.MorphRef;
 import dev.morphreborn.client.render.MorphWorldRenderer;
@@ -105,6 +106,7 @@ public final class MorphClient implements ClientModInitializer {
 			&& System.getenv("MORPHREBORN_DUMPHEADS") != null;
 
 	private static void tick(Minecraft mc) {
+		dev.morphreborn.client.dev.CommandInbox.tick(mc);
 		if (dumpHeads && mc.level != null && mc.player != null && mc.player.tickCount > 40) {
 			dumpHeads = false;
 			LOGGER.info("Head dump: {}", dev.morphreborn.client.dev.HeadDump.run(mc));
@@ -161,22 +163,42 @@ public final class MorphClient implements ClientModInitializer {
 			}
 			if (player == null) continue;
 			if (!ClientConfig.INSTANCE.transitionAnimation) dev.morphreborn.client.render.VanillaStyleEffects.transitionTick(player, state);
-			syncForm(e.getKey(), state.prev, player);
-			syncForm(e.getKey(), state.next, player);
-			syncForm(e.getKey(), state.borrowed, player);
-			syncForm(e.getKey(), state.prevBorrowed, player);
+			// the main bodies (old and new) carry a shulker's hold in its block; a borrowed form never does
+			syncForm(e.getKey(), state.prev, player, ShulkerLock.hold(state.prev, state.prevLockFace, state.prevPeek));
+			syncForm(e.getKey(), state.next, player, ShulkerLock.hold(state.next, state.lockFace, state.peek));
+			syncForm(e.getKey(), state.borrowed, player, null);
+			syncForm(e.getKey(), state.prevBorrowed, player, null);
+			// a giant wearing a player form is drawn as a giant-sized player of its own (GiantPlayer): the old body's pair
+			// through a transformation, the body's own, and the pair it had before a change of the borrowed form
+			syncGiantPlayer(e.getKey(), state.prev, state.prevBorrowed, player);
+			syncGiantPlayer(e.getKey(), state.next, state.borrowed, player);
+			if (state.isBorrowChanging()) syncGiantPlayer(e.getKey(), state.next, state.prevBorrowed, player);
 		}
 		MorphWorldRenderer.tickEffects();
 		dev.morphreborn.client.morph.MorphAnimations.tick();
 	}
 
-	private static void syncForm(UUID owner, MorphRef ref, Player player) {
+	private static void syncForm(UUID owner, MorphRef ref, Player player, ShulkerLock.@org.jspecify.annotations.Nullable Hold hold) {
 		if (ref == null || ref.isSelf()) return;
-		LivingEntity morph = ENTITIES.forWorld(owner, ref);
+		syncEntity(ENTITIES.forWorld(owner, ref), player, hold);
+	}
+
+	/**
+	 * The giant-sized player drawn for a giant main body {@code main} wearing the player form {@code lent}, if that is
+	 * what they are (GiantPlayer): it follows the player like any morph body, so it walks, swings, sneaks and holds what
+	 * they hold.
+	 */
+	private static void syncGiantPlayer(UUID owner, @org.jspecify.annotations.Nullable MorphRef main, @org.jspecify.annotations.Nullable MorphRef lent,
+			Player player) {
+		if (!dev.morphreborn.client.morph.GiantPlayer.isGiantPlayer(main, lent)) return;
+		syncEntity(ENTITIES.giantPlayerForWorld(owner, lent), player, null);
+	}
+
+	private static void syncEntity(@org.jspecify.annotations.Nullable LivingEntity morph, Player player, ShulkerLock.@org.jspecify.annotations.Nullable Hold hold) {
 		if (morph == null) return;
 		dev.morphreborn.client.morph.OwnParticles.begin(player);
 		try {
-			MorphSync.tick(morph, player);
+			MorphSync.tick(morph, player, hold);
 		} finally {
 			dev.morphreborn.client.morph.OwnParticles.end();
 		}

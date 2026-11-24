@@ -62,7 +62,7 @@ public final class ModelCapture {
 	 */
 	public static List<Box> captureHybrid(EntityRenderDispatcher dispatcher, EntityRenderer<?, ?> renderer, LivingEntityRenderState state, boolean noFace) {
 		boolean hybrid = state instanceof HybridMorph.Mark mark && mark.morph$borrowed() != null;
-		boolean headless = hybrid && ((HybridMorph.Mark) state).morph$hideHead();
+		boolean headless = hybrid && ((HybridMorph.Mark) state).morph$hideHead() && !HybridMorph.allHead(state);
 		List<Box> out = capture(renderer, state, noFace, headless && !noFace);
 		if (hybrid && !noFace) out.addAll(HybridMorph.boxes(dispatcher, state));
 		return out;

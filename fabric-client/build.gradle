@@ -9,10 +9,26 @@ base {
 	archivesName = project.archives_base_name
 }
 
+repositories {
+	// LambDynamicLights' public API, from its author's documented maven (only that group is looked up there)
+	maven {
+		name = "Gegy"
+		url = "https://maven.gegy.dev/releases/"
+		content {
+			includeGroup "dev.lambdaurora.lambdynamiclights"
+		}
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// Compile only, never bundled: arm.compat.ArmLdl hands the lantern LambDynamicLights' light manager when that mod is
+	// installed. Only the API's own classes are needed, so nothing it depends on is pulled in.
+	compileOnly("dev.lambdaurora.lambdynamiclights:lambdynamiclights-api:4.13.0+26.3") {
+		transitive = false
+	}
 	testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }

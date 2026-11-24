@@ -3,13 +3,16 @@ package dev.morphreborn.paper.disguise;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.protocol.entity.armadillo.ArmadilloState;
 import com.github.retrooper.packetevents.protocol.entity.data.struct.CopperGolemState;
-import com.github.retrooper.packetevents.wrapper.PacketWrapper;
 import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityHeadLook;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerHurtAnimation;
 import dev.morphreborn.paper.PluginSettings;
 import dev.morphreborn.paper.data.MorphRef;
+import dev.morphreborn.paper.disguise.BorrowedHeads.Shell;
+import dev.morphreborn.paper.nbt.Snbt;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,11 +49,12 @@ import me.libraryaddict.disguise.disguisetypes.watchers.PiglinWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.PillagerWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.PolarBearWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.SheepWatcher;
+import me.libraryaddict.disguise.disguisetypes.watchers.ShulkerWatcher;
 import me.libraryaddict.disguise.disguisetypes.watchers.SlimeWatcher;
-import dev.morphreborn.paper.nbt.Snbt;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.AbstractCubeMob;
 import org.bukkit.entity.Ageable;
@@ -84,19 +88,28 @@ public final class DisguiseBridge {
 	}
 
 	/**
+	 * Each disguise's own size, which every scale given for it is a share of (see {@link #show}); absent = 1.
+	 */
+	private final Map<UUID, Double> bases = new HashMap<>();
+
+	/**
 	 * Disguise {@code player} as {@code ref} for everyone except {@code excluded}.
 	 *
 	 * @param template    unspawned entity holding the variant's data (null for player-type morphs)
+	 * @param base        the disguise's own size: a giant drawn as the player it borrows from is that player at
+	 *                    {@link GiantPlayer#GIANT_PLAYER_SCALE}. {@code scale} and every later {@link #setScale(Player, double)}
+	 *                    are shares of it, so a transformation's shrink and growth, which end on 1.0, end on this size
 	 * @param selfVisible let the player see their own disguise (vanilla clients only)
 	 * @return false if the disguise could not be created
 	 */
-	public boolean show(Player player, MorphRef ref, @Nullable LivingEntity template, double scale, Collection<Player> excluded, boolean selfVisible,
-			PluginSettings.NameTagMode nameTags) {
+	public boolean show(Player player, MorphRef ref, @Nullable LivingEntity template, double base, double scale, Collection<Player> excluded,
+			boolean selfVisible, PluginSettings.NameTagMode nameTags) {
 		TargetedDisguise disguise = build(player, ref, template);
 		if (disguise == null) return false;
+		if (base == 1.0) bases.remove(player.getUniqueId());
+		else bases.put(player.getUniqueId(), base);
 		configure(player, disguise, excluded, selfVisible);
 		applyNameTag(player, disguise, nameTags);
-		setScale(disguise, scale);
 		neverConvert(disguise);
 		if (template != null) {
 			copySize(disguise, template);
@@ -104,7 +117,35 @@ public final class DisguiseBridge {
 		} else {
 			templates.remove(player.getUniqueId());
 		}
+		// A held shulker is born on its face, open as far as it is and with its head turned: set before start() it goes
+		// out with the spawn, where set after it the viewers' games would draw it on the floor first.
+		if (disguise.getWatcher() instanceof ShulkerWatcher shulker) {
+			try {
+				String overlay = overlayNow(player);
+				if (overlay.isEmpty()) overlays.remove(player.getUniqueId());
+				else overlays.put(player.getUniqueId(), overlay);
+				shell(player, disguise, shulker, Shell.of(overlay), template);
+			} catch (RuntimeException | LinkageError e) {
+				logger.log(Level.FINE, "Could not put the shulker on its face", e);
+			}
+		}
+		// after the face: a shell on a wall or ceiling keeps its full size (see setScale), and the spawn carries it
+		setScale(disguise, scale * base);
 		return start(player, disguise);
+	}
+
+	/**
+	 * The player's overlay as the morph state has it now (MorphManager.overlay): a disguise is only ever built for the
+	 * body that state shows. A transformation sets its overlay without passing it here (a shulker's hold when the lock put
+	 * the player in its cell as it began; otherwise the hold comes with the half-way swap, through applyOverlay), so the
+	 * last one applied may be out of date when the new body's disguise is built. That one is the fallback.
+	 */
+	private String overlayNow(Player player) {
+		try {
+			return org.bukkit.plugin.java.JavaPlugin.getPlugin(dev.morphreborn.paper.MorphRebornPlugin.class).morphs().overlay(player);
+		} catch (RuntimeException | LinkageError e) {
+			return overlays.getOrDefault(player.getUniqueId(), "");
+		}
 	}
 
 	/**
@@ -171,6 +212,7 @@ public final class DisguiseBridge {
 		try {
 			PlayerDisguise disguise = new PlayerDisguise(player);
 			configure(player, disguise, excluded, selfVisible);
+			bases.remove(player.getUniqueId());
 			setScale(disguise, scale);
 			return start(player, disguise);
 		} catch (RuntimeException | LinkageError e) {
@@ -223,8 +265,16 @@ public final class DisguiseBridge {
 		}
 	}
 
+	/**
+	 * The last overlay each player was given, disguised or not (a shulker's hold is set before its disguise exists, as
+	 * the transformation begins or at its half-way swap), so a disguise built later starts with it (see {@link #show}).
+	 */
+	private final Map<UUID, String> overlays = new HashMap<>();
+
 	/** Show the live appearance overlay (see MorphManager.setOverlay) on the vanilla disguise. */
 	public void applyOverlay(Player player, String overlaySnbt) {
+		if (overlaySnbt.isEmpty()) overlays.remove(player.getUniqueId());
+		else overlays.put(player.getUniqueId(), overlaySnbt);
 		TargetedDisguise disguise = active.get(player.getUniqueId());
 		if (disguise == null) return;
 		Map<String, Object> overlay;
@@ -251,10 +301,144 @@ public final class DisguiseBridge {
 			}
 			if (watcher instanceof ArmadilloWatcher armadillo) armadillo.setState("scared".equals(overlay.get("state")) ? ArmadilloState.SCARED : ArmadilloState.IDLE);
 			if (watcher instanceof BatWatcher bat) bat.setHanging(flag(overlay, "BatFlags", false));
+			if (watcher instanceof ShulkerWatcher shulker) shell(player, disguise, shulker, Shell.of(overlay), template);
 			shake(watcher, flag(overlay, "MorphShaking", false));
 		} catch (RuntimeException | LinkageError e) {
 			logger.log(Level.FINE, "Could not apply overlay " + overlaySnbt, e);
 		}
+	}
+
+	// ------------------------------------------------------------------ a shulker held to a block
+
+	/**
+	 * A held shulker as the viewers' games were last shown it: the block it snapped to, and its head's yaw in the shell's
+	 * frame (kept while the player looks straight along the shell's axis, where there is none).
+	 */
+	private static final class ShellView {
+		@Nullable UUID world;
+		int x, y, z;
+		float yaw;
+
+		/** Whether {@code at} snaps to another block than last time (remembering it). */
+		boolean moved(Location at) {
+			UUID w = at.getWorld().getUID();
+			int bx = (int) Math.floor(at.getX()), by = (int) Math.floor(at.getY() + 0.5), bz = (int) Math.floor(at.getZ());
+			if (w.equals(world) && bx == x && by == y && bz == z) return false;
+			world = w;
+			x = bx;
+			y = by;
+			z = bz;
+			return true;
+		}
+	}
+
+	/** Held shulkers, by player (see {@link BorrowedHeads.Shell}). */
+	private final Map<UUID, ShellView> shells = new HashMap<>();
+	/** Degrees a held shulker's head turns before the viewers are told (a head-look packet's step is 1.4). */
+	private static final float HEAD_STEP = 1F;
+
+	/**
+	 * Put a shulker disguise on the face it holds on to, open as far as its shell is ({@code shell}; null: a free shulker,
+	 * as the variant itself is, the floor and shut). On a wall or ceiling its head is held to its yaw in the shell's frame
+	 * and never tilted, as a vanilla shulker turns its head: Lib's Disguises puts the locks in every turn it sends for the
+	 * player, and the player's own world yaw and pitch would spin it about the wrong axis. On a floor that frame is the
+	 * world's, so its head turns with the player's look as any creature's does, but never tilts there either (the mod and
+	 * a head lent to the shell keep it level too). A free shulker's head is left to the player's look altogether, as before.
+	 */
+	private void shell(Player player, TargetedDisguise disguise, ShulkerWatcher watcher, @Nullable Shell shell, @Nullable LivingEntity template) {
+		org.bukkit.entity.Shulker variant = template instanceof org.bukkit.entity.Shulker s ? s : null;
+		BlockFace face = shell != null ? shell.face() : variant != null && variant.getAttachedFace().isCartesian() ? variant.getAttachedFace() : BlockFace.DOWN;
+		int peek = shell != null ? shell.peek() : variant != null ? Math.clamp(Math.round(variant.getPeek() * 100F), 0, 100) : 0;
+		// every set goes out to the viewers again, even unchanged
+		if (watcher.getFacingDirection() != face) watcher.setFacingDirection(face);
+		if (watcher.getShieldHeight() != peek) watcher.setShieldHeight(peek);
+		// held onto a wall or ceiling while a transformation still has it small (the hold can come with the half-way swap,
+		// or move later): full size from now, not from the next tick's scale (see setScale)
+		if (face != BlockFace.DOWN) setScale(disguise, 1.0);
+		if (shell == null) {
+			shells.remove(player.getUniqueId());
+			freeHead(player, disguise, watcher);
+			return;
+		}
+		// a move is left for tickShells to see, even one that came with this change: the peek has to follow it
+		ShellView view = shells.computeIfAbsent(player.getUniqueId(), k -> new ShellView());
+		if (shell.floor()) floorHead(player, disguise, watcher);
+		else holdHead(player, disguise, watcher, shell, view);
+	}
+
+	/** A held shulker's head on a wall or ceiling: its yaw in the shell's frame, never tilted (see {@link #shell}). */
+	private void holdHead(Player player, TargetedDisguise disguise, ShulkerWatcher watcher, Shell shell, ShellView view) {
+		float yaw = shell.headYaw(player.getLocation());
+		if (Float.isNaN(yaw)) yaw = view.yaw;
+		else view.yaw = yaw;
+		Float pitch = watcher.getPitchLock();
+		if (pitch == null || pitch != 0F) watcher.setPitchLock(0F);
+		Float locked = watcher.getYawLock();
+		if (locked != null && Math.abs(wrapDegrees(yaw - locked)) <= HEAD_STEP) return;
+		watcher.setYawLock(yaw);
+		// The lock reaches the head only with the player's next head turn (Lib's Disguises sends a body turn for it, and a
+		// shulker draws its head by its head's yaw): a look only up or down turns the head on a wall but not the player's,
+		// so the head's own packet goes out here.
+		if (disguise.isDisguiseInUse()) send(player, disguise, new WrapperPlayServerEntityHeadLook(player.getEntityId(), yaw));
+	}
+
+	/**
+	 * A held shulker's head on a floor: it turns with the player's look (the shell's frame is the world's), from now rather
+	 * than their next turn, and never tilts (ShulkerLookControl.getXRotD is always 0). Without the pitch lock the player's
+	 * pitch reached the head in every turn sent for them, and it nodded in the open shell (ShulkerModel takes the head's
+	 * xRot as it is). The pitch lock goes first, so the turn Lib's Disguises sends as the yaw lock goes is level already.
+	 */
+	private void floorHead(Player player, TargetedDisguise disguise, ShulkerWatcher watcher) {
+		Float pitch = watcher.getPitchLock();
+		if (pitch == null || pitch != 0F) watcher.setPitchLock(0F);
+		if (watcher.getYawLock() == null) return;
+		watcher.setYawLock(null);
+		if (disguise.isDisguiseInUse()) send(player, disguise, new WrapperPlayServerEntityHeadLook(player.getEntityId(), player.getLocation().getYaw()));
+	}
+
+	/** The head free again (no hold): it follows the player's look, from now rather than their next turn. */
+	private void freeHead(Player player, TargetedDisguise disguise, ShulkerWatcher watcher) {
+		boolean was = watcher.getYawLock() != null || watcher.getPitchLock() != null;
+		if (watcher.getYawLock() != null) watcher.setYawLock(null);
+		if (watcher.getPitchLock() != null) watcher.setPitchLock(null);
+		if (was && disguise.isDisguiseInUse()) send(player, disguise, new WrapperPlayServerEntityHeadLook(player.getEntityId(), player.getLocation().getYaw()));
+	}
+
+	/**
+	 * Every tick, for each held shulker: its head turned with the player's look, and its shell opened again after it moved
+	 * to another block, which the viewers' games shut (Shulker.setPos clears the peek when the block changes). The peek
+	 * goes out a tick and two after the move is seen here: sent before the move reached them, it would be shut again.
+	 */
+	private void tickShells() {
+		for (Iterator<Map.Entry<UUID, ShellView>> it = shells.entrySet().iterator(); it.hasNext(); ) {
+			Map.Entry<UUID, ShellView> e = it.next();
+			Player player = Bukkit.getPlayer(e.getKey());
+			TargetedDisguise disguise = active.get(e.getKey());
+			Shell shell = Shell.of(overlays.getOrDefault(e.getKey(), ""));
+			if (player == null || disguise == null || shell == null || !(disguise.getWatcher() instanceof ShulkerWatcher watcher)) {
+				it.remove();
+				continue;
+			}
+			try {
+				if (e.getValue().moved(player.getLocation()) && watcher.getShieldHeight() > 0) {
+					for (int ticks = 1; ticks <= 2; ticks++) {
+						later(player, disguise, ticks, w -> {
+							if (w instanceof ShulkerWatcher s) s.setShieldHeight(s.getShieldHeight());
+						});
+					}
+				}
+				if (!shell.floor()) holdHead(player, disguise, watcher, shell, e.getValue());
+			} catch (RuntimeException | LinkageError ex) {
+				logger.log(Level.FINE, "Could not update a held shulker", ex);
+			}
+		}
+	}
+
+	private static float wrapDegrees(float degrees) {
+		float d = degrees % 360F;
+		if (d >= 180F) d -= 360F;
+		if (d < -180F) d += 360F;
+		return d;
 	}
 
 	/**
@@ -324,16 +508,18 @@ public final class DisguiseBridge {
 	public void tick() {
 		tick++;
 		List<Timed> due = timed.remove(tick);
-		if (due == null) return;
-		for (Timed t : due) {
-			Player player = Bukkit.getPlayer(t.player());
-			if (player == null || active.get(t.player()) != t.disguise()) continue;
-			try {
-				t.action().accept(t.disguise().getWatcher());
-			} catch (RuntimeException | LinkageError e) {
-				logger.log(Level.FINE, "Could not finish a disguise animation", e);
+		if (due != null) {
+			for (Timed t : due) {
+				Player player = Bukkit.getPlayer(t.player());
+				if (player == null || active.get(t.player()) != t.disguise()) continue;
+				try {
+					t.action().accept(t.disguise().getWatcher());
+				} catch (RuntimeException | LinkageError e) {
+					logger.log(Level.FINE, "Could not finish a disguise animation", e);
+				}
 			}
 		}
+		if (!shells.isEmpty()) tickShells();
 	}
 
 	/**
@@ -491,9 +677,10 @@ public final class DisguiseBridge {
 		if (disguise != null && disguise.getWatcher().isInvisible() != invisible) disguise.getWatcher().setInvisible(invisible);
 	}
 
+	/** The disguise at {@code scale} of its own size (1.0: as built; see {@link #show}). */
 	public void setScale(Player player, double scale) {
 		TargetedDisguise disguise = active.get(player.getUniqueId());
-		if (disguise != null) setScale(disguise, scale);
+		if (disguise != null) setScale(disguise, scale * bases.getOrDefault(player.getUniqueId(), 1.0));
 	}
 
 	public boolean isDisguised(Player player) {
@@ -512,6 +699,9 @@ public final class DisguiseBridge {
 		templates.remove(player.getUniqueId());
 		aimPose.remove(player.getUniqueId());
 		lastBeePosition.remove(player.getUniqueId());
+		overlays.remove(player.getUniqueId());
+		shells.remove(player.getUniqueId());
+		bases.remove(player.getUniqueId());
 		if (disguise != null) {
 			try {
 				disguise.removeDisguise();
@@ -530,6 +720,9 @@ public final class DisguiseBridge {
 			}
 		}
 		active.clear();
+		overlays.clear();
+		shells.clear();
+		bases.clear();
 	}
 
 	/** A Fabric client finished its handshake: stop sending it disguises; it renders morphs itself. */
@@ -549,6 +742,9 @@ public final class DisguiseBridge {
 		active.remove(player);
 		templates.remove(player);
 		aimPose.remove(player);
+		overlays.remove(player);
+		shells.remove(player);
+		bases.remove(player);
 	}
 
 	private @Nullable TargetedDisguise build(Player player, MorphRef ref, @Nullable LivingEntity template) {
@@ -596,9 +792,20 @@ public final class DisguiseBridge {
 		return started;
 	}
 
+	/**
+	 * A shulker on a wall or ceiling stays at full size, which leaves the shrink and growth of a transformation to the melt's
+	 * skin or particles: the viewers' games scale a creature before they turn it onto its face (LivingEntityRenderer, then
+	 * ShulkerRenderer.setupRotations turning about half its height), so a smaller shell turns about a point below the
+	 * block's middle and hangs off its wall or sits on the floor under its ceiling. Shulker.setPos snaps it to the block,
+	 * so no shift of the disguise can make up for it. On a floor it grows from its feet, as any creature does.
+	 */
 	private static void setScale(TargetedDisguise disguise, double scale) {
-		if (disguise.getWatcher() instanceof LivingWatcher living) {
-			living.setScale(scale);
+		if (!(disguise.getWatcher() instanceof LivingWatcher living)) return;
+		if (living instanceof ShulkerWatcher shulker && shulker.getFacingDirection() != BlockFace.DOWN) {
+			// a transformation sets the scale every tick: only a change goes out
+			if (living.getScale() != null && living.getScale() == 1.0) return;
+			scale = 1.0;
 		}
+		living.setScale(scale);
 	}
 }

@@ -54,11 +54,14 @@ public final class CameraHeight {
 		return unscaledEye * visual;
 	}
 
-	/** The scale the server gives this form (its height relative to a player's, clamped as by default). */
+	/**
+	 * The scale the server gives this form (its height relative to a player's, clamped as by default). A shulker's is
+	 * its type's height (ShulkerLock.size): its box grows as its lid opens, which the server's scale doesn't.
+	 */
 	private static float estimatedScale(LocalPlayer player, @Nullable MorphRef ref) {
 		if (ref == null || ref.isSelf() || ref.isPlayer()) return 1F;
 		LivingEntity entity = MorphClient.ENTITIES.forWorld(player.getUUID(), ref);
 		if (entity == null) return 1F;
-		return Math.clamp(entity.getBbHeight() / PLAYER_HEIGHT, MIN_SCALE, MAX_SCALE);
+		return Math.clamp(ShulkerLock.size(entity)[1] / PLAYER_HEIGHT, MIN_SCALE, MAX_SCALE);
 	}
 }

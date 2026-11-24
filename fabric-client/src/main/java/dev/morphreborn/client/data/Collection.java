@@ -97,7 +97,7 @@ public final class Collection {
 	private static final java.util.regex.Pattern BABY = java.util.regex.Pattern.compile("IsBaby:1b|(?<![A-Za-z])Age:-\\d");
 
 	/**
-	 * Adults before babies, then the biggest first (a slime's Size; none is the smallest). The user saw slimes in the
+	 * Adults before babies, then the biggest first (a slime's Size; none is the smallest). Slimes came in the
 	 * order they were killed: tiny, big, medium.
 	 */
 	private static final Comparator<Variant> VARIANT_ORDER = Comparator.<Variant>comparingInt(v -> BABY.matcher(v.ref.snbt()).find() ? 1 : 0)

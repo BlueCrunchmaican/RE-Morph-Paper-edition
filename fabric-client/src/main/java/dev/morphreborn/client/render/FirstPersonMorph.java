@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
+import net.minecraft.client.renderer.entity.state.ShulkerRenderState;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
@@ -184,7 +185,12 @@ public final class FirstPersonMorph {
 			if (front == -Float.MAX_VALUE) front = (float) reach;
 			float shift = front + MARGIN;
 			net.minecraft.client.player.LocalPlayer player = net.minecraft.client.Minecraft.getInstance().player;
-			float eye = player == null ? neck.y : dev.morphreborn.client.morph.CameraHeight.eyeHeight(player);
+			// CameraHeight's eased height is NaN outside a transformation ("leave vanilla's alone"), and taken as a height it
+			// put the dragon at y = NaN: First-person Model writes this offset into the player's position while it draws, and a
+			// raycast from that position (Mob Plaques', for the morph entities) never ended. The game froze as soon as you
+			// turned off a north-south line (I hit it; Thread.print showed BlockGetter.traverseBlocks)
+			float eased = player == null ? Float.NaN : dev.morphreborn.client.morph.CameraHeight.eyeHeight(player);
+			float eye = player == null ? (float) neck.y : Float.isNaN(eased) ? player.getEyeHeight() : eased;
 			return new Vec3(-dx * shift, eye - neck.y, -dz * shift);
 		} catch (RuntimeException e) {
 			return null;
@@ -254,7 +260,8 @@ public final class FirstPersonMorph {
 	/** Called right after a submitted model is posed: hides the head of a first-person morph body. */
 	public static void beforeDraw(Model<?> model, Object state) {
 		if (!(state instanceof Mark mark)) return;
-		boolean hybridHead = state instanceof HybridMorph.Mark hybrid && hybrid.morph$hideHead();
+		// a guardian is all head part (its cube, spikes, eye and tail): hiding that under a lent head hid the creature (HybridMorph.allHead)
+		boolean hybridHead = state instanceof HybridMorph.Mark hybrid && hybrid.morph$hideHead() && !(state instanceof net.minecraft.client.renderer.entity.state.EntityRenderState e && HybridMorph.allHead(e));
 		if (!mark.morph$firstPersonBody() && !hybridHead) return;
 		if (mark.morph$firstPersonBody() && state instanceof EnderDragonRenderState dragon) dragonOffset = measureDragon(model, dragon);
 		Deque<Map.Entry<String, ModelPart>> queue = new ArrayDeque<>(((ModelPartAccessor) (Object) model.root()).morph$children().entrySet());
@@ -269,6 +276,41 @@ public final class FirstPersonMorph {
 			} else {
 				queue.addAll(((ModelPartAccessor) (Object) part).morph$children().entrySet());
 			}
+		}
+		if (mark.morph$firstPersonBody() && state instanceof ShulkerRenderState shell) aroundCamera(model.root(), shell);
+	}
+
+	/** Closer than this to a part (blocks), the camera's near plane would cut into it and show it from inside. */
+	private static final float NEAR = 0.06F;
+
+	/**
+	 * A held shulker shell drawn in first person, open (FirstPersonCompat only lets it be drawn then): the camera sits in
+	 * its block, so leave out the lid or the base while the camera is inside it (the shell's faces are drawn from both
+	 * sides, and from inside one filled the view). Measured in the shell's own frame (attached on the floor, opening
+	 * up): its base fills the bottom half of the block, its lid the top three quarters, lifted as the shell opens. On a
+	 * floor you see the base under you and the lid lifted over you; on a wall or a ceiling the base, which holds on to
+	 * the block, wraps round the camera, and the lid shows as it opens away.
+	 */
+	private static void aroundCamera(ModelPart root, ShulkerRenderState shell) {
+		Map<String, ModelPart> parts = ((ModelPartAccessor) (Object) root).morph$children();
+		ModelPart lid = parts.get("lid"), base = parts.get("base");
+		if (lid == null || base == null) return;
+		Vec3 camera = net.minecraft.client.Minecraft.getInstance().gameRenderer.mainCamera().position();
+		// where the shell is drawn: its block, plus vanilla's slide in from the last one after a teleport
+		Vector3f c = new Vector3f((float) (camera.x - shell.x - shell.renderOffset.x), (float) (camera.y - shell.y - shell.renderOffset.y),
+				(float) (camera.z - shell.z - shell.renderOffset.z)).sub(0F, 0.5F, 0F);
+		shell.attachFace.getOpposite().getRotation().conjugate().transform(c);
+		c.add(0F, 0.5F, 0F);
+		float lift = (24F - lid.y) / 16F; // ShulkerModel puts the lid at y 24 shut and moves it up as it opens
+		hideAround(lid, c, 0.25F + lift, 1F + lift);
+		hideAround(base, c, 0F, 0.5F);
+	}
+
+	private static void hideAround(ModelPart part, Vector3f c, float bottom, float top) {
+		boolean inside = Math.abs(c.x) <= 0.5F + NEAR && Math.abs(c.z) <= 0.5F + NEAR && c.y >= bottom - NEAR && c.y <= top + NEAR;
+		if (inside && part.visible) {
+			part.visible = false;
+			HIDDEN.add(part);
 		}
 	}
 

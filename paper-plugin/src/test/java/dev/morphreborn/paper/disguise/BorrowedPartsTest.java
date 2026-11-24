@@ -50,7 +50,14 @@ class BorrowedPartsTest {
 		// a wolf's tail: at its torso's rear (+z), near the top; on a person it goes to the small of the back
 		double[] at = BorrowedHeads.place(LYING, STANDING, LYING_ALL, STANDING_ALL, new double[] {0, 1.1, 0.55}, "tail", 1);
 		assertEquals(0.125 - 0.03, at[2], 1e-9, "at the back, set in");
-		assertEquals(0.75, at[1], 1e-9, "the rear becomes the bottom of the torso");
+		// the rear becomes the bottom of the torso, and from the small of the back up: 15 percent of the torso's height (the mod's TAIL_LOW)
+		assertEquals(0.75 + 0.15 * 0.75, at[1], 1e-9);
+	}
+
+	@Test
+	void aTailOnALyingBodyIsNotRaised() {
+		double[] at = BorrowedHeads.place(LYING, LYING, LYING_ALL, LYING_ALL, new double[] {0, 0.7, 0.55}, "tail", 1);
+		assertEquals(0.7, at[1], 1e-9);
 	}
 
 	@Test
@@ -58,6 +65,82 @@ class BorrowedPartsTest {
 		// a blaze's rod a quarter of the way up its whole body goes a quarter of the way up the main body
 		double[] at = BorrowedHeads.place(STANDING, LYING, STANDING_ALL, LYING_ALL, new double[] {0.3, 0.5, 0}, "rods", 1);
 		assertEquals(0.25 * 1.4, at[1], 1e-9);
+	}
+
+	@Test
+	void aBreezesRodsStandRoundTheMiddleOfTheTorsoAndABlazesKeepTheirShare() {
+		double[][] tall = {{-0.25, 0.5, -0.125}, {0.25, 2.5, 0.125}}, tallAll = {{-0.5, 0, -0.25}, {0.5, 3, 0.25}};
+		// breeze: the rods run 0.16 above their pivot to 0.35 below it, so the pivot is a little above the middle of the torso and
+		// their own middle is at it; and on the torso's own axis, not where a lying body's mapping put it
+		double[] breeze = BorrowedHeads.place(STANDING, tall, STANDING_ALL, tallAll, new double[] {0.3, 0.2, 0}, "rods", "rods", 1);
+		assertEquals(1.5 + BorrowedHeads.RODS_MIDDLE_BELOW, breeze[1], 1e-9);
+		assertEquals(0, breeze[0], 1e-9);
+		assertEquals(0, breeze[2], 1e-9);
+		// scaled with the body they go on
+		double[] big = BorrowedHeads.place(STANDING, tall, STANDING_ALL, tallAll, new double[] {0.3, 0.2, 0}, "rods", "rods", 2);
+		assertEquals(1.5 + 2 * BorrowedHeads.RODS_MIDDLE_BELOW, big[1], 1e-9);
+		// on a lying body they stand at the middle of the torso, not at its rear
+		double[] cow = BorrowedHeads.place(STANDING, LYING, STANDING_ALL, LYING_ALL, new double[] {0.3, 0.2, 0}, "rods", "rods", 1);
+		assertEquals(0.9 + BorrowedHeads.RODS_MIDDLE_BELOW, cow[1], 1e-9);
+		assertEquals(0, cow[2], 1e-9);
+		// a blaze's part0 keeps its share of the whole body's height, as before
+		double[] blaze = BorrowedHeads.place(STANDING, LYING, STANDING_ALL, LYING_ALL, new double[] {0.3, 0.5, 0}, "rods", "part0", 1);
+		assertEquals(0.25 * 1.4, blaze[1], 1e-9);
+	}
+
+	@Test
+	void aBeesStingerGoesIntoTheRearOfTheBodyNotBehindItsMiddle() {
+		// its plate stands 5 pixels behind the pivot: the pivot is that far in front of the rear face, less the set-in
+		double[] at = BorrowedHeads.place(LYING, STANDING, LYING_ALL, STANDING_ALL, new double[] {0, 1.1, 0}, "other", "stinger", 1);
+		assertEquals(0.125 - 5.0 / 16.0 - 0.03, at[2], 1e-9);
+	}
+
+	@Test
+	void wingsOnAFlatLyingBodyTouchItAndNeverStandOverItsTop() {
+		double[][] mantle = {{-0.15, 0.2, -0.3}, {0.15, 0.5, 0.3}};
+		// a bee's joint lands above a flat mantle: the discs come down to its top, touching its side (a body under 0.4 wide)
+		double[] at = BorrowedHeads.place(STANDING, mantle, STANDING_ALL, mantle, new double[] {-0.2, 1.4, 0}, "wing", 1);
+		assertTrue(at[1] <= 0.5 - 0.03 + 1e-9, "not over the top: " + at[1]);
+		assertEquals(-0.15 + 0.03, at[0], 1e-9, "into the flank by the set-in, not 0.04 off it");
+	}
+
+	@Test
+	void wingRootsAboveTheBackOfAWideLyingBodyStayAboveIt() {
+		// a cow's, wolf's or horse's back (0.75 wide): the over-the-top clamp is for the tiny bodies only, so pairs settled earlier do not move
+		double[] at = BorrowedHeads.place(LYING, LYING, LYING_ALL, LYING_ALL, new double[] {-0.2, 1.8, 0}, "wing", 1);
+		assertEquals(1.8, at[1], 1e-9, "the root stays where its own distance above the back puts it");
+		assertEquals(-0.375 - 0.04, at[0], 1e-9, "0.04 off the flank");
+	}
+
+	@Test
+	void aTailLongerThanTheTorsoIsDrawnAsLongAsIt() {
+		assertEquals(0.3 / 1.25, BorrowedHeads.tailScale(1, 1.25, 0.3), 1e-9);
+		assertEquals(0.2, BorrowedHeads.tailScale(1, 10, 0.3), 1e-9);
+		assertEquals(1, BorrowedHeads.tailScale(1, 0.5, 0.75), 1e-9);
+	}
+
+	@Test
+	void anEarUnderTwoPixelsKeepsHalfOfItAboveTheHead() {
+		assertEquals(1.0 / 32, BorrowedHeads.earSink(1.0 / 16), 1e-9);
+		assertEquals(0.0625, BorrowedHeads.earSink(2.0 / 16), 1e-9);
+		assertEquals(0.2 / 3, BorrowedHeads.earSink(0.2), 1e-9);
+	}
+
+	@Test
+	void partsGrowOnlyOnHugeBodiesAndAreCapped() {
+		assertEquals(1, BorrowedHeads.partScale(false, 3.5), 1e-9, "a horse with an allay's wings");
+		assertEquals(1, BorrowedHeads.partScale(true, 2.5), 1e-9);
+		assertEquals(6, BorrowedHeads.partScale(true, 6), 1e-9);
+		assertEquals(24, BorrowedHeads.partScale(true, 5000), 1e-9, "a thin torso cannot blow them up");
+		assertTrue(BorrowedHeads.partScale(true, 3.2) > 1 && BorrowedHeads.partScale(true, 3.2) < 4);
+	}
+
+	@Test
+	void earsAreNeverTwiceTheHeadExceptOnAGiantOrADragonAndNeverUnderASeventh() {
+		assertEquals(2, BorrowedHeads.earScale(2.5, false), 1e-9);
+		assertEquals(0.15, BorrowedHeads.earScale(0.05, false), 1e-9);
+		assertEquals(0.4, BorrowedHeads.earScale(0.4, false), 1e-9);
+		assertEquals(6.8, BorrowedHeads.earScale(6.8, true), 1e-9);
 	}
 
 	@Test

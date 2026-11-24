@@ -8,8 +8,9 @@ import net.minecraft.resources.Identifier;
 
 /**
  * Keybinds, configurable in Controls like any vanilla key. Defaults match the original: [ and ] open the selector and
- * move up/down, Shift+[ / Shift+] move left/right, ` holds the favourites radial. Enter/Esc/Delete/arrows are read
- * directly while the selector is open (as the original did), so they never need binding.
+ * move up/down, Shift+[ / Shift+] move left/right, ` holds the favourites radial; J holds the Arsenal wheel (arm forms,
+ * new in this port). Enter/Esc/Delete/arrows are read directly while the selector is open (as the original did), so
+ * they never need binding.
  */
 public final class Keys {
 	public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MorphClient.MOD_ID, "keys"));
@@ -33,6 +34,18 @@ public final class Keys {
 	public static final KeyMapping DOLL = key("doll", InputConstants.UNKNOWN.getValue());
 	/** Rage: set off a charged rage (servers from 7.2.0). Unbound by default; the meter says so once it is charged. */
 	public static final KeyMapping RAGE = key("rage", InputConstants.UNKNOWN.getValue());
+	/**
+	 * Arm forms (servers from 8.0.0): hold to open the Arsenal wheel and let go over a form to shape your arm into it; a
+	 * quick tap re-forms the last form, or puts the arm back if one is out. J, because vanilla leaves it free (Z, the
+	 * other free key nearby, is often taken by minimap and inventory mods, and every mapping on a key fires together).
+	 */
+	public static final KeyMapping ARM = key("arm", InputConstants.KEY_J);
+	/**
+	 * Spyglass zoom (2026-11-16; servers from 8.0.0-beta.2): hold it with the spyglass accessory on to zoom your view
+	 * like the vanilla spyglass. Z by default; like every key here it can be rebound in Controls, which is the
+	 * answer when a minimap or inventory mod has Z (see {@link #ARM}).
+	 */
+	public static final KeyMapping SPYGLASS = key("spyglass", InputConstants.KEY_Z);
 
 	/** Original keys were "holdable": held keys keep scrolling. Delay then repeat, in ticks. */
 	private static final int HOLD_DELAY = 8;

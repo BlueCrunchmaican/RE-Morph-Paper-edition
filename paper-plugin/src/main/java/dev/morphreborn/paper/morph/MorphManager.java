@@ -4,13 +4,17 @@ import dev.morphreborn.paper.MorphRebornPlugin;
 import dev.morphreborn.paper.PluginSettings;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.data.PlayerMorphData;
+import dev.morphreborn.paper.disguise.GiantPlayer;
 import dev.morphreborn.paper.net.ClientChannel;
+import dev.morphreborn.paper.tendril.TendrilKills;
 import dev.morphreborn.paper.variant.VariantCapture;
+import io.papermc.paper.entity.TeleportFlag;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -22,9 +26,8 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import io.papermc.paper.entity.TeleportFlag;
-import org.bukkit.util.BoundingBox;
 import org.bukkit.inventory.EquipmentSlotGroup;
+import org.bukkit.util.BoundingBox;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -45,6 +48,11 @@ public final class MorphManager {
 	/** The form each player's physical body (hitbox, copied attributes) has right now; absent = their own body. */
 	private final Map<UUID, MorphRef> bodies = new HashMap<>();
 	private final NamespacedKey attributeKey;
+	/** The giant-sized player's speed, jump and safe fall (GiantPlayer), on the players who have them now. */
+	private final NamespacedKey giantKey;
+	private final java.util.Set<UUID> giantPlayers = new java.util.HashSet<>();
+	/** Saved morphs waiting out the join delay (see {@link PendingRestores}). */
+	private final PendingRestores restores = new PendingRestores();
 	private final Map<UUID, ActiveMorph> states = new HashMap<>();
 	private final Map<UUID, Long> lastMorphStart = new HashMap<>();
 	private long serverTick;
@@ -53,6 +61,7 @@ public final class MorphManager {
 		this.plugin = plugin;
 		this.scaleKey = MorphRebornPlugin.key("morph_scale");
 		this.attributeKey = MorphRebornPlugin.key("morph_attribute");
+		this.giantKey = MorphRebornPlugin.key("giant_player");
 	}
 
 	public @Nullable ActiveMorph state(Player player) {
@@ -230,7 +239,33 @@ public final class MorphManager {
 	/** After morphs were removed from a collection: a borrowed form that went with them is dropped too. */
 	public void checkBorrowed(Player player) {
 		MorphRef form = plugin.borrowedHeads().borrowed(player);
-		if (form != null && !form.isSelfBody() && plugin.store().get(player.getUniqueId()).byId(form.variantId()) == null) plugin.borrowedHeads().setBorrowed(player, null);
+		// an admin-lent form of a kind the player doesn't own has no stored id: no revoke or delete of another morph concerns it
+		if (form == null || form.isSelfBody() || form.variantId().isEmpty() || plugin.store().get(player.getUniqueId()).byId(form.variantId()) != null) return;
+		if (shouldDemorphWithout(activeForm(player))) {
+			demorph(player, true); // your own body with nothing borrowed is just you (onJoin's rule): not a "combined" body that blocks arms
+		} else {
+			plugin.borrowedHeads().setBorrowed(player, null);
+		}
+	}
+
+	/**
+	 * A mode switch or a lowered upgrade took the right to combine away from a combination already worn: it comes apart
+	 * now, with a message, as it would at the next login (onJoin drops it silently there), instead of lingering until then.
+	 */
+	public void dropUnearnedCombo(Player player) {
+		MorphRef lent = plugin.borrowedHeads().borrowed(player);
+		if (lent == null) return;
+		String why = !plugin.settings().multimorphEnabled ? "Combining morphs is switched off." : plugin.mode().cannotCombine(player);
+		if (why == null && !player.hasPermission("morphreborn.multimorph")) why = "You are not allowed to combine morphs.";
+		if (why == null) return;
+		if (shouldDemorphWithout(activeForm(player))) demorph(player, true);
+		else plugin.borrowedHeads().setBorrowed(player, null);
+		player.sendMessage(Component.text("Your combined morph came apart. " + why, NamedTextColor.RED));
+	}
+
+	/** Your own body only counts as a morph for what it borrows: without that it is no morph at all. */
+	static boolean shouldDemorphWithout(@Nullable MorphRef main) {
+		return main != null && main.isSelfBody();
 	}
 
 	// ------------------------------------------------------------------ unlocking
@@ -270,9 +305,9 @@ public final class MorphManager {
 	public record Acquisition(@Nullable MorphRef morph, @Nullable Component status, @Nullable Component hint) {
 		public static final Acquisition NOTHING = new Acquisition(null, null, null);
 
-		/** The status with its hint after it, for an action bar of its own. */
-		public @Nullable Component withHint() {
-			if (status == null || hint == null) return status;
+		/** The status with its hint after it, for an action bar of its own. The hint is advice, so it only goes on for a player with Tooltips on ({@code tips}). */
+		public @Nullable Component withHint(boolean tips) {
+			if (status == null || hint == null || !tips) return status;
 			return status.append(Component.text(". ", NamedTextColor.GRAY)).append(hint);
 		}
 	}
@@ -387,6 +422,7 @@ public final class MorphManager {
 	 */
 	public void playAcquisition(Player killer, LivingEntity victim, boolean newMorph) {
 		plugin.rage().noteAcquisition(victim, newMorph);
+		TendrilKills.noteAcquisition(victim);
 		plugin.channel().sendAcquire(killer, victim, newMorph);
 		boolean drawn = plugin.skin().absorb(killer, victim, newMorph);
 		plugin.effects().acquisition(killer, victim, newMorph, drawn);
@@ -451,9 +487,11 @@ public final class MorphManager {
 		// a new body borrows only what it was picked with; the state sent below carries it
 		plugin.borrowedHeads().setBorrowed(player, ref.isSelf() ? null : borrowed, false);
 
+		plugin.arms().onMorphStart(player); // arm forms are for the player's own body: a formed arm goes back at once
 		plugin.abilities().onFormChanging(player);
 		if (!ENDERMAN.equals(ref.entityType())) dropCarriedBlock(player);
-		s.overlay = "";
+		// a shulker's face goes out from the start, so the melt shows the face it will cling to (ShulkerLock)
+		s.overlay = plugin.shulkerLock().startOverlay(player, s.look());
 		if (instant) {
 			finish(player, s);
 		} else {
@@ -479,14 +517,30 @@ public final class MorphManager {
 		return plugin.settings().vanillaSelfDisguise && !plugin.channel().isModded(player);
 	}
 
+	/**
+	 * The disguise for {@code ref} at {@code scale} of its size. A giant borrowing a player form is that player, a giant's
+	 * size (GiantPlayer): the borrowed form is the one this body has now, as a transformation sets it at its start, so the
+	 * half-way swap and the end both build the right one.
+	 */
 	private void showDisguise(Player player, MorphRef ref, double scale) {
 		if (ref.isSelf()) {
 			plugin.disguises().showSelfCopy(player, scale, plugin.channel().moddedPlayers(), selfVisible(player));
 			return;
 		}
-		LivingEntity template = plugin.templates().get(ref, player.getWorld());
-		if (!plugin.disguises().show(player, ref, template, scale, plugin.channel().moddedPlayers(), selfVisible(player), plugin.settings().nameTagMode)) {
-			plugin.getLogger().warning("Could not disguise " + player.getName() + " as " + ref.entityType() + "; unmodded players will see them unchanged.");
+		MorphRef lent = plugin.borrowedHeads().borrowed(player);
+		boolean giantPlayer = GiantPlayer.applies(ref, lent);
+		MorphRef shown = giantPlayer ? lent : ref;
+		LivingEntity template = giantPlayer ? null : plugin.templates().get(ref, player.getWorld());
+		double base = giantPlayer ? GiantPlayer.GIANT_PLAYER_SCALE : 1.0;
+		boolean shownOk = plugin.disguises().show(player, shown, template, base, scale, plugin.channel().moddedPlayers(), selfVisible(player),
+				plugin.settings().nameTagMode);
+		if (!shownOk && giantPlayer) {
+			// Lib's Disguises can refuse player disguises on a server; the giant itself is better than a wrong form
+			shownOk = plugin.disguises().show(player, ref, plugin.templates().get(ref, player.getWorld()), 1.0, scale, plugin.channel().moddedPlayers(),
+					selfVisible(player), plugin.settings().nameTagMode);
+		}
+		if (!shownOk) {
+			plugin.getLogger().warning("Could not disguise " + player.getName() + " as " + shown.entityType() + "; unmodded players will see them unchanged.");
 			return;
 		}
 		ActiveMorph s = states.get(player.getUniqueId());
@@ -497,6 +551,7 @@ public final class MorphManager {
 	public void tick() {
 		serverTick++;
 		plugin.disguises().tick();
+		syncGiantPlayers();
 		if (states.isEmpty() && bodies.isEmpty()) return;
 		for (UUID id : List.copyOf(bodies.keySet())) {
 			// Bodies left over from a finished demorph that had no room to grow back yet.
@@ -592,6 +647,17 @@ public final class MorphManager {
 		}
 		plugin.abilities().onFormChanged(player, form == null || form.isSelf() ? null : form);
 		plugin.channel().broadcastState(player, s);
+		// Back in the plain own body (a demorph, a borrow dropped on an own-body combination, a revoke, a mode switch): a bound
+		// arm form forms again by itself (2026-11-17), as a scroll onto its slot would, instead of waiting for one.
+		if (backInOwnBody(form)) plugin.arms().onOwnBody(player);
+	}
+
+	/**
+	 * A transformation that ended on {@code form} leaves the player in their plain own body: nothing, or the "self" form. Your own
+	 * body with something borrowed ({@link MorphRef#isSelfBody}) is a combination, not this: arms stay off for it.
+	 */
+	static boolean backInOwnBody(@Nullable MorphRef form) {
+		return form == null || form.isSelf();
 	}
 
 	// ------------------------------------------------------------------ vanilla conversions (per body, not saved)
@@ -616,7 +682,8 @@ public final class MorphManager {
 		s.duration = Math.max(20, plugin.settings().conversionTicks);
 		s.swappedDisguise = false;
 		s.soundPlayed = true; // the conversion's own vanilla sound, not the morph sound
-		s.overlay = "";
+		s.overlay = plugin.shulkerLock().startOverlay(player, s.look());
+		plugin.arms().onMorphStart(player);
 		plugin.abilities().onFormChanging(player);
 		plugin.channel().broadcastState(player, s);
 		return true;
@@ -639,9 +706,18 @@ public final class MorphManager {
 	public void setOverlay(Player player, String snbt) {
 		ActiveMorph s = states.get(player.getUniqueId());
 		if (s == null || !s.isMorphed()) return;
+		snbt = plugin.shulkerLock().withKeys(player, snbt); // a shulker body's face stays whatever else changes
 		s.overlay = snbt;
 		plugin.disguises().applyOverlay(player, snbt);
 		plugin.channel().broadcastState(player, s);
+	}
+
+	/**
+	 * Change only the overlay keys {@code owned} (an ability's own: a charge's aura, a bee's sting), leaving what other
+	 * abilities wrote (a carried block, a roll) as it is. {@code mine} holds the new values, "" to take them out.
+	 */
+	public void setOverlayKeys(Player player, Set<String> owned, String mine) {
+		setOverlay(player, Overlays.merge(overlay(player), owned, mine));
 	}
 
 	public String overlay(Player player) {
@@ -711,10 +787,39 @@ public final class MorphManager {
 		MorphRef want = bodyTarget(player);
 		UUID id = player.getUniqueId();
 		if (Objects.equals(want, bodies.get(id))) return;
+		// A shulker body clinging to a block is held by flying and a helper shulker in its cell (ShulkerLock): both go
+		// before makeRoom looks for room (the helper is solid) and perhaps moves the player.
+		if (!dev.morphreborn.paper.ability.ShulkerLock.isShulker(want)) plugin.shulkerLock().release(player);
 		if (!makeRoom(player, want)) return;
 		applyBody(player, want, want, 1F);
 		if (want == null) bodies.remove(id);
 		else bodies.put(id, want);
+		if (dev.morphreborn.paper.ability.ShulkerLock.isShulker(want)) plugin.shulkerLock().engage(player);
+	}
+
+	/**
+	 * The form the player's physical body (hitbox, copied attributes) has right now, or null for their own. It changes
+	 * half-way through a transformation, and a growing body only once there is room for it.
+	 */
+	public @Nullable MorphRef body(Player player) {
+		return bodies.get(player.getUniqueId());
+	}
+
+	/**
+	 * The body already is the one it should have now ({@link #bodyTarget}): no swap is due before the transformation's
+	 * half-way point. False while a body waits for room to grow, which syncBody will change on its next try.
+	 */
+	public boolean bodySettled(Player player) {
+		return Objects.equals(bodyTarget(player), bodies.get(player.getUniqueId()));
+	}
+
+	/** The player's scale with {@code form}'s body: what their hitbox would be (with hitbox scaling off, as it is). */
+	public double bodyScale(Player player, @Nullable MorphRef form) {
+		AttributeInstance scale = player.getAttribute(Attribute.SCALE);
+		if (scale == null) return 1.0;
+		if (!plugin.settings().hitboxScaling) return scale.getValue();
+		AttributeModifier mine = scale.getModifier(scaleKey);
+		return scale.getValue() - (mine == null ? 0 : mine.getAmount()) + (scaleFor(player, form) - 1.0);
 	}
 
 	/** True when the body for {@code form} fits where the player is, after nudging them to a free spot if needed. */
@@ -824,13 +929,44 @@ public final class MorphManager {
 	}
 
 	/** Strip every modifier we own (shutdown / quit) so nothing persists in the player file. */
+	/**
+	 * A giant body wearing a player form is that player at a giant's size (GiantPlayer), and moves as one: 5 times a
+	 * player's speed, a jump as high as a player's at that size, and falls as far before they hurt (the jump alone would
+	 * otherwise cost hearts every landing). Kept in step each tick with the physical body, which changes half-way through
+	 * a transformation, and the borrowed form, which can change on its own; anything else takes them off.
+	 */
+	private void syncGiantPlayers() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			UUID id = player.getUniqueId();
+			boolean pair = GiantPlayer.applies(bodies.get(id), plugin.borrowedHeads().borrowed(player));
+			if (pair == giantPlayers.contains(id)) continue;
+			if (pair) giantPlayers.add(id);
+			else giantPlayers.remove(id);
+			giantModifier(player, Attribute.MOVEMENT_SPEED, pair ? GiantPlayer.GIANT_PLAYER_SPEED - 1 : 0, AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+			AttributeInstance jump = player.getAttribute(Attribute.JUMP_STRENGTH);
+			double jumpBase = jump == null ? 0.42 : jump.getBaseValue();
+			giantModifier(player, Attribute.JUMP_STRENGTH, pair ? GiantPlayer.GIANT_PLAYER_JUMP - jumpBase : 0, AttributeModifier.Operation.ADD_NUMBER);
+			giantModifier(player, Attribute.SAFE_FALL_DISTANCE, pair ? GiantPlayer.GIANT_PLAYER_SCALE - 1 : 0, AttributeModifier.Operation.MULTIPLY_SCALAR_1);
+		}
+		giantPlayers.removeIf(id -> Bukkit.getPlayer(id) == null);
+	}
+
+	private void giantModifier(Player player, Attribute attribute, double amount, AttributeModifier.Operation operation) {
+		AttributeInstance instance = player.getAttribute(attribute);
+		if (instance == null) return;
+		instance.removeModifier(giantKey);
+		if (amount != 0) instance.addTransientModifier(new AttributeModifier(giantKey, amount, operation, EquipmentSlotGroup.ANY));
+	}
+
 	public void resetBody(Player player) {
 		bodies.remove(player.getUniqueId());
+		giantPlayers.remove(player.getUniqueId());
 		for (Attribute attribute : Registry.ATTRIBUTE) {
 			AttributeInstance instance = player.getAttribute(attribute);
 			if (instance == null) continue;
 			instance.removeModifier(scaleKey);
 			instance.removeModifier(attributeKey);
+			instance.removeModifier(giantKey);
 		}
 	}
 
@@ -839,6 +975,12 @@ public final class MorphManager {
 	}
 
 	// ------------------------------------------------------------------ lifecycle
+
+	/**
+	 * How long after a join a saved morph is restored. The arm forms' join deploy (ArmManager) waits past it for a player who
+	 * has one, so an arm isn't formed and popped at every login of a morphed player.
+	 */
+	public static final long RESTORE_DELAY_TICKS = 5L;
 
 	public void onJoin(Player player) {
 		PlayerMorphData data = plugin.store().get(player.getUniqueId());
@@ -860,9 +1002,10 @@ public final class MorphManager {
 					return;
 				}
 				MorphRef keep = borrowed;
+				int ticket = restores.begin(player.getUniqueId());
 				Bukkit.getScheduler().runTaskLater(plugin, () -> {
-					if (player.isOnline()) morphTo(player, owned, true, keep);
-				}, 5L);
+					if (player.isOnline() && restores.claim(player.getUniqueId(), ticket)) morphTo(player, owned, true, keep);
+				}, RESTORE_DELAY_TICKS);
 			} else {
 				data.current = null;
 				data.borrowed = null;
@@ -878,7 +1021,8 @@ public final class MorphManager {
 		ActiveMorph s = states.remove(player.getUniqueId());
 		lastMorphStart.remove(player.getUniqueId());
 		PlayerMorphData data = plugin.store().get(player.getUniqueId());
-		data.current = s != null && s.next != null && !s.next.isSelf() ? s.next : null;
+		// a quit inside the restore window (the join's morph is still to come): no live state yet, so the saved one stands
+		if (!restores.cancel(player.getUniqueId())) data.current = s != null && s.next != null && !s.next.isSelf() ? s.next : null;
 		plugin.channel().broadcastForget(player, player.getWorld().getPlayers());
 	}
 
@@ -913,6 +1057,7 @@ public final class MorphManager {
 				s.converted = null; // and the creature it was picked as, whatever it was turned into
 			}
 			bodies.remove(player.getUniqueId()); // a respawned player has a fresh body: apply it again
+			giantPlayers.remove(player.getUniqueId()); // its speed, jump and fall modifiers went with the old body: syncGiantPlayers puts them back
 			syncBody(player);
 			refreshDisguise(player);
 			plugin.abilities().onFormChanged(player, activeForm(player));
@@ -936,6 +1081,7 @@ public final class MorphManager {
 	public void onClientModded(Player player) {
 		plugin.disguises().exclude(player);
 		plugin.borrowedHeads().refreshViewer(player);
+		plugin.shulkerLock().showHelpers(player); // it draws shulker players itself, so it needs their helpers to bump into
 		refreshDisguise(player); // its own disguise loses the self-view
 	}
 

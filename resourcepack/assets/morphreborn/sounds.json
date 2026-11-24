@@ -10,5 +10,77 @@
       "morphreborn:morph6"
     ],
     "subtitle": "subtitles.morphreborn.morph"
+  },
+  "arm_form": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "morphreborn:morph1",
+        "volume": 0.45,
+        "pitch": 1.55
+      },
+      {
+        "name": "morphreborn:morph2",
+        "volume": 0.45,
+        "pitch": 1.55
+      },
+      {
+        "name": "morphreborn:morph3",
+        "volume": 0.45,
+        "pitch": 1.55
+      },
+      {
+        "name": "morphreborn:morph4",
+        "volume": 0.45,
+        "pitch": 1.55
+      },
+      {
+        "name": "morphreborn:morph5",
+        "volume": 0.45,
+        "pitch": 1.55
+      },
+      {
+        "name": "morphreborn:morph6",
+        "volume": 0.45,
+        "pitch": 1.55
+      }
+    ],
+    "subtitle": "subtitles.morphreborn.arm_form"
+  },
+  "arm_retract": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "morphreborn:morph1",
+        "volume": 0.4,
+        "pitch": 1.25
+      },
+      {
+        "name": "morphreborn:morph2",
+        "volume": 0.4,
+        "pitch": 1.25
+      },
+      {
+        "name": "morphreborn:morph3",
+        "volume": 0.4,
+        "pitch": 1.25
+      },
+      {
+        "name": "morphreborn:morph4",
+        "volume": 0.4,
+        "pitch": 1.25
+      },
+      {
+        "name": "morphreborn:morph5",
+        "volume": 0.4,
+        "pitch": 1.25
+      },
+      {
+        "name": "morphreborn:morph6",
+        "volume": 0.4,
+        "pitch": 1.25
+      }
+    ],
+    "subtitle": "subtitles.morphreborn.arm_retract"
   }
 }

@@ -35,6 +35,27 @@ public final class PlayerMorphData {
 		}
 	}
 
+	/**
+	 * The variant a bare type name ("cow") means: the first grown-up one, else the first. A baby kept first in the
+	 * collection must not be what {@code /morph combine cow wolf} quietly picks.
+	 */
+	public static @Nullable StoredVariant byTypeName(@Nullable List<StoredVariant> ofType) {
+		if (ofType == null || ofType.isEmpty()) return null;
+		for (StoredVariant v : ofType) if (!isBaby(v.snbt)) return v;
+		return ofType.getFirst();
+	}
+
+	/** The look is a baby's (Age below 0, or IsBaby). */
+	static boolean isBaby(@Nullable String snbt) {
+		if (snbt == null || snbt.isBlank()) return false;
+		try {
+			Map<String, Object> tag = dev.morphreborn.paper.nbt.Snbt.parseCompound(snbt);
+			return (tag.get("IsBaby") instanceof Number b && b.intValue() != 0) || (tag.get("Age") instanceof Number a && a.intValue() < 0);
+		} catch (IllegalArgumentException e) {
+			return false;
+		}
+	}
+
 	public UUID owner;
 	/** entity type -> variants, in acquisition order. */
 	public LinkedHashMap<String, List<StoredVariant>> morphs = new LinkedHashMap<>();
@@ -46,9 +67,35 @@ public final class PlayerMorphData {
 	public @Nullable MorphRef borrowed;
 	/** Block an enderman morph is carrying (BlockData string), kept across logins. */
 	public @Nullable String carriedBlock;
-	/** Rage (ability/Rage): charged and waiting to be set off, and when the wait after the last one ends (epoch millis, 0: none). */
+	/**
+	 * Rage (ability/Rage): charged and waiting to be set off, when it was charged (it fades after charge-lasts), and when
+	 * the wait after the last one ends (epoch millis, 0: none).
+	 */
 	public boolean rageCharged;
+	public long rageChargedAt;
 	public long rageReadyAt;
+	/**
+	 * The player's arm colour as their client last sent it (0xRRGGBB, C_ARM_COLOUR), so other players see it from the
+	 * moment they join; null for the default red.
+	 */
+	public @Nullable Integer armColour;
+	/**
+	 * The player's arm look as their client last sent it (ArmProtocol.LOOK_*, C_ARM_COLOUR); null for the default, the
+	 * tendril arm. A file from before this field loads as null.
+	 */
+	public @Nullable Integer armLook;
+	/**
+	 * How fast the pulses on the player's arm and lantern run, in percent of the usual, as their client last sent it
+	 * (ArmProtocol.PULSE_SPEED_*, C_ARM_COLOUR; 2026-11-16); null for the usual speed. A file from before this
+	 * field loads as null.
+	 */
+	public @Nullable Integer armPulseSpeed;
+	/**
+	 * The Tooltips setting turned OFF (decided 2026-11-17): explanation lines are left out of the descriptions the server builds for this
+	 * player. Kept as "off" so a file from before the setting loads as false, which is the default, ON. A player with the client mod has it
+	 * set from their settings screen (C_TOOLTIPS); a player without it, from the upgrades menu or {@code /morph tooltips}.
+	 */
+	public boolean tooltipsOff;
 	/** Survival Mode progress; absent until the player first plays in Survival Mode, kept when the server is Classic. */
 	public @Nullable SurvivalData survival;
 

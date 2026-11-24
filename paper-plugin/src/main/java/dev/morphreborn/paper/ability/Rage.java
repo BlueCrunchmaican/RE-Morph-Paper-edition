@@ -81,7 +81,7 @@ public final class Rage implements Listener {
 	public record Level(double radius, double damage, int ticks, double hover) {}
 
 	/** The levels when abilities.yml has none. */
-	private static final List<Level> DEFAULT_LEVELS = List.of(new Level(10, 2, 100, 4), new Level(16, 2.5, 160, 6), new Level(20, 3.5, 200, 8));
+	private static final List<Level> DEFAULT_LEVELS = List.of(new Level(10, 2, 100, 4), new Level(16, 2.5, 160, 6), new Level(20, 3.5, 300, 8));
 
 	private final MorphRebornPlugin plugin;
 
@@ -98,6 +98,10 @@ public final class Rage implements Listener {
 	private boolean lesserNamed, lesserPets;
 	private boolean players;
 	private double playerFloor;
+	/** Health the player gets back for each hit the tendrils land (abilities.yml rage.heal-per-hit). */
+	private double healPerHit;
+	/** How long a full charge keeps before it fades (abilities.yml rage.charge-lasts; 0: for good). */
+	private long chargeMillis;
 	private int cooldownSeconds;
 	private boolean report;
 
@@ -120,8 +124,8 @@ public final class Rage implements Listener {
 		/** Whoever hit the player shortly before or during the frenzy: always fair game. */
 		final Set<UUID> attackers = new HashSet<>();
 		int taken, newMorphs, caught;
-		/** Health taken from everything it held, for the report. */
-		double drained;
+		/** Health taken from everything it held, and given back to the player, for the report. */
+		double drained, healed;
 		double biomassBefore;
 		boolean targetsChanged = true;
 
@@ -154,17 +158,25 @@ public final class Rage implements Listener {
 		if (report) report(p, what);
 	}
 
-	/** A hover started or ended: players with the mod draw its legs. */
+	/**
+	 * A shulker body clinging to a block (ShulkerLock): its hover, or legs still lowering it, end at once, without the
+	 * drift down, since the lock holds the player. The frenzy itself goes on; a locked player can't start another hover.
+	 */
+	public void stopHover(Player p) {
+		hover.stop(p, false);
+	}
+
+	/** A hover started or ended, or its legs moved on to lowering the player or drawing back: players with the mod draw them. */
 	void hoverChanged(Player p) {
 		Raging r = raging.get(p.getUniqueId());
-		plugin.channel().broadcastRageDrain(p, r == null ? List.of() : ids(p, r), hover.hovering(p));
+		plugin.channel().broadcastRageDrain(p, r == null ? List.of() : ids(p, r), hover.legsState(p));
 	}
 
 	public void load(@Nullable ConfigurationSection c) {
 		enabled = c != null && c.getBoolean("enabled", true);
-		hitsNeeded = c == null ? 6 : Math.clamp(c.getInt("hits", 6), 1, 100);
+		hitsNeeded = c == null ? 8 : Math.clamp(c.getInt("hits", 8), 1, 100);
 		windowMillis = Math.round((c == null ? 6 : Math.clamp(c.getDouble("window", 6), 1, 60)) * 1000);
-		minAttackers = c == null ? 2 : Math.clamp(c.getInt("attackers", 2), 1, 20);
+		minAttackers = c == null ? 3 : Math.clamp(c.getInt("attackers", 3), 1, 20);
 		levels.clear();
 		if (c != null) {
 			for (Map<?, ?> m : c.getMapList("levels")) {
@@ -179,7 +191,7 @@ public final class Rage implements Listener {
 		}
 		if (levels.isEmpty()) levels.addAll(DEFAULT_LEVELS);
 		classicLevel = Math.clamp(c == null ? 2 : c.getInt("classic-level", 2), 1, levels.size());
-		// 0: every creature in reach (the user: "however many were around you"); any other number caps it
+		// 0: every creature in reach (my call: "however many were around you"); any other number caps it
 		maxTargets = c == null ? 0 : Math.max(0, c.getInt("max-targets", 0));
 		enemiesOnly = c == null || !"all".equalsIgnoreCase(c.getString("targets", "enemies"));
 		lesser = c == null ? 0.25 : Math.clamp(c.getDouble("lesser", 0.25), 0, 1);
@@ -191,6 +203,8 @@ public final class Rage implements Listener {
 		lesserPets = c == null || c.getBoolean("lesser-pets", true);
 		players = c == null || c.getBoolean("players", true);
 		playerFloor = c == null ? 2 : Math.clamp(c.getDouble("player-floor", 2), 0.5, 20);
+		healPerHit = c == null ? 1 : Math.clamp(c.getDouble("heal-per-hit", 1), 0, 20);
+		chargeMillis = Math.round((c == null ? 30 : Math.clamp(c.getDouble("charge-lasts", 30), 0, 3600)) * 1000);
 		cooldownSeconds = c == null ? 20 : Math.clamp(c.getInt("cooldown", 20), 0, 3600);
 		report = c != null && c.getBoolean("report", false);
 		hover.load(c);
@@ -203,7 +217,7 @@ public final class Rage implements Listener {
 
 	/**
 	 * A level without its own hover height lifts the player two fifths of its reach (the defaults: 4, 6 and 8 blocks with
-	 * 10, 16 and 20; the user: start at 4 and go higher), so a hovering player still reaches most of the ground its
+	 * 10, 16 and 20; my call: start at 4 and go higher), so a hovering player still reaches most of the ground its
 	 * tendrils would (a frenzy's kills are absorbed anywhere in reach).
 	 */
 	private static double defaultHover(double radius) {
@@ -238,11 +252,11 @@ public final class Rage implements Listener {
 		return levels.get(Math.clamp(level, 1, levels.size()) - 1);
 	}
 
-	/** A level's numbers in words, for the upgrade tree ("16 blocks, 2.5 damage a hit, 8 seconds"). */
+	/** A level's numbers in words, for the upgrade tree ("16 blocks, 2.5 damage a hit every 0.5 seconds, 8 seconds long"). */
 	public String describe(int level) {
 		Level l = stats(level);
-		return SurvivalMode.number(l.radius()) + " blocks, " + SurvivalMode.number(l.damage()) + " damage a hit, " + SurvivalMode.number(l.ticks() / 20.0)
-				+ " seconds" + (l.hover() > 0 ? ", hover " + SurvivalMode.number(l.hover()) + " blocks up" : "");
+		return SurvivalMode.number(l.radius()) + " blocks, " + SurvivalMode.number(l.damage()) + " damage a hit every " + SurvivalMode.number(DRAIN_INTERVAL / 20.0)
+				+ " seconds, " + SurvivalMode.number(l.ticks() / 20.0) + " seconds long" + (l.hover() > 0 ? ", hover " + SurvivalMode.number(l.hover()) + " blocks up" : "");
 	}
 
 	/** Why this player can't use the frenzy at all, or null if they can (charged or not). */
@@ -271,6 +285,7 @@ public final class Rage implements Listener {
 	/** A hit that hurt a player: one toward their frenzy, if it came from a creature or another player. */
 	@EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
 	public void onHurt(EntityDamageByEntityEvent event) {
+		if (plugin.arms().isSpecialHit(event)) return; // an arm special's cut is the attacker's move, not a crowd's: it never charges a frenzy
 		if (!enabled || !(event.getEntity() instanceof Player player) || event.getFinalDamage() <= 0) return;
 		Entity cause = event.getDamageSource().getCausingEntity();
 		if (cause == null) cause = event.getDamager();
@@ -290,14 +305,36 @@ public final class Rage implements Listener {
 		syncIfChanged(player);
 	}
 
+	/**
+	 * Charged and still holding: a full charge keeps {@code charge-lasts} seconds (my call: about 30), through death too,
+	 * then fades. A charge saved before charges faded starts its time now.
+	 */
 	public boolean isCharged(Player player) {
-		return plugin.store().get(player.getUniqueId()).rageCharged;
+		var data = plugin.store().get(player.getUniqueId());
+		if (!data.rageCharged) return false;
+		if (chargeMillis <= 0) return true;
+		long now = System.currentTimeMillis();
+		if (data.rageChargedAt <= 0) {
+			data.rageChargedAt = now;
+			plugin.store().markDirty(player.getUniqueId());
+		} else if (now - data.rageChargedAt > chargeMillis) {
+			data.rageCharged = false;
+			plugin.store().markDirty(player.getUniqueId());
+			chargedBy.remove(player.getUniqueId());
+			if (player.isOnline()) {
+				player.sendActionBar(Component.text("Your frenzy faded.", NamedTextColor.GRAY));
+				sync(player);
+			}
+			return false;
+		}
+		return true;
 	}
 
 	/** The frenzy is charged: it waits for the player (saved with them) until they set it off. */
 	private void charge(Player player, @Nullable ArrayDeque<Hit> list) {
 		var data = plugin.store().get(player.getUniqueId());
 		data.rageCharged = true;
+		data.rageChargedAt = System.currentTimeMillis();
 		plugin.store().markDirty(player.getUniqueId());
 		Set<UUID> who = new HashSet<>();
 		if (list != null) for (Hit h : list) who.add(h.attacker());
@@ -305,7 +342,8 @@ public final class Rage implements Listener {
 		player.playSound(player.getLocation(), Sound.ENTITY_RAVAGER_AMBIENT, 0.7F, 0.7F);
 		// players with the mod see READY on the meter; the others are told how to set it off
 		if (!hasMeter(player)) {
-			player.sendMessage(Component.text("Your frenzy is charged. /morph frenzy sets it off.", NamedTextColor.RED));
+			// that it is charged is the news; how to set it off is explanation (the Tooltips setting)
+			player.sendMessage(Component.text("Your frenzy is charged." + (plugin.tooltips(player) ? " /morph frenzy sets it off." : ""), NamedTextColor.RED));
 		}
 		sync(player);
 	}
@@ -353,15 +391,14 @@ public final class Rage implements Listener {
 	}
 
 	/**
-	 * What the meter shows: full when charged, otherwise hits within the window, one short of full while they all came
-	 * from too few attackers.
+	 * What the meter shows: full when charged, otherwise the hits within the window, but none until they come from enough
+	 * attackers (my call: one or two creatures hitting you shouldn't bring the meter up, nor build a frenzy).
 	 */
 	private int shown(Player player) {
 		if (isCharged(player)) return hitsNeeded;
 		ArrayDeque<Hit> list = hits.get(player.getUniqueId());
-		if (list == null || list.isEmpty()) return 0;
-		int n = Math.min(list.size(), hitsNeeded);
-		return n >= hitsNeeded && attackers(list) < minAttackers ? hitsNeeded - 1 : n;
+		if (list == null || list.isEmpty() || attackers(list) < minAttackers) return 0;
+		return Math.min(list.size(), hitsNeeded);
 	}
 
 	private void syncIfChanged(Player player) {
@@ -397,7 +434,7 @@ public final class Rage implements Listener {
 		player.getWorld().playSound(at, Sound.ENTITY_RAVAGER_ROAR, 1F, 0.8F);
 		player.getWorld().playSound(at, Sound.ENTITY_WARDEN_HEARTBEAT, 1.5F, 0.6F);
 		// no burst of particles for players without the mod: the mod has none, and the tendrils growing out show it
-		// how to hover is in the upgrade's description (the user: not on the screen every time)
+		// how to hover is in the upgrade's description (my call: not on the screen every time)
 		player.sendActionBar(Component.text(NAME + "!", NamedTextColor.RED, TextDecoration.BOLD));
 		if (report) report(player, "level " + lv + " (" + describe(lv) + "), " + (maxTargets > 0 ? "up to " + maxTargets + " at once" : "every creature in reach"));
 		latch(player, r);
@@ -416,7 +453,7 @@ public final class Rage implements Listener {
 			}
 			Raging r = e.getValue();
 			if (tick >= r.endAt || p.isDead() || !p.isValid()) {
-				end(p, true);
+				end(p, true, !p.isDead() && p.isValid()); // ran out: the legs lower a hovering player and draw back
 				continue;
 			}
 			release(p, r);
@@ -429,9 +466,16 @@ public final class Rage implements Listener {
 			// tendrils for players with the mod: on a change, and now and then for anyone who just came in sight
 			if (r.targetsChanged || tick % 20 == 0) {
 				r.targetsChanged = false;
-				plugin.channel().broadcastRageDrain(p, ids(p, r), hover.hovering(p));
+				plugin.channel().broadcastRageDrain(p, ids(p, r), hover.legsState(p));
 			}
 			if ((tick - r.start) % 20 == 0) sync(p);
+		}
+		hover.tickEnding(tick);
+		// a full charge fades after charge-lasts
+		if (tick % 20 == 0 && chargeMillis > 0) {
+			for (Player p : plugin.getServer().getOnlinePlayers()) {
+				if (!raging.containsKey(p.getUniqueId())) isCharged(p);
+			}
 		}
 		if (tick % 5 == 0 && !hits.isEmpty()) {
 			long now = System.currentTimeMillis();
@@ -485,8 +529,8 @@ public final class Rage implements Listener {
 
 	/** One drain hit on every latched creature. */
 	private void drain(Player player, Raging r) {
+		// generic damage: armour doesn't stop it, Protection and Resistance do (tested at all three levels)
 		DamageSource step = DamageSource.builder(DamageType.GENERIC).withCausingEntity(player).withDirectEntity(player).build();
-		DamageSource kill = DamageSource.builder(DamageType.GENERIC_KILL).withCausingEntity(player).withDirectEntity(player).build();
 		for (LivingEntity t : living(player, r)) {
 			double amount = r.stats.damage() * (isLesser(player, t) ? lesser : 1);
 			if (amount <= 0) continue;
@@ -496,38 +540,53 @@ public final class Rage implements Listener {
 				if (amount < 0.05) continue;
 				double before = victim.getHealth() + victim.getAbsorptionAmount();
 				victim.damage(amount, step);
-				r.drained += Math.max(0, before - victim.getHealth() - victim.getAbsorptionAmount());
+				double took = Math.max(0, before - victim.getHealth() - victim.getAbsorptionAmount());
+				r.drained += took;
+				if (took > 0) heal(player, r);
 				continue;
 			}
 			double before = t.getHealth() + t.getAbsorptionAmount();
-			if (before > amount) {
-				t.damage(amount, step);
-				r.drained += Math.max(0, before - (t.isDead() ? 0 : t.getHealth() + t.getAbsorptionAmount()));
-				continue;
-			}
-			// the last of it: a kill by the player, so biomass and morphs come through the usual kill handling
+			// Every hit is an ordinary one, the last too, so Protection and Resistance count all the way (an outright kill
+			// for the last of it took a creature with Resistance V at 1.5 health). One that kills is the player's kill, so
+			// biomass and morphs come through the usual kill handling, absorbed wherever the creature is (isRageKill).
 			absorbing = t.getUniqueId();
 			absorbShown = false;
 			absorbingFor = r;
 			try {
-				t.damage(1_000_000, kill);
+				t.damage(amount, step);
 			} finally {
 				absorbing = null;
 				absorbingFor = null;
 			}
-			if (t.isDead()) {
-				r.drained += before;
-				r.taken++;
-				if (report) {
-					Integer caughtAt = r.targets.get(t.getUniqueId());
-					report(player, t.getName() + " (" + SurvivalMode.number(maxHealth(t)) + " health) absorbed " + seconds(tick - r.start) + " in, after "
-							+ seconds(caughtAt == null ? 0 : tick - caughtAt) + " held");
-				}
-				if (!absorbShown) plugin.morphs().playAcquisition(player, t, false); // nothing new: still taken in
-				r.targets.remove(t.getUniqueId());
-				r.targetsChanged = true;
+			if (!t.isDead()) {
+				double took = Math.max(0, before - (t.getHealth() + t.getAbsorptionAmount()));
+				r.drained += took;
+				if (took > 0) heal(player, r);
+				continue;
 			}
+			r.drained += before;
+			heal(player, r);
+			r.taken++;
+			if (report) {
+				Integer caughtAt = r.targets.get(t.getUniqueId());
+				report(player, t.getName() + " (" + SurvivalMode.number(maxHealth(t)) + " health) absorbed " + seconds(tick - r.start) + " in, after "
+						+ seconds(caughtAt == null ? 0 : tick - caughtAt) + " held");
+			}
+			if (!absorbShown) plugin.morphs().playAcquisition(player, t, false); // nothing new: still taken in
+			r.targets.remove(t.getUniqueId());
+			r.targetsChanged = true;
 		}
+	}
+
+	/**
+	 * A hit the tendrils landed heals the player (heal-per-hit: half a heart by default), up to their max health: the
+	 * more they hold, the faster they heal (my design).
+	 */
+	private void heal(Player player, Raging r) {
+		if (healPerHit <= 0 || player.isDead()) return;
+		double before = player.getHealth();
+		player.heal(healPerHit, org.bukkit.event.entity.EntityRegainHealthEvent.RegainReason.CUSTOM);
+		r.healed += Math.max(0, player.getHealth() - before);
 	}
 
 	/** Called for every absorption shown: the kill handling already showed this frenzy's kill being absorbed. */
@@ -579,7 +638,7 @@ public final class Rage implements Listener {
 	}
 
 	/** Drained at the lesser rate: bosses, villagers, name-tagged creatures, other players' pets, and players. */
-	private boolean isLesser(Player player, LivingEntity e) {
+	public boolean isLesser(Player player, LivingEntity e) {
 		if (e instanceof Player) return true;
 		if (lesserTypes.contains(e.getType().getKey().toString())) return true;
 		if (lesserNamed && e.customName() != null) return true;
@@ -588,12 +647,21 @@ public final class Rage implements Listener {
 
 	/** End a frenzy: let go of everything, start the wait, and sum it up ({@code summary}) on the action bar. */
 	private void end(Player player, boolean summary) {
+		end(player, summary, false);
+	}
+
+	/**
+	 * End a frenzy; {@code glide}: it ran out, so a hovering player's legs lower them and draw back (FrenzyHover.release)
+	 * rather than going at once (leaving, dying, another world, a shutdown).
+	 */
+	private void end(Player player, boolean summary, boolean glide) {
 		Raging r = raging.remove(player.getUniqueId());
 		if (r == null) return;
-		hover.stop(player, true);
+		if (glide) hover.release(player, tick);
+		else hover.stop(player, true);
 		if (report) {
 			StringBuilder line = new StringBuilder("over after " + seconds(tick - r.start) + ": held " + r.caught + ", absorbed " + r.taken + ", drained "
-					+ SurvivalMode.number(r.drained) + " health");
+					+ SurvivalMode.number(r.drained) + " health, healed " + SurvivalMode.number(r.healed));
 			if (survival()) line.append(", +").append(SurvivalMode.number(plugin.survival().data(player).biomass - r.biomassBefore)).append(" biomass");
 			for (LivingEntity t : living(player, r)) {
 				line.append("; ").append(t.getName()).append(" left at ").append(SurvivalMode.number(t.getHealth())).append('/')
@@ -604,7 +672,7 @@ public final class Rage implements Listener {
 		var data = plugin.store().get(player.getUniqueId());
 		data.rageReadyAt = System.currentTimeMillis() + cooldownSeconds * 1000L;
 		plugin.store().markDirty(player.getUniqueId());
-		plugin.channel().broadcastRageDrain(player, List.of(), false);
+		plugin.channel().broadcastRageDrain(player, List.of(), hover.legsState(player));
 		hits.remove(player.getUniqueId());
 		shownHits.remove(player.getUniqueId());
 		sync(player);

@@ -9,8 +9,8 @@ upgrade tree. Then it reads both logs for problems and prints one line per serve
     py -3 tools/compat_check.py path/to/RE-Morph-paper-6.0.0.jar path/to/RE-Morph-paper-7.1.2.jar ...
 
 The plugin's data folder and the jar that was installed are put back afterwards. Needs JAVA_HOME (Java 25+), the
-test server set up as in docs/TESTING.md (Paper, Lib's Disguises, PacketEvents, RCON on 25598, MorphTester2 an
-operator) and runs on Windows (processes are stopped through PowerShell). docs/PROTOCOL.md has the rules this checks.
+test server set up like the one in docs/BUILDING.md (Paper, Lib's Disguises, PacketEvents, RCON on 25598, MorphTester2 an
+operator) and runs on Windows (processes are stopped through PowerShell). It checks the client protocol's version rules.
 """
 import os
 import re

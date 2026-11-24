@@ -23,10 +23,11 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.monster.dragon.EnderDragonModel;
 import net.minecraft.client.renderer.entity.EnderDragonRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.client.model.monster.dragon.EnderDragonModel;
+import net.minecraft.client.renderer.entity.ShulkerRenderer;
 import net.minecraft.client.renderer.entity.state.BatRenderState;
 import net.minecraft.client.renderer.entity.state.EnderDragonRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -60,7 +61,9 @@ import org.jspecify.annotations.Nullable;
  * Each mob's {@code parts} are what it lends besides (or instead of) a head, as the client mod grafts them
  * (HybridMorph.findAppendages): wings, tails, fins, rods and stingers, each as elements around the point where it joins
  * its body. {@code lendsHead} is false for a creature the mod shows by its parts alone (a bat lends its wings, a wolf its
- * ears and tail). The ender dragon only has parts: its renderer isn't a living-entity one.
+ * ears and tail). The ender dragon only has parts and no head model (its renderer isn't a living-entity one), but is given
+ * the numbers of its own head, as the body a borrowed head goes on: its boxes as the head sits at rest, its pivot where a
+ * dragon hovering in place holds it, and the turn it hangs at there ({@code turn}, radians).
  */
 public final class HeadDump {
 	/** Parts drawn as part of the face when they aren't inside the head part (a chicken's beak and wattle). */
@@ -148,10 +151,15 @@ public final class HeadDump {
 			}
 		}
 
-		// The renderer's own transforms, as LivingEntityRenderer.submit applies them, facing +z (yaw 0).
+		// The renderer's own transforms, as LivingEntityRenderer.submit applies them, facing +z (yaw 0). A shulker's
+		// renderer adds half a turn to the body yaw (ShulkerRenderer.setupRotations), which at yaw 0 cancels the half turn
+		// every other mob gets, so its head came out facing +z, the back of item space, and the head pack drew a borrowed
+		// shulker head with its face against the neck. Half a turn more puts it with the others: 180 - 360 = -180. Its
+		// boxes are all symmetric about the vertical axis, so nothing else of it moves.
 		PoseStack base = new PoseStack();
 		base.scale(state.scale, state.scale, state.scale);
-		((LivingEntityRendererInvoker) lr).morph$setupRotations(state, base, 0F, state.scale);
+		float yaw = lr instanceof ShulkerRenderer ? 180F : 0F;
+		((LivingEntityRendererInvoker) lr).morph$setupRotations(state, base, yaw, state.scale);
 		base.scale(-1F, -1F, 1F);
 		((LivingEntityRendererInvoker) lr).morph$scale(state, base);
 		base.translate(0F, -1.501F, 0F);
@@ -183,7 +191,9 @@ public final class HeadDump {
 
 		// an animal that lends its ears and tail instead of its head (HybridMorph.lentEars): its ears are marked among the
 		// head's elements and measured, and its tail is written as a model of its own
-		Measure measure = new Measure(whole ? java.util.Collections.emptySet() : HybridMorph.lentEars(root, base));
+		// by this texture: ears it leaves empty (a skeleton horse's) are no ears to lend, as the mod decides it when it draws them
+		Identifier texture = lr.getTextureLocation(state);
+		Measure measure = new Measure(whole ? java.util.Collections.emptySet() : HybridMorph.lentEars(root, base, texture));
 		JsonArray elements = new JsonArray();
 		for (List<ModelPart> path : heads) {
 			PoseStack pose = new PoseStack();
@@ -208,7 +218,6 @@ public final class HeadDump {
 		}
 
 		JsonObject head = new JsonObject();
-		Identifier texture = lr.getTextureLocation(state);
 		String path = texture.getPath();
 		if (path.startsWith("textures/")) path = path.substring("textures/".length());
 		if (path.endsWith(".png")) path = path.substring(0, path.length() - 4);
@@ -322,6 +331,42 @@ public final class HeadDump {
 		if (torso != null) out.add("torso", box(torso));
 		float[][] all = all(root, itemBase);
 		if (all != null) out.add("all", box(all));
+		// its own head, where a borrowed head goes on it (2026-11-17, rig B3-08: players without the mod saw no lent head on a
+		// dragon, which had no neck in the table): the head part's pivot (blocks from the feet, +z forward, as a living mob's
+		// neck is), and the boxes of the head with its jaw, whole and its big blocks, in item pixels round that pivot (at
+		// (8, 8, 8), the face towards -z), which tools/gen_head_pack.py turns into the neck, anchor, size and crown the others
+		// have. No model: the dragon lends no head.
+		List<ModelPart> headPath = findPath(root, "head", new ArrayList<>());
+		if (headPath != null) {
+			// the head's boxes as it sits at rest, closed and unturned, as the mod measures a head by its own frame
+			// (HybridMorph.place): the box round a head hanging at 45 degrees is 1.26 times the one-block cube it is
+			PoseStack restNeck = new PoseStack();
+			restNeck.last().pose().set(base.last().pose());
+			for (ModelPart part : headPath) part.translateAndRotate(restNeck);
+			Vector3f restPivot = restNeck.last().pose().transformPosition(new Vector3f());
+			PoseStack pose = new PoseStack();
+			pose.last().pose().set(base.last().pose());
+			for (int i = 0; i < headPath.size() - 1; i++) headPath.get(i).translateAndRotate(pose);
+			Measure measure = new Measure(java.util.Collections.emptySet());
+			collect(headPath.getLast(), pose, restPivot, 1F, new JsonArray(), measure);
+			// The pivot as a dragon hovering in place holds it (2026-11-17, rig B3-08): the neck bends down
+			// and the head hangs at the end of it, 45 degrees down. At rest the pivot was a few blocks short of the head, and
+			// a lent head hung under the middle of the neck in the pack, away from the head it stands in for. {@code turn} is
+			// the head's own turn there (x, y, z, radians), which the boxes above leave out.
+			state.flapTime = 0F;
+			model.setupAnim(state);
+			PoseStack neckPose = new PoseStack();
+			neckPose.last().pose().set(base.last().pose());
+			for (ModelPart part : headPath) part.translateAndRotate(neckPose);
+			Vector3f neck = neckPose.last().pose().transformPosition(new Vector3f());
+			ModelPart headPart = headPath.getLast();
+			JsonObject head = new JsonObject();
+			head.add("neck", vec(neck.x, neck.y, neck.z));
+			head.add("turn", vec(headPart.xRot, headPart.yRot, headPart.zRot));
+			head.add("box", box(new float[][] {measure.allLo, measure.allHi}));
+			head.add("core", box(measure.core()));
+			out.add("head", head);
+		}
 		// its wings and tail as the mod draws them, flapping at the share of a hovering dragon's beat the mod uses
 		// (HybridMorph.DRAGON_FLAP_SPEED): a hovering dragon's flapTime grows by 0.2 a tick (EnderDragon.aiStep)
 		Flap flap = null;

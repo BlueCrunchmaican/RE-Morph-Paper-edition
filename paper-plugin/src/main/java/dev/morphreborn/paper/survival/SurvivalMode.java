@@ -1,21 +1,31 @@
 package dev.morphreborn.paper.survival;
 
 import dev.morphreborn.paper.MorphRebornPlugin;
+import dev.morphreborn.paper.arm.ArmForm;
+import dev.morphreborn.paper.arm.rules.ArmLedger;
 import dev.morphreborn.paper.data.MorphRef;
 import dev.morphreborn.paper.data.SurvivalData;
 import dev.morphreborn.paper.mode.GameplayMode;
 import dev.morphreborn.paper.morph.MorphManager;
 import dev.morphreborn.paper.survival.SurvivalConfig.Upgrade;
+import dev.morphreborn.paper.tendril.TendrilKills;
+import dev.morphreborn.paper.tips.Lines;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
+import org.bukkit.GameMode;
 import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -135,8 +145,9 @@ public final class SurvivalMode implements GameplayMode {
 	public void onKill(Player killer, LivingEntity victim, @Nullable MorphRef appearance) {
 		if (!isUnlocked(killer)) return; // before "A Mutation Complication", kills give nothing
 		double reach = value(killer, SurvivalConfig.BIOMASS_REACH);
-		// a rage's tendrils reach what they drain: its kills are absorbed wherever they are
-		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && reach >= 0 && !plugin.rage().isRageKill(victim) && distance(killer, victim) > reach) {
+		// a rage's tendrils, and an arm special's, reach what they drain: their kills are absorbed wherever they are
+		if (config.upgrades.containsKey(SurvivalConfig.BIOMASS_REACH) && reach >= 0 && !plugin.rage().isRageKill(victim) && !TendrilKills.isTendrilKill(victim)
+				&& distance(killer, victim) > reach) {
 			killer.sendActionBar(Component.text("Too far away to absorb (your reach is " + number(reach) + " blocks).", NamedTextColor.GRAY));
 			return;
 		}
@@ -163,10 +174,11 @@ public final class SurvivalMode implements GameplayMode {
 			killer.sendActionBar(status == null ? line : line.append(MorphManager.SEPARATOR).append(status));
 		} else if (gain > 0) {
 			Component full = Component.text("Biomass full (" + number(d.biomass) + " / " + number(capacity(killer)) + ")", NamedTextColor.YELLOW);
-			killer.sendActionBar(status == null ? full.append(Component.text(". Spend it or upgrade Biomass Capacity: /morph upgrades"))
+			// the numbers are state; what to do about it is advice, for a player with Tooltips on
+			killer.sendActionBar(status == null ? (plugin.tooltips(killer) ? full.append(Component.text(". Spend it or upgrade Biomass Capacity: /morph upgrades")) : full)
 					: full.append(MorphManager.SEPARATOR).append(status));
 		} else if (status != null) {
-			killer.sendActionBar(got.withHint());
+			killer.sendActionBar(got.withHint(plugin.tooltips(killer)));
 		}
 	}
 
@@ -300,12 +312,7 @@ public final class SurvivalMode implements GameplayMode {
 	/** A beneficial trait is on once any upgrade that lists it is bought; traits no upgrade lists are always on. */
 	@Override
 	public boolean hasTrait(Player player, String trait) {
-		java.util.List<String> unlocks = config.traitUnlocks.get(trait);
-		if (unlocks == null) return true;
-		for (String id : unlocks) {
-			if (level(player, id) >= 1) return true;
-		}
-		return false;
+		return TraitGate.on(config.traitUnlocks, trait, id -> level(player, id));
 	}
 
 	@Override
@@ -345,8 +352,13 @@ public final class SurvivalMode implements GameplayMode {
 				Component.text("You can now absorb biomass", NamedTextColor.GRAY), Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(4), Duration.ofSeconds(1))));
 		player.sendMessage(Component.text("Rapid cellular death combined with rapid cellular regeneration increases the risk for random mutations.",
 				NamedTextColor.DARK_GREEN, TextDecoration.ITALIC));
-		player.sendMessage(Component.text("You can now absorb the biomass of creatures you kill. Spend it on upgrades, starting with the ability to morph: ",
-				NamedTextColor.GREEN).append(Component.text("/morph upgrades", NamedTextColor.YELLOW)));
+		// that kills now give biomass is the news; where to spend it is explanation (the Tooltips setting)
+		if (plugin.tooltips(player)) {
+			player.sendMessage(Component.text("You can now absorb the biomass of creatures you kill. Spend it on upgrades, starting with the ability to morph: ",
+					NamedTextColor.GREEN).append(Component.text("/morph upgrades", NamedTextColor.YELLOW)));
+		} else {
+			player.sendMessage(Component.text("You can now absorb the biomass of creatures you kill.", NamedTextColor.GREEN));
+		}
 		player.playSound(player.getLocation(), Sound.ENTITY_ELDER_GUARDIAN_CURSE, 0.6F, 1.2F);
 		plugin.getLogger().info(player.getName() + " unlocked the Biomass ability.");
 	}
@@ -369,6 +381,114 @@ public final class SurvivalMode implements GameplayMode {
 	public void setBiomass(Player player, double amount) {
 		data(player).biomass = Math.max(0, amount);
 		changed(player);
+	}
+
+	// ------------------------------------------------------------------ arm forms: biomass is their durability
+
+	/**
+	 * Players whose biomass an arm spent, or whose arm or lantern started or stopped draining, since their client last
+	 * heard: told by {@link #flushArmSync()}, at most every 10 ticks, never once per block or hit.
+	 */
+	private final Set<UUID> pendingArmSync = new LinkedHashSet<>();
+	/** What each player's client was last told: biomass in milli and the drain a minute, so an unchanged pair isn't sent again. */
+	private final Map<UUID, long[]> armSent = new HashMap<>();
+
+	/**
+	 * An arm form's bought level: its arm_* upgrade once Arm Shaping is bought, 0 before (or while Survival isn't the
+	 * mode). Creative players are asked too: they form at the level they bought (the arm code lifts it to 1 for them).
+	 */
+	@Override
+	public int armLevel(Player player, String form) {
+		ArmForm f = ArmForm.of(form);
+		if (!active() || f == null || !isUnlocked(player) || level(player, SurvivalConfig.ARM_SHAPING) < 1) return 0;
+		return level(player, f.upgradeId());
+	}
+
+	/**
+	 * Biomass in whole milli. Creative players are answered too, though they never spend: their arm's bar shows their
+	 * biomass, unchanged.
+	 */
+	@Override
+	public long armBalanceMilli(Player player) {
+		return active() ? balanceMilli(data(player).biomass) : Long.MAX_VALUE;
+	}
+
+	/**
+	 * Biomass is a double (kills add fractions), but arms bill exact milli: rounded down, with a hair of slack so 4.9
+	 * stored as 4.8999999999 still counts as 4900.
+	 */
+	static long balanceMilli(double biomass) {
+		return (long) Math.floor(Math.max(0, biomass) * 1000 + 1e-6);
+	}
+
+	/**
+	 * Take an arm's cost from the player's biomass, exactly to the milli (ArmLedger), and mark them for the next sync.
+	 * No action bar and no packet here: an arm spends many times a second, and the client's bar shows it from the
+	 * throttled S_SURVIVAL.
+	 */
+	@Override
+	public ArmLedger.Spend armSpend(Player player, long milli, boolean partial) {
+		if (armsFree(player)) return ArmLedger.Spend.free(armBalanceMilli(player));
+		SurvivalData d = data(player);
+		ArmLedger.Spend spend = ArmLedger.spend(balanceMilli(d.biomass), milli, partial);
+		if (spend.charged() > 0) {
+			d.biomass = afterCharge(d.biomass, spend.charged());
+			plugin.store().markDirty(player.getUniqueId());
+			pendingArmSync.add(player.getUniqueId());
+		}
+		return spend;
+	}
+
+	/**
+	 * Biomass an arm brings in (a fish the whip caught): added up to the capacity through {@link #addBiomass}, which tells
+	 * the client at once so its bar and gain pulse update as for a kill, with the same action bar line. Free arms (Classic,
+	 * creative) gain nothing. Returns what fit, in milli.
+	 */
+	@Override
+	public long armGain(Player player, long milli) {
+		if (milli <= 0 || armsFree(player)) return 0;
+		double added = addBiomass(player, milli / 1000.0);
+		if (added <= 0) return 0;
+		player.sendActionBar(Component.text("+" + number(added) + " biomass", NamedTextColor.RED)
+				.append(Component.text("  (" + number(data(player).biomass) + " / " + number(capacity(player)) + ")", NamedTextColor.GRAY)));
+		return Math.round(added * 1000);
+	}
+
+	/**
+	 * The biomass left after an arm's charge, never below 0, and put back on the exact milli when floating error left it
+	 * a hair off (5.0 minus ten charges of 0.1 is 4.0, not 3.9999999999). A kill's fraction of a milli is kept.
+	 */
+	static double afterCharge(double biomass, long chargedMilli) {
+		double after = Math.max(0, biomass - chargedMilli / 1000.0);
+		double snapped = Math.round(after * 1000) / 1000.0;
+		return Math.abs(after - snapped) < 1e-6 ? snapped : after;
+	}
+
+	/** Arms are free outside Survival Mode and for players not in survival or adventure. */
+	@Override
+	public boolean armsFree(Player player) {
+		return !active() || !(player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE);
+	}
+
+	/** An arm or lantern started or stopped draining (the client's bar shows the drain): told at the next flush. */
+	public void markArmSync(Player player) {
+		if (active()) pendingArmSync.add(player.getUniqueId());
+	}
+
+	/**
+	 * Every 10 ticks (from the arm code): S_SURVIVAL, with its milli trailer, to each marked player whose biomass to the
+	 * milli or whose drain changed since their client last heard. A busy arm so costs at most two packets a second.
+	 */
+	public void flushArmSync() {
+		if (armSent.size() > plugin.getServer().getOnlinePlayers().size()) armSent.keySet().removeIf(id -> plugin.getServer().getPlayer(id) == null);
+		if (pendingArmSync.isEmpty()) return;
+		for (UUID id : List.copyOf(pendingArmSync)) {
+			Player p = plugin.getServer().getPlayer(id);
+			if (p == null) continue;
+			long[] last = armSent.get(id);
+			if (last == null || last[0] != balanceMilli(data(p).biomass) || last[1] != plugin.arms().drainMilliPerMinute(p)) sync(p);
+		}
+		pendingArmSync.clear();
 	}
 
 	// ------------------------------------------------------------------ upgrades
@@ -397,7 +517,7 @@ public final class SurvivalMode implements GameplayMode {
 
 	public Purchase buy(Player player, String id) {
 		Upgrade u = config.upgrades.get(id);
-		if (u == null) return Purchase.UNKNOWN;
+		if (u == null || unbuiltArm(id)) return Purchase.UNKNOWN;
 		if (!isUnlocked(player)) return Purchase.BIOMASS_LOCKED;
 		double cost = nextCost(player, u);
 		if (cost < 0) return Purchase.MAXED;
@@ -428,12 +548,24 @@ public final class SurvivalMode implements GameplayMode {
 		afterUpgrade(player, id);
 	}
 
+	/**
+	 * An Arsenal upgrade whose arm code isn't in this build, or any of them while arm forms are off: hidden from the
+	 * tree and the chest menu, and it can't be bought (an admin can still set its level). Public so that /morph biomass and the
+	 * command's tab completion leave it out too (2026-11-16).
+	 */
+	public boolean unbuiltArm(String id) {
+		return (id.equals(SurvivalConfig.ARM_SHAPING) || ArmForm.byUpgrade(id) != null) && !plugin.arms().isBuilt(id);
+	}
+
 	/** Some upgrades change what the player's current form can do right away. */
 	private void afterUpgrade(Player player, String id) {
 		if (!active()) return;
+		// a formed arm takes its new tier in place (or goes back, if its level was taken away); the wheel hears of it
+		plugin.arms().onUpgrade(player, id);
 		// the selector's room counters come with the collection
 		if (id.equals(SurvivalConfig.MORPH_CAPACITY) || id.equals(SurvivalConfig.MORPH_VARIANT_CAPACITY)) plugin.channel().sendCollection(player);
 		if (id.equals(SurvivalConfig.RAGE)) plugin.rage().sync(player); // the rage meter appears
+		if (id.equals(SurvivalConfig.MULTIMORPH)) plugin.morphs().dropUnearnedCombo(player); // an admin took the upgrade away
 		Upgrade u = config.upgrades.get(id);
 		if (id.equals(SurvivalConfig.MORPH_FLIGHT) || id.equals(SurvivalConfig.MORPH_ABILITIES) || (u != null && !u.traits().isEmpty())) {
 			plugin.abilities().refreshMovement(player);
@@ -442,6 +574,8 @@ public final class SurvivalMode implements GameplayMode {
 
 	/** Start over: locked biomass, no biomass, start levels. The morph collection is untouched. */
 	public void reset(Player player) {
+		// first, while its levels still stand: a formed arm goes back and its item returns to the hand
+		if (active()) plugin.arms().onSurvivalReset(player);
 		plugin.store().get(player.getUniqueId()).survival = null;
 		changed(player);
 		if (active()) {
@@ -471,14 +605,17 @@ public final class SurvivalMode implements GameplayMode {
 	public java.util.List<View> views(Player player) {
 		java.util.List<View> out = new java.util.ArrayList<>();
 		double biomass = data(player).biomass;
+		// the Tooltips setting (2026-11-17): the description and what a value explains are explanation; the numbers stay
+		boolean tips = plugin.tooltips(player);
 		for (Upgrade u : config.upgrades.values()) {
+			if (unbuiltArm(u.id())) continue;
 			int level = level(player, u.id());
 			double cost = nextCost(player, u);
 			String missing = missingRequirement(player, u);
 			String icon = u.effectIcon().isEmpty() ? u.icon().getKey().toString() : "effect:" + u.effectIcon();
-			out.add(new View(u.id(), u.name(), u.description(), icon, u.parent(), level, u.maxLevel(),
-					u.maxLevel() > 1 && level > 0 ? formatValue(u, u.value().at(level)) : "",
-					u.maxLevel() > 1 && level < u.maxLevel() ? formatValue(u, u.value().at(level + 1)) : "",
+			out.add(new View(u.id(), u.name(), tips ? u.description() : "", icon, u.parent(), level, u.maxLevel(),
+					u.showsValue() && level > 0 ? formatValue(u, u.value().at(level), tips) : "",
+					u.showsValue() && level < u.maxLevel() ? formatValue(u, u.value().at(level + 1), tips) : "",
 					cost < 0 ? -1 : (int) cost, missing == null ? "" : missing, cost >= 0 && biomass + 1e-9 >= cost));
 		}
 		return out;
@@ -486,23 +623,59 @@ public final class SurvivalMode implements GameplayMode {
 
 	// ------------------------------------------------------------------ display
 
+	/**
+	 * S_SURVIVAL: the whole biomass and its thousandths come from the same milli value, so the bar never reads 4.000
+	 * for a balance of 4.9999999999, and the trailer says what the player's arm and lantern drain now.
+	 */
 	public void sync(Player player) {
 		if (!active()) return;
-		plugin.channel().sendSurvival(player, isUnlocked(player), (int) Math.floor(data(player).biomass), (int) Math.floor(capacity(player)), canMorph(player));
+		long milli = balanceMilli(data(player).biomass);
+		long drain = plugin.arms().drainMilliPerMinute(player);
+		armSent.put(player.getUniqueId(), new long[] {milli, drain});
+		plugin.channel().sendSurvival(player, isUnlocked(player), (int) Math.min(Integer.MAX_VALUE, milli / 1000), (int) Math.floor(capacity(player)),
+				canMorph(player), (int) (milli % 1000), (int) Math.clamp(drain, 0, Integer.MAX_VALUE));
 	}
 
 	/**
 	 * The upgrade's format with {value} filled in; a negative value means "no limit". For a value that is a percentage
 	 * of the normal length (130 = 30% longer), {seconds} is a transformation's length in seconds at that percentage
 	 * (config.yml's transition length) and {factor} the multiplier ("×1.3"). {frenzy}: that Devouring Frenzy level's
-	 * reach, damage and length (abilities.yml rage.levels).
+	 * reach, damage and length (abilities.yml rage.levels). {arm}: that arm form level's strength and special, as the
+	 * arm code describes it.
 	 */
 	public String formatValue(Upgrade u, double value) {
-		if (value < 0) return "no limit";
+		return formatValue(u, value, true);
+	}
+
+	/** {@link #formatValue(Upgrade, double)} for a player whose Tooltips setting is {@code tips}: with it off, an arm's explanation is left out. */
+	public String formatValue(Upgrade u, double value, boolean tips) {
+		return valueLines(u, value).text(tips);
+	}
+
+	/**
+	 * What {@link #formatValue} says as typed pieces (Lines): the numbers of a level stay whatever the Tooltips setting, and an {arm}'s own
+	 * explanation (which key, what it does) is a tip. The format's own words around a placeholder are the level's and stay.
+	 */
+	public Lines valueLines(Upgrade u, double value) {
+		if (value < 0) return Lines.always("no limit");
 		String text = u.format().replace("{value}", number(value));
-		if (text.contains("{frenzy}")) text = text.replace("{frenzy}", plugin.rage().describe((int) Math.round(value)));
 		if (text.contains("{seconds}")) text = text.replace("{seconds}", transformSeconds(plugin.settings().transitionTicks, value));
-		return text.replace("{factor}", factor(value));
+		text = text.replace("{factor}", factor(value));
+		for (String placeholder : new String[] {"{frenzy}", "{arm}"}) {
+			if (!text.contains(placeholder)) continue;
+			int level = (int) Math.round(value);
+			Lines inner = placeholder.equals("{frenzy}") ? Lines.always(plugin.rage().describe(level)) : plugin.arms().describe(u.id(), level);
+			return around(text, placeholder, inner);
+		}
+		return Lines.always(text);
+	}
+
+	/** {@code text} with {@code placeholder} replaced by {@code inner}'s typed pieces: the words round it are the level's own, so they stay. */
+	static Lines around(String text, String placeholder, Lines inner) {
+		int at = text.indexOf(placeholder);
+		if (at < 0) return Lines.always(text);
+		String before = text.substring(0, at).strip(), after = text.substring(at + placeholder.length()).strip();
+		return Lines.builder().always(before).add(inner).always(after).build();
 	}
 
 	/** A transformation's length at this percentage of the normal one, in seconds (never under a second, as MorphManager). */
