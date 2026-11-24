@@ -1,0 +1,147 @@
+name: Multimorph issue
+description: Something off with a main body + borrowed form pair? Tell me here.
+title: "[Multimorph] main + borrowed: "
+labels: ["multimorph"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. There are thousands of pairs and I can't try them all myself, so every report helps.
+        Before you start, check [the clickable grid](https://bluecrunchmaican.github.io/RE-Morph-Paper-edition/combos/) to see what's already been tried and reported. Clicking a square there opens this form with the pair filled in.
+
+        **What I count as a multimorph issue**
+
+        A multimorph should look like one creature that could actually exist. I use the closest fictional creature as the guide: a horse that borrows a bat, bee or phantom should look like a pegasus, with the wings coming out of its upper back, one on each side. Wing sizes differ between lenders and that's fine. Where they sit is what matters.
+
+        If the borrowed head can't work on a body, the borrowed creature's other pieces should come over instead (its wings, fins, tail and so on), and they should sit somewhere that makes sense.
+
+        So these are all worth reporting:
+        - A borrowed head or part in an odd spot: floating, sunk into the body, on the wrong side, upside down, sticking out of the belly
+        - The size is way off for the body
+        - Nothing came over at all when something should have
+        - Black, purple or missing textures, or a plain block where a head should be
+        - It looks different with the client mod than without it
+        - A borrowed ability or trait doesn't work, or the main body's own one stopped working
+        - Something stays behind after you change back or swap the borrowed form (a head, an effect, flight, the wrong size)
+        - Errors, crashes or getting kicked
+
+        Not sure if it looks right? Report it anyway and pick "I'm not sure the look is right" below. Those get a second pair of eyes.
+
+        **What happens next**
+
+        Your report turns that pair's square pink on the grid ("reported"). When I've been through it I add one label: `bug` makes it an error, `needs look` marks it as needing a second look, and `fixed` means a fix is in and the pair needs a retest. If the issue gets closed, the square goes back to what my last test said.
+
+  - type: input
+    id: main
+    attributes:
+      label: Main body
+      description: The form you're morphed into. Order matters, a cow borrowing a frog isn't the same as a frog borrowing a cow.
+      placeholder: horse
+    validations:
+      required: true
+  - type: input
+    id: borrowed
+    attributes:
+      label: Borrowed form
+      description: The form you borrowed from (or "own body" if you borrowed yours).
+      placeholder: phantom
+    validations:
+      required: true
+  - type: input
+    id: grid_status
+    attributes:
+      label: Status on the grid
+      description: Filled in when you come from the grid. Leave it as it is, or clear it if you came here some other way.
+      placeholder: works
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: What's wrong?
+      description: Tick everything that fits.
+      options:
+        - label: Doesn't look like a creature that could exist
+        - label: Head or part in the wrong place (floating, inside the body, wrong side, upside down)
+        - label: Wrong size
+        - label: Nothing came over from the borrowed form
+        - label: Missing, black or purple texture
+        - label: Looks different with and without the client mod
+        - label: Borrowed ability or trait doesn't work (or works when it shouldn't)
+        - label: Main body's own ability or trait broke
+        - label: Something left behind after changing back or swapping
+        - label: Error, crash or kick
+        - label: I'm not sure the look is right
+  - type: dropdown
+    id: client
+    attributes:
+      label: Where did you see it?
+      options:
+        - With the client mod
+        - Without the client mod
+        - Both
+        - Only checked one, don't know about the other
+    validations:
+      required: true
+  - type: dropdown
+    id: situation
+    attributes:
+      label: What were you doing?
+      multiple: true
+      options:
+        - Standing or walking
+        - Sneaking
+        - Swimming or in water
+        - Flying or gliding
+        - Riding or being ridden
+        - Sleeping or crawling
+        - Using the ability
+        - Changing back or swapping the borrowed form
+        - In first person
+        - Something else (say below)
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - Classic
+        - Survival
+        - Not sure
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Plugin, client mod (if you used it), Paper and Minecraft.
+      placeholder: "plugin 8.0.0, mod 8.0.0, Paper 26.3"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it look like or do?
+      description: The creature you'd expect it to resemble, or what you expected the ability to do. "A pegasus, wings on the back" is plenty.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened instead?
+      description: Where the borrowed part ended up, how big it was, which abilities worked, anything left over afterwards.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to get it
+      description: Steps to see it again, if you know them.
+      placeholder: |
+        1. /morph force me horse
+        2. /morph borrow me phantom
+        3. Look from behind
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag images in here. Front, side and back help most, with and without the mod if you can.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors or logs
+      description: If something errored, paste the server or client log lines here.
+      render: text

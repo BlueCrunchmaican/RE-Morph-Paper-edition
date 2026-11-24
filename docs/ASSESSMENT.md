@@ -171,7 +171,7 @@ All originals are untouched in `Downloads\New folder (2)`, with a copy in `refer
 - `TRAIL` particles from the mob to the player along 5 jittered paths, plus a skin-colour burst on the corpse.
 - Fabric viewers get the original tendril animation.
 
-### Protocol (`docs/PROTOCOL.md`)
+### Protocol
 - One custom-payload channel, `morphreborn:main`, length-prefixed binary, opened by a `HELLO` with the protocol version.
 - The server ignores clients until `HELLO`. Clients with the wrong version are told to update and are treated as vanilla.
 - The server always sends full state after any change, so a client never applies its own predictions.

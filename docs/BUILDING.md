@@ -60,7 +60,7 @@ The Fabric project has three dev clients that join a local test server on `local
 
 The test server itself isn't in the repository: put a Paper 26.3 server in `test-server/` (git-ignored) on port 25599
 with online mode off, plus the plugin, Lib's Disguises and PacketEvents. `tools/mobtests/` has RCON scripts that drive
-it; see its README. [TESTING.md](TESTING.md) lists what has been tested and how.
+it; see its README.
 
 ## Internal names
 

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta name="color-scheme" content="light dark">
+<title>RE:Morph multimorph grid</title>
+<meta name="description" content="Every main body against every borrowed form in RE:Morph. Click a square to report a problem with that pair.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+	<div class="wrap">
+		<p class="crumbs"><a href="https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition">RE:Morph (Paper edition)</a></p>
+		<h1>Multimorph grid</h1>
+		<p class="lede">A multimorph is one morph wearing a piece of another. Every pair is its own small test, and there are 8,190 of them, more than I can check alone. <strong>Click a square to report a problem with that pair.</strong> It opens a GitHub issue with the pair already filled in. A pair someone has reported turns pink until I've looked at it.</p>
+		<button id="theme" class="ghost" type="button" aria-label="Switch colour theme">Theme: auto</button>
+	</div>
+</header>
+
+<main class="wrap">
+	<noscript><p class="note warn">The grid needs JavaScript. The same data is in <a href="../multimorph-combos.csv">the CSV</a> and <a href="https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/blob/main/docs/MULTIMORPH-COMBOS.md">the written list</a>.</p></noscript>
+
+	<section aria-labelledby="legend-h">
+		<h2 id="legend-h" class="sr">Statuses</h2>
+		<ul id="legend" class="legend" aria-label="Statuses, press one to show or hide it"></ul>
+		<p class="hint">Press a status to hide or show it. Rows are the main body, columns are the borrowed form, and order matters: a cow wearing a frog's tongue and a frog wearing a cow's head are different pairs.</p>
+	</section>
+
+	<section class="tools" aria-label="Find a form">
+		<label class="field">
+			<span>Find a form</span>
+			<input id="search" type="search" placeholder="bat, wither skeleton, own body" autocomplete="off" spellcheck="false">
+		</label>
+		<label class="field">
+			<span>Show it as</span>
+			<select id="role">
+				<option value="both">main and borrowed</option>
+				<option value="main">main body (its row)</option>
+				<option value="borrowed">borrowed form (its column)</option>
+			</select>
+		</label>
+		<label class="field">
+			<span>Square size</span>
+			<select id="zoom">
+				<option value="10">Small</option>
+				<option value="14" selected>Medium</option>
+				<option value="20">Large</option>
+			</select>
+		</label>
+		<button id="reset" class="ghost" type="button">Reset</button>
+	</section>
+
+	<p id="live" class="note" role="status" aria-live="polite">Reading the open reports from GitHub...</p>
+	<p id="find-note" class="note" role="status" aria-live="polite" hidden></p>
+
+	<div id="frame" class="frame" tabindex="-1">
+		<p id="loading" class="note pad">Loading the grid...</p>
+		<div id="grid" role="grid" aria-label="Multimorph grid: rows are the main body, columns the borrowed form" hidden></div>
+	</div>
+	<p class="hint keys">With the keyboard: arrow keys move between squares, Home and End jump along a row, Enter opens a square.</p>
+
+	<section class="how" aria-labelledby="how-h">
+		<h2 id="how-h">How to help</h2>
+		<ol>
+			<li>Pick a pair, ideally a teal one (needs a look), a gold one (fixed, needs a retest) or a pink one (reported but not checked yet).</li>
+			<li>Try it in game with the client mod and again without it. The two views don't always agree. Try it both ways round if you can, because main and borrowed are tested separately.</li>
+			<li>Click its square and press <em>Report this pair</em>. The form says what I count as an issue and asks for your versions and a screenshot.</li>
+		</ol>
+		<p>A multimorph should look like one creature that could exist: a horse wearing a bat's wings should look like a pegasus. If the borrowed head can't work on a body, its other pieces should come over instead. Not sure it looks right? Report it and say so.</p>
+		<h3>What the colours mean</h3>
+		<dl class="defs">
+			<dt>works</dt><dd>I tried it and it behaved. "Works (sweep)" is a pair I only saw as part of a broad sweep.</dd>
+			<dt>error</dt><dd>Something is wrong with this pair. I add the <code>bug</code> label to a report once I've seen it.</dd>
+			<dt>needs a look</dt><dd>It does what it should, but I can't tell if it looks right. I add the <code>needs look</code> label, or you can say so in your report.</dd>
+			<dt>fixed, needs a retest</dt><dd>A fix is in, but nobody has seen it work on this pair. I add the <code>fixed</code> label. A retest takes a minute or two.</dd>
+			<dt>reported</dt><dd>An open issue exists for this pair and I haven't gone through it yet.</dd>
+			<dt>unclear</dt><dd>Tried, but the result wasn't conclusive, or it works as written and it's an open question whether it should.</dd>
+		</dl>
+		<p>When an issue is closed the square goes back to what my last test said. If you can't run scripts, the same grid is in <a href="https://github.com/BlueCrunchmaican/RE-Morph-Paper-edition/blob/main/docs/MULTIMORPH-COMBOS.md">the written list</a> and <a href="../multimorph-combos.csv">the CSV</a>.</p>
+		<p class="small">This page asks GitHub's public API for the open multimorph issues (a list anyone can read) and nothing else. It sets no cookies and has no trackers. Your theme and zoom are remembered in your own browser only.</p>
+	</section>
+</main>
+
+<dialog id="detail" aria-labelledby="d-title">
+	<div class="d-body">
+		<h2 id="d-title"></h2>
+		<p><span id="d-chip" class="chip"></span></p>
+		<p id="d-text"></p>
+		<p id="d-note" class="callout" hidden></p>
+		<p id="d-meta" class="small"></p>
+		<div id="d-reports" hidden>
+			<h3 id="d-reports-h">Reports for this pair</h3>
+			<ul id="d-list" class="reports"></ul>
+		</div>
+		<div class="d-actions">
+			<a id="d-new" class="btn primary" href="#" target="_blank" rel="noopener noreferrer">Report this pair</a>
+			<button id="d-close" class="btn" type="button">Close</button>
+		</div>
+		<p class="small" id="d-foot">Opens GitHub's issue form in a new tab, with the pair filled in. You need a GitHub account to post it.</p>
+	</div>
+</dialog>
+
+<div id="tip" role="tooltip" hidden></div>
+
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

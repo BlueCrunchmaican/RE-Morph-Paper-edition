@@ -32,7 +32,10 @@ Nobody is kicked for not having the mod.
   fins or rods, and gets both creatures' traits and abilities: a zombie with bat wings, a cow with a wolf's head, a
   ghast with a creeper's blast. Shift-pick in the selector or wheel (a preview panel shows the result), or
   `/morph combine`. In Survival it's an upgrade. Players without the mod see the borrowed head, ears, tail, wings, fins
-  or rods too, flapping (with the resource pack). Babies borrow and lend as babies (7.5.0). See
+  or rods too, flapping (with the resource pack). Babies borrow and lend as babies (7.5.0). 8.0.0 tidies a lot of
+  pairs: borrowed heads and parts sit where a real creature would carry them, a shulker keeps what it borrows inside its
+  shell, and a camel that borrows a dolphin dashes on land and in water as each should. All 8,190 pairs have been tried,
+  and the [multimorph grid](https://bluecrunchmaican.github.io/RE-Morph-Paper-edition/combos/) shows which still need a second look. See
   [docs/GUIDE.md](docs/GUIDE.md).
 - **Conversions (7.1.0):** a morph changes the way its creature does in vanilla: a villager killed by a zombie
   becomes a zombie villager (and can be cured), a zombie drowns, a skeleton freezes into a stray, piglins zombify
@@ -44,6 +47,13 @@ Nobody is kicked for not having the mod.
   and anything saddled or armoured left alone. Hits charge it, and you set it off when you choose: the Devouring
   Frenzy key or `/morph frenzy`. Each level reaches further, hits harder, lasts longer and lifts you higher; in Survival they're bought
   as an upgrade. See [docs/GUIDE.md](docs/GUIDE.md).
+- **The arm (8.0.0):** your own arm has a few tricks up its sleeve. Hold `J` with the mod to find out, or try
+  `/morph arm` without it. In Survival it runs on your biomass. See [docs/GUIDE.md](docs/GUIDE.md).
+- **Biomass passives (8.0.0):** Survival upgrades you switch on and off, such as night eyes, gills, fire shedding,
+  antitoxin and a scavenger that fetches nearby items. A passive uses no biomass until it acts. On the chest menu's
+  Passives page, the switches in the mod's upgrade tree, or `/morph passive`.
+- **Quiet steps (8.0.0):** soft-footed forms such as foxes, rabbits and cats raise no step vibrations, so wardens and
+  sculk sensors don't hear them walk by.
 - **Client mod:** the selector and favourites wheel, Morph's transformation and absorb animations, a paper doll (a
   live miniature of you and your morph, animations, transformations and vehicle included, with a soft vignette and
   head, pose and auto-hide settings), an advancement-style upgrade
@@ -62,7 +72,7 @@ Nobody is kicked for not having the mod.
 
 | RE:Morph | Minecraft | Paper API | Fabric Loader | Fabric API | Client protocol |
 |---|---|---|---|---|---|
-| 6.5.0 to 7.5.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
+| 6.5.0 to 8.0.0 | 26.3 | 26.3 build 235 | 0.20.1 | 0.165.0+26.3 | 3 |
 
 The client mod only works with a server running the plugin; it does nothing in singleplayer.
 
@@ -86,10 +96,16 @@ The [server and player guide](docs/GUIDE.md) covers updating, settings, commands
 | [ABILITIES.md](docs/ABILITIES.md) | Every mob's traits and abilities (generated from `abilities.yml`) |
 | [MOB-MASSES.md](docs/MOB-MASSES.md) | Survival Mode: every mob's mass, the upgrade it needs, its biomass and morph cost |
 | [BUILDING.md](docs/BUILDING.md) | Building the plugin and the mod from source |
-| [VERSIONING.md](docs/VERSIONING.md) | How versions are numbered (Semantic Versioning), and how older releases were renumbered |
-| [ROADMAP.md](docs/ROADMAP.md) | What's done, what's open, and why things were decided |
-| [TESTING.md](docs/TESTING.md) | What has been tested, and the live-test checklist |
+| [Multimorph grid](https://bluecrunchmaican.github.io/RE-Morph-Paper-edition/combos/) | Every main body against every borrowed form, coloured by what I know. Click a square to report a problem |
+| [MULTIMORPH-COMBOS.md](docs/MULTIMORPH-COMBOS.md) | The same list written out, for people who can't run scripts, with a CSV and a picture |
 | [THIRD-PARTY.md](docs/THIRD-PARTY.md) | Every third-party component and its licence |
+
+## Help test multimorphs
+
+There are 8,190 pairs of a main body and a borrowed form, and I can't check every look and every ability by myself.
+[The multimorph grid](https://bluecrunchmaican.github.io/RE-Morph-Paper-edition/combos/) shows each pair coloured by what I know so far. Click a square to report a
+problem with that pair: it opens a GitHub issue with the pair already filled in, and a pair that someone has reported
+turns pink until I've been through it. The ones marked as needing a look or a retest are the easiest to help with.
 
 ## Credits
 
@@ -99,6 +115,7 @@ The [server and player guide](docs/GUIDE.md) covers updating, settings, commands
 - **libraryaddict**: [Lib's Disguises](https://github.com/libraryaddict/LibsDisguises), which shows morphs to players
   without the mod. Not bundled; server admins install it.
 - **retrooper and contributors**: [PacketEvents](https://github.com/retrooper/packetevents). Not bundled.
+- RE:Morph was built with help from AI tools.
 
 ## Licence
 
